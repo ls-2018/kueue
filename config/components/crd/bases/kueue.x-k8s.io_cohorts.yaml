@@ -18,11 +18,9 @@ spec:
     schema:
       openAPIV3Schema:
         description: |-
-          Cohort defines the Cohorts API.
+          Cohort 定义了 Cohorts API。
 
-          Hierarchical Cohorts (any Cohort which has a parent) are compatible
-          with Fair Sharing as of v0.11. Using these features together in
-          V0.9 and V0.10 is unsupported, and results in undefined behavior.
+          分层 Cohort（有父级的 Cohort）自 v0.11 起兼容公平共享。在 v0.9 和 v0.10 中同时使用这些特性是不支持的，会导致未定义行为。
         properties:
           apiVersion:
             description: |-
@@ -42,13 +40,10 @@ spec:
           metadata:
             type: object
           spec:
-            description: CohortSpec defines the desired state of Cohort
+            description: CohortSpec 定义了 Cohort 的期望状态
             properties:
               fairSharing:
-                description: |-
-                  fairSharing defines the properties of the Cohort when
-                  participating in FairSharing. The values are only relevant
-                  if FairSharing is enabled in the Kueue configuration.
+                description: fairSharing 定义了 Cohort 参与公平共享时的属性。仅当 Kueue 配置中启用公平共享时，这些值才有意义。
                 properties:
                   weight:
                     anyOf:
@@ -56,60 +51,40 @@ spec:
                     - type: string
                     default: 1
                     description: |-
-                      weight gives a comparative advantage to this ClusterQueue
-                      or Cohort when competing for unused resources in the
-                      Cohort.  The share is based on the dominant resource usage
-                      above nominal quotas for each resource, divided by the
-                      weight.  Admission prioritizes scheduling workloads from
-                      ClusterQueues and Cohorts with the lowest share and
-                      preempting workloads from the ClusterQueues and Cohorts
-                      with the highest share.  A zero weight implies infinite
-                      share value, meaning that this Node will always be at
-                      disadvantage against other ClusterQueues and Cohorts.
+                      weight 为该 ClusterQueue 或 Cohort 在 Cohort 中争夺未使用资源时提供比较优势。
+                      份额基于每种资源超出名义配额的主导资源使用量，除以权重。
+                      调度优先考虑来自份额最低的 ClusterQueue 和 Cohort 的工作负载，并抢占份额最高的。
+                      权重为零意味着份额值为无穷大，这意味着该节点在与其他 ClusterQueue 和 Cohort 竞争时总是处于劣势。
                     pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                     x-kubernetes-int-or-string: true
                 type: object
               parentName:
                 description: |-
-                  ParentName references the name of the Cohort's parent, if
-                  any. It satisfies one of three cases:
-                  1) Unset. This Cohort is the root of its Cohort tree.
-                  2) References a non-existent Cohort. We use default Cohort (no borrowing/lending limits).
-                  3) References an existent Cohort.
+                  ParentName 引用该 Cohort 父级的名称（如果有）。它满足以下三种情况之一：
+                  1) 未设置。本 Cohort 是其 Cohort 树的根。
+                  2) 引用了一个不存在的 Cohort。我们使用默认 Cohort（无借用/出借限制）。
+                  3) 引用了一个存在的 Cohort。
 
-                  If a cycle is created, we disable all members of the
-                  Cohort, including ClusterQueues, until the cycle is
-                  removed.  We prevent further admission while the cycle
-                  exists.
+                  如果创建了循环，我们会禁用该 Cohort 的所有成员，包括 ClusterQueues，直到循环被移除。在循环存在期间，阻止进一步的准入。
                 maxLength: 253
                 pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                 type: string
               resourceGroups:
                 description: |-
-                  ResourceGroups describes groupings of Resources and
-                  Flavors.  Each ResourceGroup defines a list of Resources
-                  and a list of Flavors which provide quotas for these
-                  Resources. Each Resource and each Flavor may only form part
-                  of one ResourceGroup.  There may be up to 16 ResourceGroups
-                  within a Cohort.
+                  ResourceGroups 描述了资源和风味的分组。每个 ResourceGroup 定义了一组资源和一组为这些资源提供配额的风味。每个资源和每个风味只能属于一个 ResourceGroup。一个 Cohort 最多可以有 16 个 ResourceGroup。
 
-                  BorrowingLimit limits how much members of this Cohort
-                  subtree can borrow from the parent subtree.
+                  BorrowingLimit 限制该 Cohort 子树成员可以从父子树借用的资源量。
 
-                  LendingLimit limits how much members of this Cohort subtree
-                  can lend to the parent subtree.
+                  LendingLimit 限制该 Cohort 子树成员可以借给父子树的资源量。
 
-                  Borrowing and Lending limits must only be set when the
-                  Cohort has a parent.  Otherwise, the Cohort create/update
-                  will be rejected by the webhook.
+                  只有当 Cohort 有父级时，才能设置借用和出借限制。否则，webhook 会拒绝 Cohort 的创建/更新。
                 items:
                   properties:
                     coveredResources:
                       description: |-
-                        coveredResources is the list of resources covered by the flavors in this
-                        group.
-                        Examples: cpu, memory, vendor.com/gpu.
-                        The list cannot be empty and it can contain up to 16 resources.
+                        coveredResources 是此组中 flavors 覆盖的资源列表。
+                        例如：cpu、memory、vendor.com/gpu。
+                        此列表不能为空，且最多包含 16 个资源。
                       items:
                         description: ResourceName is the name identifying various
                           resources in a ResourceList.
@@ -119,13 +94,10 @@ spec:
                       type: array
                     flavors:
                       description: |-
-                        flavors is the list of flavors that provide the resources of this group.
-                        Typically, different flavors represent different hardware models
-                        (e.g., gpu models, cpu architectures) or pricing models (on-demand vs spot
-                        cpus).
-                        Each flavor MUST list all the resources listed for this group in the same
-                        order as the .resources field.
-                        The list cannot be empty and it can contain up to 16 flavors.
+                        flavors 是为此组资源提供配额的 flavor 列表。
+                        通常，不同的 flavor 代表不同的硬件型号（如 gpu 型号、cpu 架构）或定价模式（按需 vs 竞价 cpu）。
+                        每个 flavor 必须以与 .resources 字段相同的顺序列出此组的所有资源。
+                        此列表不能为空，且最多包含 16 个 flavor。
                       items:
                         properties:
                           name:
@@ -133,6 +105,7 @@ spec:
                               name of this flavor. The name should match the .metadata.name of a
                               ResourceFlavor. If a matching ResourceFlavor does not exist, the
                               ClusterQueue will have an Active condition set to False.
+                              此 flavor 的名称。名称应与 ResourceFlavor 的 .metadata.name 匹配。如果不存在匹配的 ResourceFlavor，则 ClusterQueue 的 Active 状态将为 False。
                             maxLength: 253
                             pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                             type: string
@@ -147,15 +120,11 @@ spec:
                                   - type: integer
                                   - type: string
                                   description: |-
-                                    borrowingLimit is the maximum amount of quota for the [flavor, resource]
-                                    combination that this ClusterQueue is allowed to borrow from the unused
-                                    quota of other ClusterQueues in the same cohort.
-                                    In total, at a given time, Workloads in a ClusterQueue can consume a
-                                    quantity of quota equal to nominalQuota+borrowingLimit, assuming the other
-                                    ClusterQueues in the cohort have enough unused quota.
-                                    If null, it means that there is no borrowing limit.
-                                    If not null, it must be non-negative.
-                                    borrowingLimit must be null if spec.cohort is empty.
+                                    borrowingLimit 是该 ClusterQueue 允许从同一 cohort 中其他 ClusterQueue 未使用配额中借用的 [flavor, resource] 组合的最大配额。
+                                    总体上，在某一时刻，ClusterQueue 中的工作负载可以消耗等于 nominalQuota+borrowingLimit 的配额，前提是 cohort 中其他 ClusterQueue 有足够的未使用配额。
+                                    如果为 null，表示没有借用上限。
+                                    如果不为 null，则必须为非负数。
+                                    如果 spec.cohort 为空，则 borrowingLimit 必须为 null。
                                   pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                   x-kubernetes-int-or-string: true
                                 lendingLimit:
@@ -163,37 +132,28 @@ spec:
                                   - type: integer
                                   - type: string
                                   description: |-
-                                    lendingLimit is the maximum amount of unused quota for the [flavor, resource]
-                                    combination that this ClusterQueue can lend to other ClusterQueues in the same cohort.
-                                    In total, at a given time, ClusterQueue reserves for its exclusive use
-                                    a quantity of quota equals to nominalQuota - lendingLimit.
-                                    If null, it means that there is no lending limit, meaning that
-                                    all the nominalQuota can be borrowed by other clusterQueues in the cohort.
-                                    If not null, it must be non-negative.
-                                    lendingLimit must be null if spec.cohort is empty.
-                                    This field is in beta stage and is enabled by default.
+                                    lendingLimit 是该 ClusterQueue 可以借给同一 cohort 中其他 ClusterQueue 的 [flavor, resource] 组合的最大未使用配额。
+                                    总体上，在某一时刻，ClusterQueue 为其专用保留的配额等于 nominalQuota - lendingLimit。
+                                    如果为 null，表示没有出借上限，意味着所有 nominalQuota 都可以被 cohort 中其他 ClusterQueue 借用。
+                                    如果不为 null，则必须为非负数。
+                                    如果 spec.cohort 为空，则 lendingLimit 必须为 null。
+                                    此字段为 beta 阶段，默认启用。
                                   pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                   x-kubernetes-int-or-string: true
                                 name:
-                                  description: name of this resource.
+                                  description: |-
+                                    name of this resource.
+                                    此资源的名称。
                                   type: string
                                 nominalQuota:
                                   anyOf:
                                   - type: integer
                                   - type: string
                                   description: |-
-                                    nominalQuota is the quantity of this resource that is available for
-                                    Workloads admitted by this ClusterQueue at a point in time.
-                                    The nominalQuota must be non-negative.
-                                    nominalQuota should represent the resources in the cluster available for
-                                    running jobs (after discounting resources consumed by system components
-                                    and pods not managed by kueue). In an autoscaled cluster, nominalQuota
-                                    should account for resources that can be provided by a component such as
-                                    Kubernetes cluster-autoscaler.
+                                    nominalQuota 必须为非负数。
+                                    nominalQuota 应代表集群中可用于运行作业的资源（扣除系统组件和非 kueue 管理的 pod 所消耗的资源后）。在自动扩缩的集群中，nominalQuota 应考虑如 Kubernetes cluster-autoscaler 等组件可提供的资源。
 
-                                    If the ClusterQueue belongs to a cohort, the sum of the quotas for each
-                                    (flavor, resource) combination defines the maximum quantity that can be
-                                    allocated by a ClusterQueue in the cohort.
+                                    如果 ClusterQueue 属于 cohort，则每个（flavor, resource）组合的配额总和定义了 cohort 中 ClusterQueue 可分配的最大数量。
                                   pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                   x-kubernetes-int-or-string: true
                               required:
@@ -229,17 +189,16 @@ spec:
                 x-kubernetes-list-type: atomic
             type: object
           status:
-            description: CohortStatus defines the observed state of Cohort.
+            description: CohortStatus 定义了 Cohort 的观测状态。
             properties:
               fairSharing:
                 description: |-
-                  fairSharing contains the current state for this Cohort
-                  when participating in Fair Sharing.
-                  The is recorded only when Fair Sharing is enabled in the Kueue configuration.
+                  fairSharing 包含该 Cohort 参与公平共享时的当前状态。
+                  仅当 Kueue 配置中启用公平共享时才会记录。
                 properties:
                   admissionFairSharingStatus:
-                    description: admissionFairSharingStatus represents information
-                      relevant to the Admission Fair Sharing
+                    description: admissionFairSharingStatus 表示与 Admission Fair Sharing
+                      相关的信息
                     properties:
                       consumedResources:
                         additionalProperties:
@@ -249,13 +208,11 @@ spec:
                           pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                           x-kubernetes-int-or-string: true
                         description: |-
-                          ConsumedResources represents the aggregated usage of resources over time,
-                          with decaying function applied.
-                          The value is populated if usage consumption functionality is enabled in Kueue config.
+                          ConsumedResources 表示资源随时间的聚合使用量，应用了衰减函数。
+                          如果在 Kueue 配置中启用了使用量消耗功能，则会填充值。
                         type: object
                       lastUpdate:
-                        description: LastUpdate is the time when share and consumed
-                          resources were updated.
+                        description: LastUpdate 是份额和已消耗资源被更新的时间。
                         format: date-time
                         type: string
                     required:
@@ -264,13 +221,8 @@ spec:
                     type: object
                   weightedShare:
                     description: |-
-                      WeightedShare represents the maximum of the ratios of usage
-                      above nominal quota to the lendable resources in the
-                      Cohort, among all the resources provided by the Node, and
-                      divided by the weight.  If zero, it means that the usage of
-                      the Node is below the nominal quota.  If the Node has a
-                      weight of zero and is borrowing, this will return
-                      9223372036854775807, the maximum possible share value.
+                      WeightedShare 表示节点所提供的所有资源中，超出名义配额的使用量与 Cohort 可借用资源的比值的最大值，再除以权重。
+                      如果为零，表示节点的使用量低于名义配额。如果节点权重为零且正在借用，则返回 9223372036854775807，即最大可能的份额值。
                     format: int64
                     type: integer
                 required:

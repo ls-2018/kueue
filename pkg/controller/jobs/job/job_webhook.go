@@ -1,19 +1,3 @@
-/*
-Copyright The Kubernetes Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package job
 
 import (
@@ -73,21 +57,6 @@ func SetupWebhook(mgr ctrl.Manager, opts ...jobframework.Option) error {
 
 var _ admission.CustomDefaulter = &JobWebhook{}
 
-// Default implements webhook.CustomDefaulter so a webhook will be registered for the type
-func (w *JobWebhook) Default(ctx context.Context, obj runtime.Object) error {
-	job := fromObject(obj)
-	log := ctrl.LoggerFrom(ctx).WithName("job-webhook")
-	log.V(5).Info("Applying defaults")
-
-	jobframework.ApplyDefaultLocalQueue(job.Object(), w.queues.DefaultLocalQueueExist)
-	if err := jobframework.ApplyDefaultForSuspend(ctx, job, w.client, w.manageJobsWithoutQueueName, w.managedJobsNamespaceSelector); err != nil {
-		return err
-	}
-	jobframework.ApplyDefaultForManagedBy(job, w.queues, w.cache, log)
-
-	return nil
-}
-
 // +kubebuilder:webhook:path=/validate-batch-v1-job,mutating=false,failurePolicy=fail,sideEffects=None,groups=batch,resources=jobs,verbs=create;update,versions=v1,name=vjob.kb.io,admissionReviewVersions=v1
 
 var _ admission.CustomValidator = &JobWebhook{}
@@ -98,15 +67,6 @@ func (w *JobWebhook) ValidateCreate(ctx context.Context, obj runtime.Object) (ad
 	log := ctrl.LoggerFrom(ctx).WithName("job-webhook")
 	log.V(5).Info("Validating create")
 	return nil, w.validateCreate(job).ToAggregate()
-}
-
-func (w *JobWebhook) validateCreate(job *Job) field.ErrorList {
-	var allErrs field.ErrorList
-	allErrs = append(allErrs, jobframework.ValidateJobOnCreate(job)...)
-	allErrs = append(allErrs, w.validatePartialAdmissionCreate(job)...)
-	allErrs = append(allErrs, w.validateSyncCompletionCreate(job)...)
-	allErrs = append(allErrs, w.validateTopologyRequest(job)...)
-	return allErrs
 }
 
 func (w *JobWebhook) validatePartialAdmissionCreate(job *Job) field.ErrorList {
@@ -176,11 +136,35 @@ func validatePartialAdmissionUpdate(oldJob, newJob *Job) field.ErrorList {
 	return allErrs
 }
 
+// ValidateDelete implements webhook.CustomValidator so a webhook will be registered for the type
+func (w *JobWebhook) ValidateDelete(_ context.Context, _ runtime.Object) (admission.Warnings, error) {
+	return nil, nil
+}
+
+func (w *JobWebhook) validateCreate(job *Job) field.ErrorList {
+	var allErrs field.ErrorList
+	allErrs = append(allErrs, jobframework.ValidateJobOnCreate(job)...)
+	allErrs = append(allErrs, w.validatePartialAdmissionCreate(job)...)
+	allErrs = append(allErrs, w.validateSyncCompletionCreate(job)...) // ToDo 为什么要这么做
+	allErrs = append(allErrs, w.validateTopologyRequest(job)...)
+	return allErrs
+}
+
 func (w *JobWebhook) validateTopologyRequest(job *Job) field.ErrorList {
 	return jobframework.ValidateTASPodSetRequest(replicaMetaPath, &job.Spec.Template.ObjectMeta)
 }
 
-// ValidateDelete implements webhook.CustomValidator so a webhook will be registered for the type
-func (w *JobWebhook) ValidateDelete(_ context.Context, _ runtime.Object) (admission.Warnings, error) {
-	return nil, nil
+// Default implements webhook.CustomDefaulter so a webhook will be registered for the type
+func (w *JobWebhook) Default(ctx context.Context, obj runtime.Object) error {
+	job := fromObject(obj)
+	log := ctrl.LoggerFrom(ctx).WithName("job-webhook")
+	log.V(5).Info("Applying defaults")
+
+	jobframework.ApplyDefaultLocalQueue(job.Object(), w.queues.DefaultLocalQueueExist)
+	if err := jobframework.ApplyDefaultForSuspend(ctx, job, w.client, w.manageJobsWithoutQueueName, w.managedJobsNamespaceSelector); err != nil {
+		return err
+	}
+	jobframework.ApplyDefaultForManagedBy(job, w.queues, w.cache, log)
+
+	return nil
 }

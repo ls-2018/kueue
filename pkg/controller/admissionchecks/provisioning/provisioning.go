@@ -1,19 +1,3 @@
-/*
-Copyright The Kubernetes Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package provisioning
 
 import (
@@ -28,7 +12,7 @@ import (
 	autoscaling "k8s.io/autoscaler/cluster-autoscaler/apis/provisioningrequest/autoscaling.x-k8s.io/v1beta1"
 
 	kueue "sigs.k8s.io/kueue/apis/kueue/v1beta1"
-	"sigs.k8s.io/kueue/pkg/controller/constants"
+	"sigs.k8s.io/kueue/pkg/controller/over_constants"
 	"sigs.k8s.io/kueue/pkg/util/admissioncheck"
 )
 
@@ -126,7 +110,7 @@ func passProvReqParams(wl *kueue.Workload, req *autoscaling.ProvisioningRequest)
 		req.Spec.Parameters = make(map[string]autoscaling.Parameter, 0)
 	}
 	for annotation, val := range admissioncheck.FilterProvReqAnnotations(wl.Annotations) {
-		paramName := strings.TrimPrefix(annotation, constants.ProvReqAnnotationPrefix)
+		paramName := strings.TrimPrefix(annotation, over_constants.ProvReqAnnotationPrefix)
 		req.Spec.Parameters[paramName] = autoscaling.Parameter(val)
 	}
 }

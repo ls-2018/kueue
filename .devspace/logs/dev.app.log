@@ -1,0 +1,344 @@
+{"level":"info","msg":"Inject devspacehelper...","time":"2025-07-14T19:28:41+08:00"}
+{"level":"info","msg":"Successfully injected devspacehelper into pod kueue-system/kueue-controller-manager-devspace-695648d6d5-kpx5j","time":"2025-07-14T19:28:45+08:00"}
+{"level":"info","msg":"Start syncing","time":"2025-07-14T19:28:45+08:00"}
+{"level":"info","msg":"Downstream - Initial sync completed","time":"2025-07-14T19:28:45+08:00"}
+{"level":"info","msg":"Upstream - Upload 9306 create change(s) (Uncompressed ~336180.48 KB)","time":"2025-07-14T19:28:46+08:00"}
+{"level":"info","msg":"Upstream - Successfully processed 9306 change(s)","time":"2025-07-14T19:28:56+08:00"}
+{"level":"info","msg":"Upstream - Initial sync completed","time":"2025-07-14T19:28:57+08:00"}
+{"level":"info","msg":"Downstream - Download file './.git/index', uncompressed: ~1016.73 KB","time":"2025-07-14T19:29:03+08:00"}
+{"level":"info","msg":"Downstream - Successfully processed 1 change(s)","time":"2025-07-14T19:29:03+08:00"}
+{"level":"info","msg":"Downstream - Download file './out/manager', uncompressed: ~108527.34 KB","time":"2025-07-14T19:29:30+08:00"}
+{"level":"info","msg":"Downstream - Download file './out', uncompressed: ~0.00 KB","time":"2025-07-14T19:29:30+08:00"}
+{"level":"info","msg":"Downstream - Successfully processed 2 change(s)","time":"2025-07-14T19:29:32+08:00"}
+{"level":"info","msg":"Upstream - Upload File '.idea/workspace.xml'","time":"2025-07-14T19:31:36+08:00"}
+{"level":"info","msg":"Upstream - Upload 1 create change(s) (Uncompressed ~1001.19 KB)","time":"2025-07-14T19:31:36+08:00"}
+{"level":"info","msg":"Upstream - Successfully processed 1 change(s)","time":"2025-07-14T19:31:36+08:00"}
+{"level":"info","msg":"Upstream - Upload File 'config.yaml'","time":"2025-07-14T19:34:43+08:00"}
+{"level":"info","msg":"Upstream - Upload File '.idea/workspace.xml'","time":"2025-07-14T19:34:43+08:00"}
+{"level":"info","msg":"Upstream - Upload 2 create change(s) (Uncompressed ~1003.72 KB)","time":"2025-07-14T19:34:43+08:00"}
+{"level":"info","msg":"Upstream - Successfully processed 2 change(s)","time":"2025-07-14T19:34:43+08:00"}
+{"level":"info","msg":"Upstream - Upload File 'deploy/core.yaml'","time":"2025-07-14T19:35:00+08:00"}
+{"level":"info","msg":"Upstream - Upload 1 create change(s) (Uncompressed ~805.28 KB)","time":"2025-07-14T19:35:00+08:00"}
+{"level":"info","msg":"Upstream - Successfully processed 1 change(s)","time":"2025-07-14T19:35:00+08:00"}
+{"level":"info","msg":"Inject devspacehelper...","time":"2025-07-14T19:38:50+08:00"}
+{"level":"info","msg":"Successfully injected devspacehelper into pod kueue-system/kueue-controller-manager-devspace-6d9f44c6f4-ljcbq","time":"2025-07-14T19:38:53+08:00"}
+{"level":"info","msg":"Start syncing","time":"2025-07-14T19:38:53+08:00"}
+{"level":"info","msg":"Downstream - Initial sync completed","time":"2025-07-14T19:38:53+08:00"}
+{"level":"info","msg":"Upstream - Upload 9307 create change(s) (Uncompressed ~444707.94 KB)","time":"2025-07-14T19:38:55+08:00"}
+{"level":"info","msg":"Upstream - Successfully processed 9307 change(s)","time":"2025-07-14T19:39:06+08:00"}
+{"level":"info","msg":"Upstream - Initial sync completed","time":"2025-07-14T19:39:07+08:00"}
+{"level":"info","msg":"Downstream - Download file './.git/index', uncompressed: ~1016.73 KB","time":"2025-07-14T19:39:12+08:00"}
+{"level":"info","msg":"Downstream - Successfully processed 1 change(s)","time":"2025-07-14T19:39:12+08:00"}
+{"level":"error","msg":"Sync Error on /Volumes/Tf/book/kueue: Sync - connection lost to pod kueue-system/kueue-controller-manager-devspace-6d9f44c6f4-ljcbq:  command terminated with exit code 137","time":"2025-07-14T19:39:48+08:00"}
+{"level":"info","msg":"Inject devspacehelper...","time":"2025-07-14T19:42:05+08:00"}
+{"level":"info","msg":"Successfully injected devspacehelper into pod kueue-system/kueue-controller-manager-devspace-695648d6d5-jqvhj","time":"2025-07-14T19:42:09+08:00"}
+{"level":"info","msg":"Start syncing","time":"2025-07-14T19:42:09+08:00"}
+{"level":"info","msg":"Downstream - Initial sync completed","time":"2025-07-14T19:42:09+08:00"}
+{"level":"info","msg":"Upstream - Upload 9307 create change(s) (Uncompressed ~444707.94 KB)","time":"2025-07-14T19:42:11+08:00"}
+{"level":"info","msg":"Upstream - Successfully processed 9307 change(s)","time":"2025-07-14T19:42:19+08:00"}
+{"level":"info","msg":"Upstream - Initial sync completed","time":"2025-07-14T19:42:20+08:00"}
+{"level":"info","msg":"Downstream - Download file './.git/index', uncompressed: ~1016.73 KB","time":"2025-07-14T19:42:27+08:00"}
+{"level":"info","msg":"Downstream - Successfully processed 1 change(s)","time":"2025-07-14T19:42:27+08:00"}
+{"level":"info","msg":"Upstream - Upload Folder '.git/.gitstatus.RNcomt/b'","time":"2025-07-14T20:44:46+08:00"}
+{"level":"info","msg":"Upstream - Upload Folder '.git/.gitstatus.RNcomt'","time":"2025-07-14T20:44:46+08:00"}
+{"level":"info","msg":"Upstream - Upload Folder '.git/.gitstatus.RNcomt/a'","time":"2025-07-14T20:44:46+08:00"}
+{"level":"info","msg":"Upstream - Upload 3 create change(s) (Uncompressed ~0.00 KB)","time":"2025-07-14T20:44:46+08:00"}
+{"level":"info","msg":"Upstream - Successfully processed 2 change(s)","time":"2025-07-14T20:44:46+08:00"}
+{"level":"info","msg":"Upstream - Handling 3 removes","time":"2025-07-14T20:44:47+08:00"}
+{"level":"info","msg":"Upstream - Remove '.git/.gitstatus.RNcomt'","time":"2025-07-14T20:44:47+08:00"}
+{"level":"info","msg":"Upstream - Remove '.git/.gitstatus.RNcomt'","time":"2025-07-14T20:44:47+08:00"}
+{"level":"info","msg":"Upstream - Remove '.git/.gitstatus.RNcomt/b'","time":"2025-07-14T20:44:47+08:00"}
+{"level":"info","msg":"Upstream - Remove '.git/.gitstatus.RNcomt/a'","time":"2025-07-14T20:44:47+08:00"}
+{"level":"info","msg":"Upstream - Successfully processed 3 change(s)","time":"2025-07-14T20:44:47+08:00"}
+{"level":"info","msg":"Upstream - Upload Folder '.git/.gitstatus.kVIAjh/b'","time":"2025-07-14T20:51:59+08:00"}
+{"level":"info","msg":"Upstream - Upload Folder '.git/.gitstatus.kVIAjh'","time":"2025-07-14T20:51:59+08:00"}
+{"level":"info","msg":"Upstream - Upload Folder '.git/.gitstatus.kVIAjh/a'","time":"2025-07-14T20:51:59+08:00"}
+{"level":"info","msg":"Upstream - Upload 3 create change(s) (Uncompressed ~0.00 KB)","time":"2025-07-14T20:51:59+08:00"}
+{"level":"info","msg":"Upstream - Upload File '.git/index'","time":"2025-07-14T20:52:08+08:00"}
+{"level":"info","msg":"Upstream - Upload 1 create change(s) (Uncompressed ~1016.73 KB)","time":"2025-07-14T20:52:08+08:00"}
+{"level":"info","msg":"Upstream - Successfully processed 1 change(s)","time":"2025-07-14T20:52:09+08:00"}
+{"level":"info","msg":"Downstream - Download file './out/manager', uncompressed: ~108527.34 KB","time":"2025-07-14T20:52:09+08:00"}
+{"level":"info","msg":"Downstream - Successfully processed 1 change(s)","time":"2025-07-14T20:52:11+08:00"}
+{"level":"info","msg":"Upstream - Upload File 'pkg/metrics/metrics.go'","time":"2025-07-14T20:52:58+08:00"}
+{"level":"info","msg":"Upstream - Upload 1 create change(s) (Uncompressed ~29.69 KB)","time":"2025-07-14T20:52:58+08:00"}
+{"level":"info","msg":"Upstream - Successfully processed 1 change(s)","time":"2025-07-14T20:52:58+08:00"}
+{"level":"info","msg":"Upstream - Upload File 'pkg/metrics/metrics.go'","time":"2025-07-14T20:53:19+08:00"}
+{"level":"info","msg":"Upstream - Upload 1 create change(s) (Uncompressed ~30.29 KB)","time":"2025-07-14T20:53:19+08:00"}
+{"level":"info","msg":"Upstream - Successfully processed 1 change(s)","time":"2025-07-14T20:53:19+08:00"}
+{"level":"info","msg":"Upstream - Upload File 'pkg/metrics/metrics.go'","time":"2025-07-14T20:54:32+08:00"}
+{"level":"info","msg":"Upstream - Upload 1 create change(s) (Uncompressed ~30.85 KB)","time":"2025-07-14T20:54:32+08:00"}
+{"level":"info","msg":"Upstream - Successfully processed 1 change(s)","time":"2025-07-14T20:54:32+08:00"}
+{"level":"info","msg":"Upstream - Upload File 'pkg/metrics/metrics.go'","time":"2025-07-14T20:54:47+08:00"}
+{"level":"info","msg":"Upstream - Upload 1 create change(s) (Uncompressed ~31.18 KB)","time":"2025-07-14T20:54:47+08:00"}
+{"level":"info","msg":"Upstream - Successfully processed 1 change(s)","time":"2025-07-14T20:54:47+08:00"}
+{"level":"info","msg":"Upstream - Upload File 'pkg/metrics/metrics.go'","time":"2025-07-14T20:55:00+08:00"}
+{"level":"info","msg":"Upstream - Upload 1 create change(s) (Uncompressed ~31.39 KB)","time":"2025-07-14T20:55:00+08:00"}
+{"level":"info","msg":"Upstream - Successfully processed 1 change(s)","time":"2025-07-14T20:55:00+08:00"}
+{"level":"info","msg":"Upstream - Upload File 'pkg/metrics/metrics.go'","time":"2025-07-14T20:55:15+08:00"}
+{"level":"info","msg":"Upstream - Upload 1 create change(s) (Uncompressed ~31.55 KB)","time":"2025-07-14T20:55:15+08:00"}
+{"level":"info","msg":"Upstream - Successfully processed 1 change(s)","time":"2025-07-14T20:55:15+08:00"}
+{"level":"info","msg":"Upstream - Upload File 'pkg/metrics/metrics.go'","time":"2025-07-14T20:55:28+08:00"}
+{"level":"info","msg":"Upstream - Upload 1 create change(s) (Uncompressed ~31.72 KB)","time":"2025-07-14T20:55:28+08:00"}
+{"level":"info","msg":"Upstream - Successfully processed 1 change(s)","time":"2025-07-14T20:55:28+08:00"}
+{"level":"info","msg":"Upstream - Upload File 'pkg/metrics/metrics.go'","time":"2025-07-14T20:55:42+08:00"}
+{"level":"info","msg":"Upstream - Upload 1 create change(s) (Uncompressed ~31.96 KB)","time":"2025-07-14T20:55:42+08:00"}
+{"level":"info","msg":"Upstream - Successfully processed 1 change(s)","time":"2025-07-14T20:55:42+08:00"}
+{"level":"info","msg":"Upstream - Upload File 'pkg/metrics/metrics.go'","time":"2025-07-14T20:55:56+08:00"}
+{"level":"info","msg":"Upstream - Upload 1 create change(s) (Uncompressed ~32.43 KB)","time":"2025-07-14T20:55:56+08:00"}
+{"level":"info","msg":"Upstream - Successfully processed 1 change(s)","time":"2025-07-14T20:55:56+08:00"}
+{"level":"info","msg":"Upstream - Upload File 'pkg/metrics/metrics.go'","time":"2025-07-14T20:56:10+08:00"}
+{"level":"info","msg":"Upstream - Upload 1 create change(s) (Uncompressed ~32.90 KB)","time":"2025-07-14T20:56:10+08:00"}
+{"level":"info","msg":"Upstream - Successfully processed 1 change(s)","time":"2025-07-14T20:56:10+08:00"}
+{"level":"info","msg":"Upstream - Upload File 'pkg/metrics/metrics.go'","time":"2025-07-14T20:56:22+08:00"}
+{"level":"info","msg":"Upstream - Upload 1 create change(s) (Uncompressed ~33.38 KB)","time":"2025-07-14T20:56:22+08:00"}
+{"level":"info","msg":"Upstream - Successfully processed 1 change(s)","time":"2025-07-14T20:56:22+08:00"}
+{"level":"info","msg":"Upstream - Upload File 'pkg/metrics/metrics.go'","time":"2025-07-14T20:56:34+08:00"}
+{"level":"info","msg":"Upstream - Upload 1 create change(s) (Uncompressed ~33.86 KB)","time":"2025-07-14T20:56:34+08:00"}
+{"level":"info","msg":"Upstream - Successfully processed 1 change(s)","time":"2025-07-14T20:56:34+08:00"}
+{"level":"info","msg":"Upstream - Upload File 'pkg/metrics/metrics.go'","time":"2025-07-14T20:56:55+08:00"}
+{"level":"info","msg":"Upstream - Upload 1 create change(s) (Uncompressed ~28.24 KB)","time":"2025-07-14T20:56:55+08:00"}
+{"level":"info","msg":"Upstream - Successfully processed 1 change(s)","time":"2025-07-14T20:56:55+08:00"}
+{"level":"info","msg":"Start syncing","time":"2025-07-14T22:14:25+08:00"}
+{"level":"info","msg":"Downstream - Initial sync completed","time":"2025-07-14T22:14:25+08:00"}
+{"level":"info","msg":"Upstream - Handling 12 removes","time":"2025-07-14T22:14:27+08:00"}
+{"level":"info","msg":"Upstream - Remove 'pkg/util/useragent/useragent.go'","time":"2025-07-14T22:14:27+08:00"}
+{"level":"info","msg":"Upstream - Remove 'pkg/controller/core/indexer/indexer.go'","time":"2025-07-14T22:14:27+08:00"}
+{"level":"info","msg":"Upstream - Remove 'pkg/util/cert/cert.go'","time":"2025-07-14T22:14:27+08:00"}
+{"level":"info","msg":"Upstream - Remove 'pkg/controller/core/indexer'","time":"2025-07-14T22:14:27+08:00"}
+{"level":"info","msg":"Upstream - Remove 'pkg/version/version.go'","time":"2025-07-14T22:14:27+08:00"}
+{"level":"info","msg":"Upstream - Remove 'pkg/util/cert'","time":"2025-07-14T22:14:27+08:00"}
+{"level":"info","msg":"Upstream - Remove 'pkg/controller/admissionchecks/multikueue/testdata/worker1KubeConfig'","time":"2025-07-14T22:14:27+08:00"}
+{"level":"info","msg":"Upstream - Remove 'pkg/util/useragent'","time":"2025-07-14T22:14:27+08:00"}
+{"level":"info","msg":"Upstream - Remove 'pkg/controller/admissionchecks/multikueue/testdata'","time":"2025-07-14T22:14:27+08:00"}
+{"level":"info","msg":"Upstream - Remove 'pkg/version'","time":"2025-07-14T22:14:27+08:00"}
+{"level":"info","msg":"Upstream - Remove 'pkg/controller/tas/indexer/indexer.go'","time":"2025-07-14T22:14:27+08:00"}
+{"level":"info","msg":"Upstream - Remove 'pkg/controller/tas/indexer'","time":"2025-07-14T22:14:27+08:00"}
+{"level":"info","msg":"Upstream - Upload 24 create change(s) (Uncompressed ~2308.40 KB)","time":"2025-07-14T22:14:27+08:00"}
+{"level":"info","msg":"Upstream - Successfully processed 36 change(s)","time":"2025-07-14T22:14:27+08:00"}
+{"level":"info","msg":"Upstream - Initial sync completed","time":"2025-07-14T22:14:28+08:00"}
+{"level":"info","msg":"Start syncing","time":"2025-07-14T22:15:43+08:00"}
+{"level":"info","msg":"Downstream - Initial sync completed","time":"2025-07-14T22:15:43+08:00"}
+{"level":"info","msg":"Upstream - Initial sync completed","time":"2025-07-14T22:15:43+08:00"}
+{"level":"info","msg":"Downstream - Download file './.git/index', uncompressed: ~1016.62 KB","time":"2025-07-14T22:15:47+08:00"}
+{"level":"info","msg":"Downstream - Successfully processed 1 change(s)","time":"2025-07-14T22:15:47+08:00"}
+{"level":"info","msg":"Downstream - Download file './out/manager', uncompressed: ~108526.12 KB","time":"2025-07-14T22:15:52+08:00"}
+{"level":"info","msg":"Downstream - Successfully processed 1 change(s)","time":"2025-07-14T22:15:54+08:00"}
+{"level":"info","msg":"Start syncing","time":"2025-07-14T22:21:00+08:00"}
+{"level":"info","msg":"Downstream - Initial sync completed","time":"2025-07-14T22:21:00+08:00"}
+{"level":"info","msg":"Upstream - Upload File '.idea/workspace.xml'","time":"2025-07-14T22:21:02+08:00"}
+{"level":"info","msg":"Upstream - Upload 1 create change(s) (Uncompressed ~1002.45 KB)","time":"2025-07-14T22:21:02+08:00"}
+{"level":"info","msg":"Upstream - Successfully processed 1 change(s)","time":"2025-07-14T22:21:02+08:00"}
+{"level":"info","msg":"Upstream - Initial sync completed","time":"2025-07-14T22:21:03+08:00"}
+{"level":"info","msg":"Upstream - Upload File '.idea/workspace.xml'","time":"2025-07-14T22:23:01+08:00"}
+{"level":"info","msg":"Upstream - Upload File 'cmd/kueue/main.go'","time":"2025-07-14T22:23:01+08:00"}
+{"level":"info","msg":"Upstream - Upload 2 create change(s) (Uncompressed ~1018.44 KB)","time":"2025-07-14T22:23:01+08:00"}
+{"level":"info","msg":"Upstream - Successfully processed 2 change(s)","time":"2025-07-14T22:23:01+08:00"}
+{"level":"info","msg":"Upstream - Upload File 'pkg/util/kubeversion/kubeversion.go'","time":"2025-07-14T22:23:14+08:00"}
+{"level":"info","msg":"Upstream - Upload 1 create change(s) (Uncompressed ~2.18 KB)","time":"2025-07-14T22:23:14+08:00"}
+{"level":"info","msg":"Upstream - Successfully processed 1 change(s)","time":"2025-07-14T22:23:14+08:00"}
+{"level":"info","msg":"Upstream - Upload File 'pkg/util/kubeversion/kubeversion.go'","time":"2025-07-14T22:23:16+08:00"}
+{"level":"info","msg":"Upstream - Upload 1 create change(s) (Uncompressed ~2.18 KB)","time":"2025-07-14T22:23:16+08:00"}
+{"level":"info","msg":"Upstream - Successfully processed 1 change(s)","time":"2025-07-14T22:23:16+08:00"}
+{"level":"info","msg":"Upstream - Handling 1 removes","time":"2025-07-14T22:24:20+08:00"}
+{"level":"info","msg":"Upstream - Remove 'pkg/util/kubeversion'","time":"2025-07-14T22:24:20+08:00"}
+{"level":"info","msg":"Upstream - Remove 'pkg/util/kubeversion'","time":"2025-07-14T22:24:20+08:00"}
+{"level":"info","msg":"Upstream - Upload Folder 'pkg/util/over_kubeversion'","time":"2025-07-14T22:24:20+08:00"}
+{"level":"info","msg":"Upstream - Upload File '.git/objects/72/6c06ba50fcaa68e7bd54ca13ebdae6ce0d65c1'","time":"2025-07-14T22:24:20+08:00"}
+{"level":"info","msg":"Upstream - Upload File '.git/index'","time":"2025-07-14T22:24:20+08:00"}
+{"level":"info","msg":"Upstream - Upload 3 create change(s) (Uncompressed ~1017.49 KB)","time":"2025-07-14T22:24:20+08:00"}
+{"level":"info","msg":"Upstream - Successfully processed 4 change(s)","time":"2025-07-14T22:24:21+08:00"}
+{"level":"info","msg":"Upstream - Upload 4 create change(s) (Uncompressed ~1066.75 KB)","time":"2025-07-14T22:25:39+08:00"}
+{"level":"info","msg":"Upstream - Successfully processed 4 change(s)","time":"2025-07-14T22:25:39+08:00"}
+{"level":"info","msg":"Start syncing","time":"2025-07-14T22:28:31+08:00"}
+{"level":"info","msg":"Downstream - Initial sync completed","time":"2025-07-14T22:28:31+08:00"}
+{"level":"info","msg":"Upstream - Upload File 'cmd/kueue/main.go'","time":"2025-07-14T22:28:32+08:00"}
+{"level":"info","msg":"Upstream - Upload 1 create change(s) (Uncompressed ~16.72 KB)","time":"2025-07-14T22:28:32+08:00"}
+{"level":"info","msg":"Upstream - Successfully processed 1 change(s)","time":"2025-07-14T22:28:32+08:00"}
+{"level":"info","msg":"Upstream - Initial sync completed","time":"2025-07-14T22:28:34+08:00"}
+{"level":"info","msg":"Downstream - Download file './out/manager', uncompressed: ~108526.61 KB","time":"2025-07-14T22:28:40+08:00"}
+{"level":"info","msg":"Downstream - Successfully processed 1 change(s)","time":"2025-07-14T22:28:42+08:00"}
+{"level":"info","msg":"Inject devspacehelper...","time":"2025-07-15T09:46:33+08:00"}
+{"level":"warning","msg":"Couldn't retrieve helper sha256: Get \"https://github.com/devspace-sh/devspace/releases/download/v6.3.15/devspacehelper-arm64.sha256\": dial tcp 20.205.243.166:443: i/o timeout","time":"2025-07-15T09:47:03+08:00"}
+{"level":"info","msg":"Successfully injected devspacehelper into pod kueue-system/kueue-controller-manager-devspace-695648d6d5-jqvhj","time":"2025-07-15T09:47:04+08:00"}
+{"level":"info","msg":"Start syncing","time":"2025-07-15T09:47:04+08:00"}
+{"level":"info","msg":"Downstream - Initial sync completed","time":"2025-07-15T09:47:04+08:00"}
+{"level":"info","msg":"Upstream - Upload 1668 create change(s) (Uncompressed ~411904.23 KB)","time":"2025-07-15T09:47:05+08:00"}
+{"level":"info","msg":"Upstream - Successfully processed 1668 change(s)","time":"2025-07-15T09:47:20+08:00"}
+{"level":"info","msg":"Upstream - Initial sync completed","time":"2025-07-15T09:47:21+08:00"}
+{"level":"info","msg":"Downstream - Download file './.git/index', uncompressed: ~66.98 KB","time":"2025-07-15T09:48:19+08:00"}
+{"level":"info","msg":"Downstream - Successfully processed 1 change(s)","time":"2025-07-15T09:48:19+08:00"}
+{"level":"info","msg":"Downstream - Download file './out/manager', uncompressed: ~108638.12 KB","time":"2025-07-15T09:48:47+08:00"}
+{"level":"info","msg":"Downstream - Successfully processed 1 change(s)","time":"2025-07-15T09:48:51+08:00"}
+{"level":"info","msg":"Upstream - Upload File '.git/index'","time":"2025-07-15T09:48:52+08:00"}
+{"level":"info","msg":"Upstream - Upload 1 create change(s) (Uncompressed ~66.98 KB)","time":"2025-07-15T09:48:52+08:00"}
+{"level":"info","msg":"Upstream - Successfully processed 1 change(s)","time":"2025-07-15T09:48:52+08:00"}
+{"level":"info","msg":"Inject devspacehelper...","time":"2025-07-15T20:45:11+08:00"}
+{"level":"info","msg":"Successfully injected devspacehelper into pod kueue-system/kueue-controller-manager-devspace-6d9f44c6f4-x56zm","time":"2025-07-15T20:45:16+08:00"}
+{"level":"info","msg":"Start syncing","time":"2025-07-15T20:45:16+08:00"}
+{"level":"info","msg":"Downstream - Initial sync completed","time":"2025-07-15T20:45:16+08:00"}
+{"level":"info","msg":"Upstream - Upload 638 create change(s) (Uncompressed ~61032.50 KB)","time":"2025-07-15T20:45:18+08:00"}
+{"level":"info","msg":"Upstream - Successfully processed 638 change(s)","time":"2025-07-15T20:45:19+08:00"}
+{"level":"info","msg":"Upstream - Initial sync completed","time":"2025-07-15T20:45:20+08:00"}
+{"level":"info","msg":"Downstream - Download file './.git/index', uncompressed: ~71.17 KB","time":"2025-07-15T20:45:32+08:00"}
+{"level":"info","msg":"Downstream - Successfully processed 1 change(s)","time":"2025-07-15T20:45:32+08:00"}
+{"level":"error","msg":"Sync Error on /Volumes/Tf/kueue: Sync - connection lost to pod kueue-system/kueue-controller-manager-devspace-6d9f44c6f4-x56zm:  command terminated with exit code 137","time":"2025-07-15T20:45:33+08:00"}
+{"level":"info","msg":"Inject devspacehelper...","time":"2025-07-15T20:45:42+08:00"}
+{"level":"info","msg":"Couldn't find devspacehelper, will try to download it now","time":"2025-07-15T20:45:42+08:00"}
+{"level":"info","msg":"Inject devspacehelper...","time":"2025-07-15T20:51:00+08:00"}
+{"level":"info","msg":"Successfully injected devspacehelper into pod kueue-system/kueue-controller-manager-devspace-6d9f44c6f4-x56zm","time":"2025-07-15T20:51:03+08:00"}
+{"level":"info","msg":"Start syncing","time":"2025-07-15T20:51:03+08:00"}
+{"level":"info","msg":"Downstream - Initial sync completed","time":"2025-07-15T20:51:03+08:00"}
+{"level":"info","msg":"Upstream - Upload 638 create change(s) (Uncompressed ~61032.50 KB)","time":"2025-07-15T20:51:04+08:00"}
+{"level":"info","msg":"Upstream - Successfully processed 638 change(s)","time":"2025-07-15T20:51:06+08:00"}
+{"level":"info","msg":"Upstream - Initial sync completed","time":"2025-07-15T20:51:07+08:00"}
+{"level":"info","msg":"Downstream - Download file './.git/index', uncompressed: ~71.17 KB","time":"2025-07-15T20:51:19+08:00"}
+{"level":"info","msg":"Downstream - Successfully processed 1 change(s)","time":"2025-07-15T20:51:19+08:00"}
+{"level":"error","msg":"Sync Error on /Volumes/Tf/kueue: Sync - connection lost to pod kueue-system/kueue-controller-manager-devspace-6d9f44c6f4-x56zm: Use inotify as watching method in container\n command terminated with exit code 137","time":"2025-07-15T20:51:20+08:00"}
+{"level":"warning","msg":"Pod kueue-controller-manager-devspace-6d9f44c6f4-x56zm: Back-off restarting failed container manager in pod kueue-controller-manager-devspace-6d9f44c6f4-x56zm_kueue-system(4ff2db0f-20ef-4b94-9b60-c0dfd2d1f162) (BackOff)","time":"2025-07-15T20:51:31+08:00"}
+{"level":"warning","msg":"DevSpace is waiting, because Pod kueue-controller-manager-devspace-6d9f44c6f4-x56zm has status: OOMKilled","time":"2025-07-15T20:51:31+08:00"}
+{"level":"info","msg":"Inject devspacehelper...","time":"2025-07-15T20:51:35+08:00"}
+{"level":"warning","msg":"Couldn't retrieve helper sha256: Get \"https://github.com/devspace-sh/devspace/releases/download/v6.3.15/devspacehelper.sha256\": context canceled","time":"2025-07-15T20:51:35+08:00"}
+{"level":"info","msg":"Successfully injected devspacehelper into pod kueue-system/kueue-controller-manager-devspace-6d9f44c6f4-x56zm","time":"2025-07-15T20:51:35+08:00"}
+{"level":"info","msg":"Start syncing","time":"2025-07-15T20:51:35+08:00"}
+{"level":"info","msg":"Sync started on: ./ \u003c-\u003e /data","time":"2025-07-15T20:51:35+08:00"}
+{"level":"info","msg":"Waiting for initial sync to complete","time":"2025-07-15T20:51:35+08:00"}
+{"level":"info","msg":"Initial sync completed","time":"2025-07-15T20:51:35+08:00"}
+{"level":"info","msg":"Inject devspacehelper...","time":"2025-07-15T20:52:48+08:00"}
+{"level":"info","msg":"Successfully injected devspacehelper into pod kueue-system/kueue-controller-manager-devspace-695648d6d5-j6d9b","time":"2025-07-15T20:52:50+08:00"}
+{"level":"info","msg":"Start syncing","time":"2025-07-15T20:52:50+08:00"}
+{"level":"info","msg":"Downstream - Initial sync completed","time":"2025-07-15T20:52:50+08:00"}
+{"level":"info","msg":"Upstream - Upload 638 create change(s) (Uncompressed ~61032.50 KB)","time":"2025-07-15T20:52:51+08:00"}
+{"level":"info","msg":"Upstream - Successfully processed 638 change(s)","time":"2025-07-15T20:52:53+08:00"}
+{"level":"info","msg":"Upstream - Initial sync completed","time":"2025-07-15T20:52:54+08:00"}
+{"level":"info","msg":"Downstream - Download file './.git/index', uncompressed: ~71.17 KB","time":"2025-07-15T20:53:07+08:00"}
+{"level":"info","msg":"Downstream - Successfully processed 1 change(s)","time":"2025-07-15T20:53:07+08:00"}
+{"level":"info","msg":"Downstream - Download file './out', uncompressed: ~0.00 KB","time":"2025-07-15T20:53:25+08:00"}
+{"level":"info","msg":"Downstream - Download file './out/manager', uncompressed: ~108637.30 KB","time":"2025-07-15T20:53:25+08:00"}
+{"level":"info","msg":"Downstream - Successfully processed 2 change(s)","time":"2025-07-15T20:53:27+08:00"}
+{"level":"info","msg":"Upstream - Upload 9 create change(s) (Uncompressed ~1216.17 KB)","time":"2025-07-15T20:58:00+08:00"}
+{"level":"info","msg":"Upstream - Successfully processed 7 change(s)","time":"2025-07-15T20:58:00+08:00"}
+{"level":"info","msg":"Upstream - Upload File 'README.md'","time":"2025-07-15T21:00:08+08:00"}
+{"level":"info","msg":"Upstream - Upload 1 create change(s) (Uncompressed ~0.26 KB)","time":"2025-07-15T21:00:08+08:00"}
+{"level":"info","msg":"Upstream - Successfully processed 1 change(s)","time":"2025-07-15T21:00:08+08:00"}
+{"level":"info","msg":"Upstream - Upload File 'pkg/queue/manager.go'","time":"2025-07-15T21:03:31+08:00"}
+{"level":"info","msg":"Upstream - Upload 1 create change(s) (Uncompressed ~23.08 KB)","time":"2025-07-15T21:03:31+08:00"}
+{"level":"info","msg":"Upstream - Successfully processed 1 change(s)","time":"2025-07-15T21:03:31+08:00"}
+{"level":"info","msg":"Upstream - Upload File 'pkg/controller/core/workload_controller.go'","time":"2025-07-15T21:04:17+08:00"}
+{"level":"info","msg":"Upstream - Upload File 'pkg/controller/core/workload_controller.go~'","time":"2025-07-15T21:04:17+08:00"}
+{"level":"info","msg":"Upstream - Upload File 'pkg/queue/local_queue.go'","time":"2025-07-15T21:04:17+08:00"}
+{"level":"info","msg":"Upstream - Upload 3 create change(s) (Uncompressed ~48.54 KB)","time":"2025-07-15T21:04:17+08:00"}
+{"level":"info","msg":"Upstream - Successfully processed 2 change(s)","time":"2025-07-15T21:04:17+08:00"}
+{"level":"info","msg":"Upstream - Upload File 'pkg/workload/workload.go'","time":"2025-07-15T21:13:34+08:00"}
+{"level":"info","msg":"Upstream - Upload 1 create change(s) (Uncompressed ~36.86 KB)","time":"2025-07-15T21:13:34+08:00"}
+{"level":"info","msg":"Upstream - Successfully processed 1 change(s)","time":"2025-07-15T21:13:34+08:00"}
+{"level":"info","msg":"Upstream - Upload File 'pkg/workload/workload.go'","time":"2025-07-15T21:18:17+08:00"}
+{"level":"info","msg":"Upstream - Upload 1 create change(s) (Uncompressed ~36.86 KB)","time":"2025-07-15T21:18:17+08:00"}
+{"level":"info","msg":"Upstream - Successfully processed 1 change(s)","time":"2025-07-15T21:18:17+08:00"}
+{"level":"info","msg":"Upstream - Upload File 'pkg/workload/workload.go'","time":"2025-07-15T21:18:27+08:00"}
+{"level":"info","msg":"Upstream - Upload 1 create change(s) (Uncompressed ~36.87 KB)","time":"2025-07-15T21:18:27+08:00"}
+{"level":"info","msg":"Upstream - Successfully processed 1 change(s)","time":"2025-07-15T21:18:27+08:00"}
+{"level":"info","msg":"Upstream - Upload File '.idea/workspace.xml'","time":"2025-07-15T21:18:57+08:00"}
+{"level":"info","msg":"Upstream - Upload 1 create change(s) (Uncompressed ~1168.93 KB)","time":"2025-07-15T21:18:57+08:00"}
+{"level":"info","msg":"Upstream - Successfully processed 1 change(s)","time":"2025-07-15T21:18:57+08:00"}
+{"level":"info","msg":"Inject devspacehelper...","time":"2025-07-16T13:26:42+08:00"}
+{"level":"warning","msg":"Couldn't retrieve helper sha256: Get \"https://github.com/devspace-sh/devspace/releases/download/v6.3.15/devspacehelper-arm64.sha256\": dial tcp 20.205.243.166:443: i/o timeout","time":"2025-07-16T13:27:12+08:00"}
+{"level":"info","msg":"Successfully injected devspacehelper into pod kueue-system/kueue-controller-manager-devspace-6d9f44c6f4-stb7p","time":"2025-07-16T13:27:13+08:00"}
+{"level":"info","msg":"Start syncing","time":"2025-07-16T13:27:13+08:00"}
+{"level":"info","msg":"Downstream - Initial sync completed","time":"2025-07-16T13:27:14+08:00"}
+{"level":"info","msg":"Upstream - Upload 1848 create change(s) (Uncompressed ~352192.55 KB)","time":"2025-07-16T13:27:14+08:00"}
+{"level":"info","msg":"Upstream - Successfully processed 1848 change(s)","time":"2025-07-16T13:27:36+08:00"}
+{"level":"info","msg":"Upstream - Initial sync completed","time":"2025-07-16T13:27:38+08:00"}
+{"level":"info","msg":"Downstream - Download file './.git/index', uncompressed: ~69.07 KB","time":"2025-07-16T13:28:01+08:00"}
+{"level":"info","msg":"Downstream - Successfully processed 1 change(s)","time":"2025-07-16T13:28:02+08:00"}
+{"level":"error","msg":"Sync Error on /Volumes/Tf/book/kueue: Sync - connection lost to pod kueue-system/kueue-controller-manager-devspace-6d9f44c6f4-stb7p:  command terminated with exit code 137","time":"2025-07-16T13:28:26+08:00"}
+{"level":"info","msg":"Inject devspacehelper...","time":"2025-07-16T13:28:30+08:00"}
+{"level":"warning","msg":"Couldn't retrieve helper sha256: Get \"https://github.com/devspace-sh/devspace/releases/download/v6.3.15/devspacehelper.sha256\": context canceled","time":"2025-07-16T13:28:30+08:00"}
+{"level":"info","msg":"Successfully injected devspacehelper into pod kueue-system/kueue-controller-manager-devspace-6d9f44c6f4-stb7p","time":"2025-07-16T13:28:30+08:00"}
+{"level":"info","msg":"Start syncing","time":"2025-07-16T13:28:30+08:00"}
+{"level":"info","msg":"Sync started on: ./ \u003c-\u003e /data","time":"2025-07-16T13:28:30+08:00"}
+{"level":"info","msg":"Waiting for initial sync to complete","time":"2025-07-16T13:28:30+08:00"}
+{"level":"info","msg":"Initial sync completed","time":"2025-07-16T13:28:30+08:00"}
+{"level":"info","msg":"Inject devspacehelper...","time":"2025-07-16T13:29:34+08:00"}
+{"level":"warning","msg":"Couldn't retrieve helper sha256: Get \"https://github.com/devspace-sh/devspace/releases/download/v6.3.15/devspacehelper-arm64.sha256\": dial tcp 20.205.243.166:443: i/o timeout","time":"2025-07-16T13:30:05+08:00"}
+{"level":"info","msg":"Successfully injected devspacehelper into pod kueue-system/kueue-controller-manager-devspace-6d9f44c6f4-stb7p","time":"2025-07-16T13:30:06+08:00"}
+{"level":"info","msg":"Start syncing","time":"2025-07-16T13:30:06+08:00"}
+{"level":"info","msg":"Downstream - Initial sync completed","time":"2025-07-16T13:30:06+08:00"}
+{"level":"info","msg":"Upstream - Upload 1848 create change(s) (Uncompressed ~352192.55 KB)","time":"2025-07-16T13:30:07+08:00"}
+{"level":"info","msg":"Upstream - Successfully processed 1848 change(s)","time":"2025-07-16T13:30:33+08:00"}
+{"level":"info","msg":"Upstream - Initial sync completed","time":"2025-07-16T13:30:34+08:00"}
+{"level":"info","msg":"Downstream - Download file './.git/index', uncompressed: ~69.07 KB","time":"2025-07-16T13:31:00+08:00"}
+{"level":"info","msg":"Downstream - Successfully processed 1 change(s)","time":"2025-07-16T13:31:01+08:00"}
+{"level":"error","msg":"Sync Error on /Volumes/Tf/book/kueue: Sync - connection lost to pod kueue-system/kueue-controller-manager-devspace-6d9f44c6f4-stb7p:  command terminated with exit code 137","time":"2025-07-16T13:31:23+08:00"}
+{"level":"info","msg":"Inject devspacehelper...","time":"2025-07-16T13:40:05+08:00"}
+{"level":"warning","msg":"Couldn't retrieve helper sha256: Get \"https://github.com/devspace-sh/devspace/releases/download/v6.3.15/devspacehelper-arm64.sha256\": dial tcp 20.205.243.166:443: i/o timeout","time":"2025-07-16T13:40:35+08:00"}
+{"level":"info","msg":"Successfully injected devspacehelper into pod kueue-system/kueue-controller-manager-devspace-56db7f598f-6n474","time":"2025-07-16T13:40:36+08:00"}
+{"level":"info","msg":"Start syncing","time":"2025-07-16T13:40:36+08:00"}
+{"level":"info","msg":"Downstream - Initial sync completed","time":"2025-07-16T13:40:37+08:00"}
+{"level":"info","msg":"Upstream - Upload 1848 create change(s) (Uncompressed ~352192.56 KB)","time":"2025-07-16T13:40:38+08:00"}
+{"level":"info","msg":"Upstream - Successfully processed 1848 change(s)","time":"2025-07-16T13:41:02+08:00"}
+{"level":"info","msg":"Upstream - Initial sync completed","time":"2025-07-16T13:41:03+08:00"}
+{"level":"info","msg":"Downstream - Download file './.git/index', uncompressed: ~69.07 KB","time":"2025-07-16T13:41:30+08:00"}
+{"level":"info","msg":"Downstream - Successfully processed 1 change(s)","time":"2025-07-16T13:41:30+08:00"}
+{"level":"info","msg":"Downstream - Download file './out/manager', uncompressed: ~108646.71 KB","time":"2025-07-16T13:42:01+08:00"}
+{"level":"info","msg":"Downstream - Download file './out', uncompressed: ~0.00 KB","time":"2025-07-16T13:42:01+08:00"}
+{"level":"info","msg":"Downstream - Successfully processed 2 change(s)","time":"2025-07-16T13:42:07+08:00"}
+{"level":"info","msg":"Upstream - Upload File 'pkg/visibility/server.go'","time":"2025-07-16T13:42:56+08:00"}
+{"level":"info","msg":"Upstream - Upload 1 create change(s) (Uncompressed ~3.84 KB)","time":"2025-07-16T13:42:56+08:00"}
+{"level":"info","msg":"Upstream - Successfully processed 1 change(s)","time":"2025-07-16T13:42:56+08:00"}
+{"level":"info","msg":"Upstream - Upload File '.idea/workspace.xml'","time":"2025-07-16T13:42:58+08:00"}
+{"level":"info","msg":"Upstream - Upload 1 create change(s) (Uncompressed ~1171.00 KB)","time":"2025-07-16T13:42:58+08:00"}
+{"level":"info","msg":"Upstream - Successfully processed 1 change(s)","time":"2025-07-16T13:42:58+08:00"}
+{"level":"info","msg":"Upstream - Upload File 'pkg/visibility/server.go'","time":"2025-07-16T13:45:28+08:00"}
+{"level":"info","msg":"Upstream - Upload 1 create change(s) (Uncompressed ~3.85 KB)","time":"2025-07-16T13:45:29+08:00"}
+{"level":"info","msg":"Upstream - Successfully processed 1 change(s)","time":"2025-07-16T13:45:29+08:00"}
+{"level":"info","msg":"Upstream - Upload File 'pkg/visibility/server.go'","time":"2025-07-16T13:49:15+08:00"}
+{"level":"info","msg":"Upstream - Upload 1 create change(s) (Uncompressed ~3.85 KB)","time":"2025-07-16T13:49:15+08:00"}
+{"level":"info","msg":"Upstream - Successfully processed 1 change(s)","time":"2025-07-16T13:49:15+08:00"}
+{"level":"info","msg":"Start syncing","time":"2025-07-16T13:49:24+08:00"}
+{"level":"info","msg":"Downstream - Initial sync completed","time":"2025-07-16T13:49:25+08:00"}
+{"level":"info","msg":"Upstream - Initial sync completed","time":"2025-07-16T13:49:25+08:00"}
+{"level":"info","msg":"Downstream - Download file './out/manager', uncompressed: ~108646.73 KB","time":"2025-07-16T13:49:33+08:00"}
+{"level":"info","msg":"Downstream - Successfully processed 1 change(s)","time":"2025-07-16T13:49:37+08:00"}
+{"level":"info","msg":"Start syncing","time":"2025-07-16T13:50:05+08:00"}
+{"level":"info","msg":"Downstream - Initial sync completed","time":"2025-07-16T13:50:06+08:00"}
+{"level":"info","msg":"Upstream - Initial sync completed","time":"2025-07-16T13:50:06+08:00"}
+{"level":"info","msg":"Upstream - Upload 4 create change(s) (Uncompressed ~0.00 KB)","time":"2025-07-16T13:50:51+08:00"}
+{"level":"info","msg":"Upstream - Successfully processed 2 change(s)","time":"2025-07-16T13:50:51+08:00"}
+{"level":"info","msg":"Upstream - Handling 5 removes","time":"2025-07-16T13:50:53+08:00"}
+{"level":"info","msg":"Upstream - Remove '.git/.gitstatus.Uj5aRE'","time":"2025-07-16T13:50:53+08:00"}
+{"level":"info","msg":"Upstream - Remove '.git/.gitstatus.Uj5aRE/b/1'","time":"2025-07-16T13:50:53+08:00"}
+{"level":"info","msg":"Upstream - Remove '.git/.gitstatus.Uj5aRE/b'","time":"2025-07-16T13:50:53+08:00"}
+{"level":"info","msg":"Upstream - Remove '.git/.gitstatus.Uj5aRE/a'","time":"2025-07-16T13:50:53+08:00"}
+{"level":"info","msg":"Upstream - Remove '.git/.gitstatus.Uj5aRE/b/1'","time":"2025-07-16T13:50:53+08:00"}
+{"level":"info","msg":"Upstream - Successfully processed 5 change(s)","time":"2025-07-16T13:50:53+08:00"}
+{"level":"info","msg":"Start syncing","time":"2025-07-16T13:52:54+08:00"}
+{"level":"info","msg":"Downstream - Initial sync completed","time":"2025-07-16T13:52:54+08:00"}
+{"level":"info","msg":"Upstream - Initial sync completed","time":"2025-07-16T13:52:57+08:00"}
+{"level":"info","msg":"Upstream - Handling 1 removes","time":"2025-07-16T13:53:57+08:00"}
+{"level":"info","msg":"Upstream - Remove 'pkg/visibility/api/v1beta1/storage.go'","time":"2025-07-16T13:53:57+08:00"}
+{"level":"info","msg":"Upstream - Remove 'pkg/visibility/api/v1beta1/storage.go'","time":"2025-07-16T13:53:57+08:00"}
+{"level":"info","msg":"Upstream - Upload File 'pkg/visibility/api/v1beta1/over_storage.go'","time":"2025-07-16T13:53:57+08:00"}
+{"level":"info","msg":"Upstream - Upload File '.git/index'","time":"2025-07-16T13:53:57+08:00"}
+{"level":"info","msg":"Upstream - Upload 2 create change(s) (Uncompressed ~69.41 KB)","time":"2025-07-16T13:53:57+08:00"}
+{"level":"info","msg":"Upstream - Successfully processed 3 change(s)","time":"2025-07-16T13:53:57+08:00"}
+{"level":"info","msg":"Start syncing","time":"2025-07-16T13:54:55+08:00"}
+{"level":"info","msg":"Downstream - Initial sync completed","time":"2025-07-16T13:54:55+08:00"}
+{"level":"info","msg":"Upstream - Upload File '.idea/workspace.xml'","time":"2025-07-16T13:54:56+08:00"}
+{"level":"info","msg":"Upstream - Upload File 'cmd/kueue/main.go'","time":"2025-07-16T13:54:56+08:00"}
+{"level":"info","msg":"Upstream - Upload 2 create change(s) (Uncompressed ~1188.68 KB)","time":"2025-07-16T13:54:56+08:00"}
+{"level":"info","msg":"Upstream - Successfully processed 2 change(s)","time":"2025-07-16T13:54:56+08:00"}
+{"level":"info","msg":"Upstream - Initial sync completed","time":"2025-07-16T13:54:58+08:00"}
+{"level":"info","msg":"Downstream - Download file './.git/index', uncompressed: ~68.98 KB","time":"2025-07-16T13:55:03+08:00"}
+{"level":"info","msg":"Downstream - Successfully processed 1 change(s)","time":"2025-07-16T13:55:03+08:00"}
+{"level":"info","msg":"Downstream - Download file './out/manager', uncompressed: ~108646.87 KB","time":"2025-07-16T13:55:05+08:00"}
+{"level":"info","msg":"Downstream - Successfully processed 1 change(s)","time":"2025-07-16T13:55:08+08:00"}
+{"level":"info","msg":"Upstream - Upload File 'pkg/scheduler/scheduler.go'","time":"2025-07-16T13:55:52+08:00"}
+{"level":"info","msg":"Upstream - Upload File '.idea/workspace.xml'","time":"2025-07-16T13:55:52+08:00"}
+{"level":"info","msg":"Upstream - Upload 2 create change(s) (Uncompressed ~1198.68 KB)","time":"2025-07-16T13:55:52+08:00"}
+{"level":"info","msg":"Upstream - Successfully processed 2 change(s)","time":"2025-07-16T13:55:52+08:00"}
+{"level":"info","msg":"Upstream - Upload File 'pkg/scheduler/scheduler.go'","time":"2025-07-16T13:55:57+08:00"}
+{"level":"info","msg":"Upstream - Upload 1 create change(s) (Uncompressed ~27.41 KB)","time":"2025-07-16T13:55:57+08:00"}
+{"level":"info","msg":"Upstream - Successfully processed 1 change(s)","time":"2025-07-16T13:55:57+08:00"}
+{"level":"info","msg":"Upstream - Upload File 'pkg/scheduler/scheduler.go'","time":"2025-07-16T13:58:39+08:00"}
+{"level":"info","msg":"Upstream - Upload 1 create change(s) (Uncompressed ~27.41 KB)","time":"2025-07-16T13:58:39+08:00"}
+{"level":"info","msg":"Upstream - Successfully processed 1 change(s)","time":"2025-07-16T13:58:39+08:00"}

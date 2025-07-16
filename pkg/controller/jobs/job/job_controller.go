@@ -1,19 +1,3 @@
-/*
-Copyright The Kubernetes Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package job
 
 import (
@@ -38,7 +22,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	kueue "sigs.k8s.io/kueue/apis/kueue/v1beta1"
-	"sigs.k8s.io/kueue/pkg/controller/core/indexer"
+	"sigs.k8s.io/kueue/pkg/controller/core/over_indexer"
 	"sigs.k8s.io/kueue/pkg/controller/jobframework"
 	"sigs.k8s.io/kueue/pkg/features"
 	"sigs.k8s.io/kueue/pkg/podset"
@@ -120,7 +104,7 @@ func (h *parentWorkloadHandler) queueReconcileForChildJob(ctx context.Context, o
 	if owner == nil {
 		return
 	}
-	if err := h.client.List(ctx, &childJobs, client.InNamespace(w.Namespace), client.MatchingFields{indexer.OwnerReferenceUID: string(owner.UID)}); err != nil {
+	if err := h.client.List(ctx, &childJobs, client.InNamespace(w.Namespace), client.MatchingFields{over_indexer.OwnerReferenceUID: string(owner.UID)}); err != nil {
 		klog.Error(err, "Unable to list child jobs")
 		return
 	}
@@ -148,10 +132,6 @@ func (j *Job) Object() client.Object {
 
 func fromObject(o runtime.Object) *Job {
 	return (*Job)(o.(*batchv1.Job))
-}
-
-func (j *Job) IsSuspended() bool {
-	return j.Spec.Suspend != nil && *j.Spec.Suspend && j.Annotations[StoppingAnnotation] != "true"
 }
 
 func (j *Job) IsActive() bool {
@@ -367,12 +347,12 @@ func (j *Job) syncCompletionWithParallelism() bool {
 }
 
 func SetupIndexes(ctx context.Context, fieldIndexer client.FieldIndexer) error {
-	if err := fieldIndexer.IndexField(ctx, &batchv1.Job{}, indexer.OwnerReferenceUID, indexer.IndexOwnerUID); err != nil {
+	if err := fieldIndexer.IndexField(ctx, &batchv1.Job{}, over_indexer.OwnerReferenceUID, over_indexer.IndexOwnerUID); err != nil {
 		return err
 	}
 	return jobframework.SetupWorkloadOwnerIndex(ctx, fieldIndexer, gvk)
 }
-
-func GetWorkloadNameForJob(jobName string, jobUID types.UID) string {
-	return jobframework.GetWorkloadNameForOwnerWithGVK(jobName, jobUID, gvk)
+ 
+func (j *Job) IsSuspended() bool {
+	return j.Spec.Suspend != nil && *j.Spec.Suspend && j.Annotations[StoppingAnnotation] != "true"
 }

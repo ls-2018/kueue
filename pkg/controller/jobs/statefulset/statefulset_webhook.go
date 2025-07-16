@@ -1,19 +1,3 @@
-/*
-Copyright The Kubernetes Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package statefulset
 
 import (
@@ -32,10 +16,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	kueuealpha "sigs.k8s.io/kueue/apis/kueue/v1alpha1"
-	"sigs.k8s.io/kueue/pkg/constants"
-	controllerconstants "sigs.k8s.io/kueue/pkg/controller/constants"
 	"sigs.k8s.io/kueue/pkg/controller/jobframework"
 	podconstants "sigs.k8s.io/kueue/pkg/controller/jobs/pod/constants"
+	controllerconstants "sigs.k8s.io/kueue/pkg/controller/over_constants"
+	"sigs.k8s.io/kueue/pkg/over_constants"
 	"sigs.k8s.io/kueue/pkg/queue"
 )
 
@@ -79,7 +63,7 @@ func (wh *Webhook) Default(ctx context.Context, obj runtime.Object) error {
 		if ss.Spec.Template.Labels == nil {
 			ss.Spec.Template.Labels = make(map[string]string, 4)
 		}
-		ss.Spec.Template.Labels[constants.ManagedByKueueLabelKey] = constants.ManagedByKueueLabelValue
+		ss.Spec.Template.Labels[over_constants.ManagedByKueueLabelKey] = over_constants.ManagedByKueueLabelValue
 		ss.Spec.Template.Labels[podconstants.GroupNameLabel] = GetWorkloadName(ss.Name)
 		if queueName := jobframework.QueueNameForObject(ss.Object()); queueName != "" {
 			ss.Spec.Template.Labels[controllerconstants.QueueLabel] = string(queueName)

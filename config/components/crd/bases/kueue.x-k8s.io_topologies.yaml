@@ -17,7 +17,7 @@ spec:
   - name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: Topology is the Schema for the topology API
+        description: Topology 是 topology API 的 Schema
         properties:
           apiVersion:
             description: |-
@@ -37,19 +37,18 @@ spec:
           metadata:
             type: object
           spec:
-            description: TopologySpec defines the desired state of Topology
+            description: TopologySpec 定义了 Topology 的期望状态
             properties:
               levels:
-                description: levels define the levels of topology.
+                description: levels 定义了拓扑的各级。
                 items:
-                  description: TopologyLevel defines the desired state of TopologyLevel
+                  description: TopologyLevel 定义了 TopologyLevel 的期望状态
                   properties:
                     nodeLabel:
                       description: |-
-                        nodeLabel indicates the name of the node label for a specific topology
-                        level.
+                        nodeLabel 表示特定拓扑级别的节点标签名称。
 
-                        Examples:
+                        示例：
                         - cloud.provider.com/topology-block
                         - cloud.provider.com/topology-rack
                       maxLength: 316

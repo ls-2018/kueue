@@ -1,19 +1,3 @@
-/*
-Copyright The Kubernetes Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package provisioning
 
 import (
@@ -45,7 +29,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	kueue "sigs.k8s.io/kueue/apis/kueue/v1beta1"
-	"sigs.k8s.io/kueue/pkg/constants"
+	"sigs.k8s.io/kueue/pkg/over_constants"
 	"sigs.k8s.io/kueue/pkg/podset"
 	"sigs.k8s.io/kueue/pkg/util/admissioncheck"
 	"sigs.k8s.io/kueue/pkg/util/api"
@@ -265,7 +249,7 @@ func (c *Controller) syncOwnedProvisionRequest(
 					Name:      requestName,
 					Namespace: wl.Namespace,
 					Labels: map[string]string{
-						constants.ManagedByKueueLabelKey: constants.ManagedByKueueLabelValue,
+						over_constants.ManagedByKueueLabelKey: over_constants.ManagedByKueueLabelValue,
 					},
 				},
 				Spec: autoscaling.ProvisioningRequestSpec{
@@ -345,7 +329,7 @@ func (c *Controller) createPodTemplate(ctx context.Context, wl *kueue.Workload, 
 			Name:      name,
 			Namespace: wl.Namespace,
 			Labels: map[string]string{
-				constants.ManagedByKueueLabelKey: constants.ManagedByKueueLabelValue,
+				over_constants.ManagedByKueueLabelKey: over_constants.ManagedByKueueLabelValue,
 			},
 		},
 		Template: ps.Template,

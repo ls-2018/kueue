@@ -1,19 +1,3 @@
-/*
-Copyright The Kubernetes Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package metrics
 
 import (
@@ -24,8 +8,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 
 	kueue "sigs.k8s.io/kueue/apis/kueue/v1beta1"
-	"sigs.k8s.io/kueue/pkg/constants"
 	"sigs.k8s.io/kueue/pkg/features"
+	"sigs.k8s.io/kueue/pkg/over_constants"
 )
 
 type AdmissionResult string
@@ -50,11 +34,18 @@ const (
 	// - the ClusterQueue is stopped
 	// In this state, the ClusterQueue can't admit new workloads and its quota can't be borrowed
 	// by other active ClusterQueues in the cohort.
+	// CQStatusPending 表示 ClusterQueue 已被接受但尚未激活，可能原因包括：
+	// - ClusterQueue 引用的 ResourceFlavor 缺失
+	// - ClusterQueue 引用的 AdmissionCheck 缺失或未激活
+	// - ClusterQueue 已停止
+	// 在此状态下，ClusterQueue 不能接收新的 workload，其配额也不能被 cohort 中其他激活的 ClusterQueue 借用。
 	CQStatusPending ClusterQueueStatus = "pending"
 	// CQStatusActive means the ClusterQueue can admit new workloads and its quota
 	// can be borrowed by other ClusterQueues in the cohort.
+	// CQStatusActive 表示 ClusterQueue 可以接收新的 workload，其配额也可以被 cohort 中其他 ClusterQueue 借用。
 	CQStatusActive ClusterQueueStatus = "active"
 	// CQStatusTerminating means the clusterQueue is in pending deletion.
+	// CQStatusTerminating 表示 ClusterQueue 正在等待删除。
 	CQStatusTerminating ClusterQueueStatus = "terminating"
 )
 
@@ -65,286 +56,287 @@ var (
 
 	AdmissionAttemptsTotal = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
-			Subsystem: constants.KueueName,
+			Subsystem: over_constants.KueueName,
 			Name:      "admission_attempts_total",
-			Help: `The total number of attempts to admit workloads.
-Each admission attempt might try to admit more than one workload.
-The label 'result' can have the following values:
-- 'success' means that at least one workload was admitted.,
-- 'inadmissible' means that no workload was admitted.`,
+			Help: `尝试接收 workload 的总次数。
+每次尝试可能会接收多个 workload。
+标签 'result' 可能的取值：
+- 'success'：至少有一个 workload 被接收。
+- 'inadmissible'：没有 workload 被接收。`,
 		}, []string{"result"},
 	)
 
 	admissionAttemptDuration = prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
-			Subsystem: constants.KueueName,
+			Subsystem: over_constants.KueueName,
 			Name:      "admission_attempt_duration_seconds",
-			Help: `The latency of an admission attempt.
-The label 'result' can have the following values:
-- 'success' means that at least one workload was admitted.,
-- 'inadmissible' means that no workload was admitted.`,
+			Help: `一次接收尝试的延迟。
+标签 'result' 可能的取值：
+- 'success'：至少有一个 workload 被接收。
+- 'inadmissible'：没有 workload 被接收。`,
 		}, []string{"result"},
 	)
 
 	AdmissionCyclePreemptionSkips = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
-			Subsystem: constants.KueueName,
+			Subsystem: over_constants.KueueName,
 			Name:      "admission_cycle_preemption_skips",
-			Help: "The number of Workloads in the ClusterQueue that got preemption candidates " +
-				"but had to be skipped because other ClusterQueues needed the same resources in the same cycle",
+			Help:      "ClusterQueue 中获得抢占候选但因同一周期内其他 ClusterQueue 也需要相同资源而被跳过的 Workload 数量。",
 		}, []string{"cluster_queue"},
 	)
 
 	// Metrics tied to the queue system.
+	// 与队列系统相关的指标。
 
 	PendingWorkloads = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
-			Subsystem: constants.KueueName,
+			Subsystem: over_constants.KueueName,
 			Name:      "pending_workloads",
-			Help: `The number of pending workloads, per 'cluster_queue' and 'status'.
-'status' can have the following values:
-- "active" means that the workloads are in the admission queue.
-- "inadmissible" means there was a failed admission attempt for these workloads and they won't be retried until cluster conditions, which could make this workload admissible, change`,
+			Help: `每个 'cluster_queue' 和 'status' 下的待处理 workload 数量。
+'status' 可能的取值：
+- "active"：workload 在接收队列中。
+- "inadmissible"：这些 workload 的接收尝试失败，只有当集群条件变化使其可接收时才会重试。`,
 		}, []string{"cluster_queue", "status"},
 	)
 
 	LocalQueuePendingWorkloads = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
-			Subsystem: constants.KueueName,
+			Subsystem: over_constants.KueueName,
 			Name:      "local_queue_pending_workloads",
-			Help: `The number of pending workloads, per 'local_queue' and 'status'.
-'status' can have the following values:
-- "active" means that the workloads are in the admission queue.
-- "inadmissible" means there was a failed admission attempt for these workloads and they won't be retried until cluster conditions, which could make this workload admissible, change`,
+			Help: `每个 'local_queue' 和 'status' 下的待处理 workload 数量。
+'status' 可能的取值：
+- "active"：workload 在接收队列中。
+- "inadmissible"：这些 workload 的接收尝试失败，只有当集群条件变化使其可接收时才会重试。`,
 		}, []string{"name", "namespace", "status"},
 	)
 
 	QuotaReservedWorkloadsTotal = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
-			Subsystem: constants.KueueName,
+			Subsystem: over_constants.KueueName,
 			Name:      "quota_reserved_workloads_total",
-			Help:      "The total number of quota reserved workloads per 'cluster_queue'",
+			Help:      "每个 'cluster_queue' 下被预留配额的 workload 总数。",
 		}, []string{"cluster_queue"},
 	)
 
 	LocalQueueQuotaReservedWorkloadsTotal = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
-			Subsystem: constants.KueueName,
+			Subsystem: over_constants.KueueName,
 			Name:      "local_queue_quota_reserved_workloads_total",
-			Help:      "The total number of quota reserved workloads per 'local_queue'",
+			Help:      "每个 'local_queue' 下被预留配额的 workload 总数。",
 		}, []string{"name", "namespace"},
 	)
 
 	quotaReservedWaitTime = prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
-			Subsystem: constants.KueueName,
+			Subsystem: over_constants.KueueName,
 			Name:      "quota_reserved_wait_time_seconds",
-			Help:      "The time between a workload was created or requeued until it got quota reservation, per 'cluster_queue'",
+			Help:      "每个 'cluster_queue' 下，workload 从创建或重新排队到获得配额预留的时间。",
 			Buckets:   generateExponentialBuckets(14),
 		}, []string{"cluster_queue"},
 	)
 
 	localQueueQuotaReservedWaitTime = prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
-			Subsystem: constants.KueueName,
+			Subsystem: over_constants.KueueName,
 			Name:      "local_queue_quota_reserved_wait_time_seconds",
-			Help:      "The time between a workload was created or requeued until it got quota reservation, per 'local_queue'",
+			Help:      "每个 'local_queue' 下，workload 从创建或重新排队到获得配额预留的时间。",
 			Buckets:   generateExponentialBuckets(14),
 		}, []string{"name", "namespace"},
 	)
 
 	AdmittedWorkloadsTotal = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
-			Subsystem: constants.KueueName,
+			Subsystem: over_constants.KueueName,
 			Name:      "admitted_workloads_total",
-			Help:      "The total number of admitted workloads per 'cluster_queue'",
+			Help:      "每个 'cluster_queue' 下已接收的 workload 总数。",
 		}, []string{"cluster_queue"},
 	)
 
 	LocalQueueAdmittedWorkloadsTotal = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
-			Subsystem: constants.KueueName,
+			Subsystem: over_constants.KueueName,
 			Name:      "local_queue_admitted_workloads_total",
-			Help:      "The total number of admitted workloads per 'local_queue'",
+			Help:      "每个 'local_queue' 下已接收的 workload 总数。",
 		}, []string{"name", "namespace"},
 	)
 
 	admissionWaitTime = prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
-			Subsystem: constants.KueueName,
+			Subsystem: over_constants.KueueName,
 			Name:      "admission_wait_time_seconds",
-			Help:      "The time between a workload was created or requeued until admission, per 'cluster_queue'",
+			Help:      "每个 'cluster_queue' 下，workload 从创建或重新排队到被接收的时间。",
 			Buckets:   generateExponentialBuckets(14),
 		}, []string{"cluster_queue"},
 	)
 
 	queuedUntilReadyWaitTime = prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
-			Subsystem: constants.KueueName,
+			Subsystem: over_constants.KueueName,
 			Name:      "ready_wait_time_seconds",
-			Help:      "The time between a workload was created or requeued until ready, per 'cluster_queue'",
+			Help:      "每个 'cluster_queue' 下，workload 从创建或重新排队到 ready 的时间。",
 			Buckets:   generateExponentialBuckets(14),
 		}, []string{"cluster_queue"},
 	)
 
 	admittedUntilReadyWaitTime = prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
-			Subsystem: constants.KueueName,
+			Subsystem: over_constants.KueueName,
 			Name:      "admitted_until_ready_wait_time_seconds",
-			Help:      "The time between a workload was admitted until ready, per 'cluster_queue'",
+			Help:      "每个 'cluster_queue' 下，workload 从被接收到 ready 的时间。",
 			Buckets:   generateExponentialBuckets(14),
 		}, []string{"cluster_queue"},
 	)
 
 	localQueueAdmissionWaitTime = prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
-			Subsystem: constants.KueueName,
+			Subsystem: over_constants.KueueName,
 			Name:      "local_queue_admission_wait_time_seconds",
-			Help:      "The time between a workload was created or requeued until admission, per 'local_queue'",
+			Help:      "每个 'local_queue' 下，workload 从创建或重新排队到被接收的时间。",
 			Buckets:   generateExponentialBuckets(14),
 		}, []string{"name", "namespace"},
 	)
 
 	admissionChecksWaitTime = prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
-			Subsystem: constants.KueueName,
+			Subsystem: over_constants.KueueName,
 			Name:      "admission_checks_wait_time_seconds",
-			Help:      "The time from when a workload got the quota reservation until admission, per 'cluster_queue'",
+			Help:      "每个 'cluster_queue' 下，workload 获得配额预留到被接收的时间。",
 			Buckets:   generateExponentialBuckets(14),
 		}, []string{"cluster_queue"},
 	)
 
 	localQueueAdmissionChecksWaitTime = prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
-			Subsystem: constants.KueueName,
+			Subsystem: over_constants.KueueName,
 			Name:      "local_queue_admission_checks_wait_time_seconds",
-			Help:      "The time from when a workload got the quota reservation until admission, per 'local_queue'",
+			Help:      "每个 'local_queue' 下，workload 获得配额预留到被接收的时间。",
 			Buckets:   generateExponentialBuckets(14),
 		}, []string{"name", "namespace"},
 	)
 
 	localQueueQueuedUntilReadyWaitTime = prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
-			Subsystem: constants.KueueName,
+			Subsystem: over_constants.KueueName,
 			Name:      "local_queue_ready_wait_time_seconds",
-			Help:      "The time between a workload was created or requeued until ready, per 'local_queue'",
+			Help:      "每个 'local_queue' 下，workload 从创建或重新排队到 ready 的时间。",
 			Buckets:   generateExponentialBuckets(14),
 		}, []string{"name", "namespace"},
 	)
 
 	localQueueAdmittedUntilReadyWaitTime = prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
-			Subsystem: constants.KueueName,
+			Subsystem: over_constants.KueueName,
 			Name:      "local_queue_admitted_until_ready_wait_time_seconds",
-			Help:      "The time between a workload was admitted until ready, per 'local_queue'",
+			Help:      "每个 'local_queue' 下，workload 从被接收到 ready 的时间。",
 			Buckets:   generateExponentialBuckets(14),
 		}, []string{"name", "namespace"},
 	)
 
 	EvictedWorkloadsTotal = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
-			Subsystem: constants.KueueName,
+			Subsystem: over_constants.KueueName,
 			Name:      "evicted_workloads_total",
-			Help: `The number of evicted workloads per 'cluster_queue',
-The label 'reason' can have the following values:
-- "Preempted" means that the workload was evicted in order to free resources for a workload with a higher priority or reclamation of nominal quota.
-- "PodsReadyTimeout" means that the eviction took place due to a PodsReady timeout.
-- "AdmissionCheck" means that the workload was evicted because at least one admission check transitioned to False.
-- "ClusterQueueStopped" means that the workload was evicted because the ClusterQueue is stopped.
-- "Deactivated" means that the workload was evicted because spec.active is set to false`,
+			Help: `每个 'cluster_queue' 下被驱逐的 workload 数量。
+标签 'reason' 可能的取值：
+- "Preempted"：为更高优先级 workload 或名义配额回收释放资源而驱逐。
+- "PodsReadyTimeout"：因 PodsReady 超时而驱逐。
+- "AdmissionCheck"：因至少一个 admission check 变为 False 而驱逐。
+- "ClusterQueueStopped"：因 ClusterQueue 停止而驱逐。
+- "Deactivated"：因 spec.active 设为 false 而驱逐。`,
 		}, []string{"cluster_queue", "reason"},
 	)
 
 	LocalQueueEvictedWorkloadsTotal = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
-			Subsystem: constants.KueueName,
+			Subsystem: over_constants.KueueName,
 			Name:      "local_queue_evicted_workloads_total",
-			Help: `The number of evicted workloads per 'local_queue',
-The label 'reason' can have the following values:
-- "Preempted" means that the workload was evicted in order to free resources for a workload with a higher priority or reclamation of nominal quota.
-- "PodsReadyTimeout" means that the eviction took place due to a PodsReady timeout.
-- "AdmissionCheck" means that the workload was evicted because at least one admission check transitioned to False.
-- "ClusterQueueStopped" means that the workload was evicted because the ClusterQueue is stopped.
-- "Deactivated" means that the workload was evicted because spec.active is set to false`,
+			Help: `每个 'local_queue' 下被驱逐的 workload 数量。
+标签 'reason' 可能的取值：
+- "Preempted"：为更高优先级 workload 或名义配额回收释放资源而驱逐。
+- "PodsReadyTimeout"：因 PodsReady 超时而驱逐。
+- "AdmissionCheck"：因至少一个 admission check 变为 False 而驱逐。
+- "ClusterQueueStopped"：因 ClusterQueue 停止而驱逐。
+- "Deactivated"：因 spec.active 设为 false 而驱逐。`,
 		}, []string{"name", "namespace", "reason"},
 	)
 
 	EvictedWorkloadsOnceTotal = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
-			Subsystem: constants.KueueName,
+			Subsystem: over_constants.KueueName,
 			Name:      "evicted_workloads_once_total",
-			Help: `The number of unique workload evictions per 'cluster_queue',
-The label 'reason' can have the following values:
-- "Preempted" means that the workload was evicted in order to free resources for a workload with a higher priority or reclamation of nominal quota.
-- "PodsReadyTimeout" means that the eviction took place due to a PodsReady timeout.
-- "AdmissionCheck" means that the workload was evicted because at least one admission check transitioned to False.
-- "ClusterQueueStopped" means that the workload was evicted because the ClusterQueue is stopped.
-- "Deactivated" means that the workload was evicted because spec.active is set to false`,
+			Help: `每个 'cluster_queue' 下唯一 workload 驱逐的数量。
+标签 'reason' 可能的取值：
+- "Preempted"：为更高优先级 workload 或名义配额回收释放资源而驱逐。
+- "PodsReadyTimeout"：因 PodsReady 超时而驱逐。
+- "AdmissionCheck"：因至少一个 admission check 变为 False 而驱逐。
+- "ClusterQueueStopped"：因 ClusterQueue 停止而驱逐。
+- "Deactivated"：因 spec.active 设为 false 而驱逐。`,
 		}, []string{"cluster_queue", "reason", "detailed_reason"},
 	)
 
 	PreemptedWorkloadsTotal = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
-			Subsystem: constants.KueueName,
+			Subsystem: over_constants.KueueName,
 			Name:      "preempted_workloads_total",
-			Help: `The number of preempted workloads per 'preempting_cluster_queue',
-The label 'reason' can have the following values:
-- "InClusterQueue" means that the workload was preempted by a workload in the same ClusterQueue.
-- "InCohortReclamation" means that the workload was preempted by a workload in the same cohort due to reclamation of nominal quota.
-- "InCohortFairSharing" means that the workload was preempted by a workload in the same cohort Fair Sharing.
-- "InCohortReclaimWhileBorrowing" means that the workload was preempted by a workload in the same cohort due to reclamation of nominal quota while borrowing.`,
+			Help: `每个 'preempting_cluster_queue' 下被抢占的 workload 数量。
+标签 'reason' 可能的取值：
+- "InClusterQueue"：被同一 ClusterQueue 中的 workload 抢占。
+- "InCohortReclamation"：被同一 cohort 中因名义配额回收的 workload 抢占。
+- "InCohortFairSharing"：被同一 cohort 中因公平共享的 workload 抢占。
+- "InCohortReclaimWhileBorrowing"：被同一 cohort 中因借用时名义配额回收的 workload 抢占。`,
 		}, []string{"preempting_cluster_queue", "reason"},
 	)
 
 	// Metrics tied to the cache.
+	// 与缓存相关的指标。
 
 	ReservingActiveWorkloads = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
-			Subsystem: constants.KueueName,
+			Subsystem: over_constants.KueueName,
 			Name:      "reserving_active_workloads",
-			Help:      "The number of Workloads that are reserving quota, per 'cluster_queue'",
+			Help:      "每个 'cluster_queue' 下正在预留配额的 workload 数量。",
 		}, []string{"cluster_queue"},
 	)
 
 	LocalQueueReservingActiveWorkloads = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
-			Subsystem: constants.KueueName,
+			Subsystem: over_constants.KueueName,
 			Name:      "local_queue_reserving_active_workloads",
-			Help:      "The number of Workloads that are reserving quota, per 'localQueue'",
+			Help:      "每个 'localQueue' 下正在预留配额的 workload 数量。",
 		}, []string{"name", "namespace"},
 	)
 
 	AdmittedActiveWorkloads = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
-			Subsystem: constants.KueueName,
+			Subsystem: over_constants.KueueName,
 			Name:      "admitted_active_workloads",
-			Help:      "The number of admitted Workloads that are active (unsuspended and not finished), per 'cluster_queue'",
+			Help:      "每个 'cluster_queue' 下已接收且活跃的 workload 数量。",
 		}, []string{"cluster_queue"},
 	)
 
 	LocalQueueAdmittedActiveWorkloads = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
-			Subsystem: constants.KueueName,
+			Subsystem: over_constants.KueueName,
 			Name:      "local_queue_admitted_active_workloads",
-			Help:      "The number of admitted Workloads that are active (unsuspended and not finished), per 'localQueue'",
+			Help:      "每个 'localQueue' 下已接收且活跃的 workload 数量。",
 		}, []string{"name", "namespace"},
 	)
 
 	ClusterQueueByStatus = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
-			Subsystem: constants.KueueName,
+			Subsystem: over_constants.KueueName,
 			Name:      "cluster_queue_status",
-			Help: `Reports 'cluster_queue' with its 'status' (with possible values 'pending', 'active' or 'terminated').
-For a ClusterQueue, the metric only reports a value of 1 for one of the statuses.`,
+			Help: `报告 'cluster_queue' 及其 'status' (可能值 'pending', 'active' 或 'terminated')。
+对于 ClusterQueue，指标只报告一个状态值为 1。`,
 		}, []string{"cluster_queue", "status"},
 	)
 
 	LocalQueueByStatus = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
-			Subsystem: constants.KueueName,
+			Subsystem: over_constants.KueueName,
 			Name:      "local_queue_status",
-			Help: `Reports 'localQueue' with its 'active' status (with possible values 'True', 'False', or 'Unknown').
-For a LocalQueue, the metric only reports a value of 1 for one of the statuses.`,
+			Help: `报告 'localQueue' 及其 'active' 状态 (可能值 'True', 'False', 或 'Unknown')。
+对于 LocalQueue，指标只报告一个状态值为 1。`,
 		}, []string{"name", "namespace", "active"},
 	)
 
@@ -352,83 +344,81 @@ For a LocalQueue, the metric only reports a value of 1 for one of the statuses.`
 
 	ClusterQueueResourceReservations = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
-			Subsystem: constants.KueueName,
+			Subsystem: over_constants.KueueName,
 			Name:      "cluster_queue_resource_reservation",
-			Help:      `Reports the cluster_queue's total resource reservation within all the flavors`,
+			Help:      `报告 ClusterQueue 所有 flavor 的总资源预留。`,
 		}, []string{"cohort", "cluster_queue", "flavor", "resource"},
 	)
 
 	ClusterQueueResourceUsage = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
-			Subsystem: constants.KueueName,
+			Subsystem: over_constants.KueueName,
 			Name:      "cluster_queue_resource_usage",
-			Help:      `Reports the cluster_queue's total resource usage within all the flavors`,
+			Help:      `报告 ClusterQueue 所有 flavor 的总资源使用。`,
 		}, []string{"cohort", "cluster_queue", "flavor", "resource"},
 	)
 
 	LocalQueueResourceReservations = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
-			Subsystem: constants.KueueName,
+			Subsystem: over_constants.KueueName,
 			Name:      "local_queue_resource_reservation",
-			Help:      `Reports the localQueue's total resource reservation within all the flavors`,
+			Help:      `报告 LocalQueue 所有 flavor 的总资源预留。`,
 		}, []string{"name", "namespace", "flavor", "resource"},
 	)
 
 	LocalQueueResourceUsage = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
-			Subsystem: constants.KueueName,
+			Subsystem: over_constants.KueueName,
 			Name:      "local_queue_resource_usage",
-			Help:      `Reports the localQueue's total resource usage within all the flavors`,
+			Help:      `报告 LocalQueue 所有 flavor 的总资源使用。`,
 		}, []string{"name", "namespace", "flavor", "resource"},
 	)
 
 	ClusterQueueResourceNominalQuota = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
-			Subsystem: constants.KueueName,
+			Subsystem: over_constants.KueueName,
 			Name:      "cluster_queue_nominal_quota",
-			Help:      `Reports the cluster_queue's resource nominal quota within all the flavors`,
+			Help:      `报告 ClusterQueue 所有 flavor 的名义配额。`,
 		}, []string{"cohort", "cluster_queue", "flavor", "resource"},
 	)
 
 	ClusterQueueResourceBorrowingLimit = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
-			Subsystem: constants.KueueName,
+			Subsystem: over_constants.KueueName,
 			Name:      "cluster_queue_borrowing_limit",
-			Help:      `Reports the cluster_queue's resource borrowing limit within all the flavors`,
+			Help:      `报告 ClusterQueue 所有 flavor 的借用限制。`,
 		}, []string{"cohort", "cluster_queue", "flavor", "resource"},
 	)
 
 	ClusterQueueResourceLendingLimit = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
-			Subsystem: constants.KueueName,
+			Subsystem: over_constants.KueueName,
 			Name:      "cluster_queue_lending_limit",
-			Help:      `Reports the cluster_queue's resource lending limit within all the flavors`,
+			Help:      `报告 ClusterQueue 所有 flavor 的借出限制。`,
 		}, []string{"cohort", "cluster_queue", "flavor", "resource"},
 	)
 
 	ClusterQueueWeightedShare = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
-			Subsystem: constants.KueueName,
+			Subsystem: over_constants.KueueName,
 			Name:      "cluster_queue_weighted_share",
-			Help: `Reports a value that representing the maximum of the ratios of usage above nominal 
-quota to the lendable resources in the cohort, among all the resources provided by 
-the ClusterQueue, and divided by the weight.
-If zero, it means that the usage of the ClusterQueue is below the nominal quota.
-If the ClusterQueue has a weight of zero and is borrowing, this will return 9223372036854775807,
-the maximum possible share value.`,
+			Help: `报告一个值，该值表示使用量超过名义配额与可借出资源的比例，
+在 ClusterQueue 提供的所有资源中，除以权重。
+如果为零，则表示 ClusterQueue 的使用量低于名义配额。
+如果 ClusterQueue 权重为零且正在借用，这将返回 9223372036854775807，
+这是可能的最大共享值。`,
 		}, []string{"cluster_queue"},
 	)
 
 	CohortWeightedShare = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
-			Subsystem: constants.KueueName,
+			Subsystem: over_constants.KueueName,
 			Name:      "cohort_weighted_share",
-			Help: `Reports a value that representing the maximum of the ratios of usage above nominal 
-quota to the lendable resources in the Cohort, among all the resources provided by 
-the Cohort, and divided by the weight.
-If zero, it means that the usage of the Cohort is below the nominal quota.
-If the Cohort has a weight of zero and is borrowing, this will return 9223372036854775807,
-the maximum possible share value.`,
+			Help: `报告一个值，该值表示使用量超过名义配额与可借出资源的比例，
+在 cohort 提供的所有资源中，除以权重。
+如果为零，则表示 cohort 的使用量低于名义配额。
+如果 cohort 权重为零且正在借用，这将返回 9223372036854775807，
+这是可能的最大共享值。`,
 		}, []string{"cohort"},
 	)
 )

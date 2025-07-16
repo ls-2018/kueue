@@ -1,19 +1,3 @@
-/*
-Copyright The Kubernetes Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package features
 
 import (
@@ -29,151 +13,76 @@ import (
 )
 
 const (
-	// owner: @trasc
-	// kep: https://github.com/kubernetes-sigs/kueue/tree/main/keps/420-partial-admission
-	//
-	// Enables partial admission.
+	// 启用部分准入。
 	PartialAdmission featuregate.Feature = "PartialAdmission"
 
-	// owner: @stuton
-	// kep: https://github.com/kubernetes-sigs/kueue/tree/main/keps/168-pending-workloads-visibility
-	//
-	// Enables queue visibility.
+	// 启用队列可见性。
 	QueueVisibility featuregate.Feature = "QueueVisibility"
 
-	// owner: @KunWuLuan
-	// kep: https://github.com/kubernetes-sigs/kueue/tree/main/keps/582-preempt-based-on-flavor-order
-	//
-	// Enables flavor fungibility.
+	// 启用Flavor可替代性。
 	FlavorFungibility featuregate.Feature = "FlavorFungibility"
 
-	// owner: @trasc
-	// kep: https://github.com/kubernetes-sigs/kueue/tree/main/keps/1136-provisioning-request-support
-	//
-	// Enables Provisioning Admission Check Controller.
+	// 启用供应准入检查控制器。
 	ProvisioningACC featuregate.Feature = "ProvisioningACC"
 
-	// owner: @pbundyra
-	// kep: https://github.com/kubernetes-sigs/kueue/tree/main/keps/168-2-pending-workloads-visibility
-	//
-	// Enables Kueue visibility on demand
+	// 启用按需 Kueue 可见性
 	VisibilityOnDemand featuregate.Feature = "VisibilityOnDemand"
 
-	// owner: @yaroslava-serdiuk
-	// kep: https://github.com/kubernetes-sigs/kueue/issues/1283
-	//
-	// Enable priority sorting within the cohort.
+	// 启用队列组内的优先级排序。
 	PrioritySortingWithinCohort featuregate.Feature = "PrioritySortingWithinCohort"
 
-	// owner: @trasc
-	// kep: https://github.com/kubernetes-sigs/kueue/tree/main/keps/693-multikueue
-	//
-	// Enables MultiKueue support.
+	// 启用 MultiKueue 支持。
 	MultiKueue featuregate.Feature = "MultiKueue"
 
-	// owners: @B1F030, @kerthcet
-	// kep: https://github.com/kubernetes-sigs/kueue/tree/main/keps/1224-lending-limit
-	//
-	// Enables lending limit.
+	// 启用借贷限额。
 	LendingLimit featuregate.Feature = "LendingLimit"
 
-	// owner: @trasc
-	// kep: https://github.com/kubernetes-sigs/kueue/tree/main/keps/693-multikueue
-	//
-	// Enable the usage of batch.Job spec.managedBy field its MultiKueue integration.
+	// 启用 batch.Job spec.managedBy 字段在 MultiKueue 集成中的使用。
 	MultiKueueBatchJobWithManagedBy featuregate.Feature = "MultiKueueBatchJobWithManagedBy"
 
-	// owner: @gabesaba
-	// kep: https://github.com/kubernetes-sigs/kueue/issues/2596
-	//
-	// Enable more than one workload sharing flavors to preempt within a Cohort,
-	// as long as the preemption targets don't overlap.
+	// 允许一个以上的 Workload 在队列组内共享风味进行抢占，只要抢占目标不重叠。
 	MultiplePreemptions featuregate.Feature = "MultiplePreemptions"
 
-	// owner: @mimowo
-	//
-	// Enable Topology Aware Scheduling allowing to optimize placement of Pods
-	// to put them on closely located nodes (e.g. within the same rack or block).
+	// 启用拓扑感知调度，允许优化 Pod 的放置，使其位于相邻节点（如同一机架或区块）上。
 	TopologyAwareScheduling featuregate.Feature = "TopologyAwareScheduling"
 
-	// owner: @dgrove-oss
-	// kep: https://github.com/kubernetes-sigs/kueue/tree/main/keps/2937-resource-transformer
-	//
-	// Enable applying configurable resource transformations when computing
-	// the resource requests of a Workload
+	// 启用在计算 Workload 资源请求时应用可配置的资源转换。
 	ConfigurableResourceTransformations featuregate.Feature = "ConfigurableResourceTransformations"
 
-	// owner: @dgrove-oss
-	// kep: https://github.com/kubernetes-sigs/kueue/tree/main/keps/2937-resource-transformer
-	//
-	// Summarize the resource requests of non-admitted Workloads in Workload.Status.resourceRequest
-	// to improve observability
+	// 汇总未准入 Workload 的资源请求到 Workload.Status.resourceRequest 字段，以提升可观测性。
 	WorkloadResourceRequestsSummary featuregate.Feature = "WorkloadResourceRequestsSummary"
 
-	// owner: @mbobrovskyi
-	//
-	// Enable the Flavors status field in the LocalQueue, allowing users to view
-	// all currently available ResourceFlavors for the LocalQueue.
+	// 启用 LocalQueue 的 Flavors 状态字段，允许用户查看 LocalQueue 当前可用的所有 ResourceFlavors。
 	ExposeFlavorsInLocalQueue featuregate.Feature = "ExposeFlavorsInLocalQueue"
 
-	// owner: @dgrove-oss
-	// kep: https://github.com/kubernetes-sigs/kueue/tree/main/keps/3589-manage-jobs-selectively
-	//
-	// Enable namespace-based control of manageJobsWithoutQueueNames for all Job integrations
+	// 启用基于命名空间的 manageJobsWithoutQueueNames 控制，适用于所有 Job 集成。
 	ManagedJobsNamespaceSelector featuregate.Feature = "ManagedJobsNamespaceSelector"
 
-	// owner: @kpostoffice
-	// kep: https://github.com/kubernetes-sigs/kueue/tree/main/keps/1833-metrics-for-local-queue
-	//
-	// Enabled gathering of LocalQueue metrics
+	// 启用收集 LocalQueue 指标。
 	LocalQueueMetrics featuregate.Feature = "LocalQueueMetrics"
 
-	// owner: @yaroslava-serdiuk
-	// kep: https://github.com/kubernetes-sigs/kueue/tree/main/keps/2936-local-queue-defaulting
-	//
-	// Enable to set default LocalQueue.
+	// 启用设置默认 LocalQueue。
 	LocalQueueDefaulting featuregate.Feature = "LocalQueueDefaulting"
 
-	// owner: @pbundyra
-	// kep: https://github.com/kubernetes-sigs/kueue/tree/main/keps/2724-topology-aware-scheduling
-	//
-	// Enable to set use LeastFreeCapacity algorithm for TAS
+	// 启用为 TAS 使用 LeastFreeCapacity 算法。
 	TASProfileLeastFreeCapacity featuregate.Feature = "TASProfileLeastFreeCapacity"
 
-	// owner: @pbundyra
-	// kep: https://github.com/kubernetes-sigs/kueue/tree/main/keps/2724-topology-aware-scheduling
-	//
-	// Enable to set use Mixed algorithm (BestFit or LeastFreeCapacity) for TAS which switch the algorithm based on TAS requirements level.
+	// 启用为 TAS 使用混合算法（BestFit 或 LeastFreeCapacity），根据 TAS 需求级别切换算法。
 	TASProfileMixed featuregate.Feature = "TASProfileMixed"
 
-	// owner: @mwielgus
-	// kep: https://github.com/kubernetes-sigs/kueue/tree/main/keps/79-hierarchical-cohorts
-	//
-	// Enable hierarchical cohorts
+	// 启用分层队列组。
 	HierarchicalCohorts featuregate.Feature = "HierarchicalCohorts"
 
-	// owner: @pbundyra
-	// kep: https://github.com/kubernetes-sigs/kueue/tree/main/keps/4136-admission-fair-sharing
-	//
-	// Enable admission fair sharing
+	// 启用准入公平共享。
 	AdmissionFairSharing featuregate.Feature = "AdmissionFairSharing"
 
-	// owner: @mwysokin @mykysha @mbobrovskyi
-	// kep: https://github.com/kubernetes-sigs/kueue/tree/main/keps/1618-optional-gc-of-workloads
-	//
-	// Enable object retentions
+	// 启用对象保留策略。
 	ObjectRetentionPolicies featuregate.Feature = "ObjectRetentionPolicies"
 
-	// owner: @pajakd
-	// kep: https://github.com/kubernetes-sigs/kueue/tree/main/keps/2724-topology-aware-scheduling
-	//
-	// Enable replacement of failed node in TAS.
+	// 启用 TAS 中失败节点的替换。
 	TASFailedNodeReplacement featuregate.Feature = "TASFailedNodeReplacement"
 
-	// owner: @pbundyra
-	// kep: https://github.com/kubernetes-sigs/kueue/tree/main/keps/2724-topology-aware-scheduling
-	//
-	// Evict Workload if Kueue couldn't find replacement for a failed node in TAS in the first attempt.
+	// 如果 Kueue 在 TAS 中第一次尝试未能找到失败节点的替换，则驱逐 Workload。
 	TASFailedNodeReplacementFailFast featuregate.Feature = "TASFailedNodeReplacementFailFast"
 )
 

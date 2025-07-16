@@ -1,19 +1,3 @@
-/*
-Copyright The Kubernetes Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package priority
 
 import (
@@ -25,7 +9,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	kueue "sigs.k8s.io/kueue/apis/kueue/v1beta1"
-	"sigs.k8s.io/kueue/pkg/constants"
+	"sigs.k8s.io/kueue/pkg/over_constants"
 )
 
 // Priority returns priority of the given workload.
@@ -33,7 +17,7 @@ func Priority(w *kueue.Workload) int32 {
 	// When priority of a running workload is nil, it means it was created at a time
 	// that there was no global default priority class and the priority class
 	// name of the pod was empty. So, we resolve to the static default priority.
-	return ptr.Deref(w.Spec.Priority, constants.DefaultPriority)
+	return ptr.Deref(w.Spec.Priority, over_constants.DefaultPriority)
 }
 
 // GetPriorityFromPriorityClass returns the priority populated from
@@ -50,7 +34,7 @@ func GetPriorityFromPriorityClass(ctx context.Context, client client.Client,
 		return "", "", 0, err
 	}
 
-	return pc.Name, constants.PodPriorityClassSource, pc.Value, nil
+	return pc.Name, over_constants.PodPriorityClassSource, pc.Value, nil
 }
 
 // GetPriorityFromWorkloadPriorityClass returns the priority populated from
@@ -63,7 +47,7 @@ func GetPriorityFromWorkloadPriorityClass(ctx context.Context, client client.Cli
 	if err := client.Get(ctx, types.NamespacedName{Name: workloadPriorityClass}, wpc); err != nil {
 		return "", "", 0, err
 	}
-	return wpc.Name, constants.WorkloadPriorityClassSource, wpc.Value, nil
+	return wpc.Name, over_constants.WorkloadPriorityClassSource, wpc.Value, nil
 }
 
 func getDefaultPriority(ctx context.Context, client client.Client) (string, string, int32, error) {
@@ -72,9 +56,9 @@ func getDefaultPriority(ctx context.Context, client client.Client) (string, stri
 		return "", "", 0, err
 	}
 	if dpc != nil {
-		return dpc.Name, constants.PodPriorityClassSource, dpc.Value, nil
+		return dpc.Name, over_constants.PodPriorityClassSource, dpc.Value, nil
 	}
-	return "", "", int32(constants.DefaultPriority), nil
+	return "", "", int32(over_constants.DefaultPriority), nil
 }
 
 func getDefaultPriorityClass(ctx context.Context, client client.Client) (*schedulingv1.PriorityClass, error) {

@@ -1,19 +1,3 @@
-/*
-Copyright The Kubernetes Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package v1beta1
 
 import (
@@ -24,66 +8,60 @@ import (
 type ProvisioningRequestConfigPodSetMergePolicy string
 
 const (
-	// ProvisioningRequestControllerName is the name used by the Provisioning
-	// Request admission check controller.
+	// ProvisioningRequestControllerName 是 Provisioning Request 准入检查控制器使用的名称。
 	ProvisioningRequestControllerName = "kueue.x-k8s.io/provisioning-request"
 
 	IdenticalWorkloadSchedulingRequirements ProvisioningRequestConfigPodSetMergePolicy = "IdenticalWorkloadSchedulingRequirements"
 	IdenticalPodTemplates                   ProvisioningRequestConfigPodSetMergePolicy = "IdenticalPodTemplates"
 )
 
-// ProvisioningRequestConfigSpec defines the desired state of ProvisioningRequestConfig
+// ProvisioningRequestConfigSpec 定义了 ProvisioningRequestConfig 的期望状态
 type ProvisioningRequestConfigSpec struct {
-	// ProvisioningClassName describes the different modes of provisioning the resources.
-	// Check autoscaling.x-k8s.io ProvisioningRequestSpec.ProvisioningClassName for details.
+	// ProvisioningClassName 描述了资源调度的不同模式。
+	// 详情请参考 autoscaling.x-k8s.io ProvisioningRequestSpec.ProvisioningClassName。
 	//
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`
 	// +kubebuilder:validation:MaxLength=253
 	ProvisioningClassName string `json:"provisioningClassName"`
 
-	// Parameters contains all other parameters classes may require.
+	// Parameters 包含类可能需要的所有其他参数。
 	//
 	// +optional
 	// +kubebuilder:validation:MaxProperties=100
 	Parameters map[string]Parameter `json:"parameters,omitempty"`
 
-	// managedResources contains the list of resources managed by the autoscaling.
+	// managedResources 包含由自动扩缩容管理的资源列表。
 	//
-	// If empty, all resources are considered managed.
+	// 如果为空，则认为所有资源都被管理。
 	//
-	// If not empty, the ProvisioningRequest will contain only the podsets that are
-	// requesting at least one of them.
+	// 如果不为空，ProvisioningRequest 只会包含请求了其中至少一个资源的 podset。
 	//
-	// If none of the workloads podsets is requesting at least a managed resource,
-	// the workload is considered ready.
+	// 如果所有 workload 的 podset 都没有请求任何被管理的资源，则认为该 workload 已就绪。
 	//
 	// +optional
 	// +listType=set
 	// +kubebuilder:validation:MaxItems=100
 	ManagedResources []corev1.ResourceName `json:"managedResources,omitempty"`
 
-	// retryStrategy defines strategy for retrying ProvisioningRequest.
-	// If null, then the default configuration is applied with the following parameter values:
+	// retryStrategy 定义了重试 ProvisioningRequest 的策略。
+	// 如果为 null，则应用默认配置，参数如下：
 	// backoffLimitCount:  3
-	// backoffBaseSeconds: 60 - 1 min
-	// backoffMaxSeconds:  1800 - 30 mins
+	// backoffBaseSeconds: 60 - 1 分钟
+	// backoffMaxSeconds:  1800 - 30 分钟
 	//
-	// To switch off retry mechanism
-	// set retryStrategy.backoffLimitCount to 0.
+	// 若要关闭重试机制，将 retryStrategy.backoffLimitCount 设为 0。
 	//
 	// +optional
 	// +kubebuilder:default={backoffLimitCount:3,backoffBaseSeconds:60,backoffMaxSeconds:1800}
 	RetryStrategy *ProvisioningRequestRetryStrategy `json:"retryStrategy,omitempty"`
 
-	// podSetUpdates specifies the update of the workload's PodSetUpdates which
-	// are used to target the provisioned nodes.
+	// podSetUpdates 指定 workload 的 PodSetUpdates 更新，用于定位已调度节点。
 	//
 	// +optional
 	PodSetUpdates *ProvisioningRequestPodSetUpdates `json:"podSetUpdates,omitempty"`
 
-	// podSetMergePolicy specifies the policy for merging PodSets before being passed
-	// to the cluster autoscaler.
+	// podSetMergePolicy 指定在传递给集群自动扩缩容器前合并 PodSet 的策略。
 	//
 	// +optional
 	// +kubebuilder:validation:Enum=IdenticalPodTemplates;IdenticalWorkloadSchedulingRequirements
@@ -91,7 +69,7 @@ type ProvisioningRequestConfigSpec struct {
 }
 
 type ProvisioningRequestPodSetUpdates struct {
-	// nodeSelector specifies the list of updates for the NodeSelector.
+	// nodeSelector 指定 NodeSelector 的更新列表。
 	//
 	// +optional
 	// +kubebuilder:validation:MaxItems=8
@@ -99,7 +77,7 @@ type ProvisioningRequestPodSetUpdates struct {
 }
 
 type ProvisioningRequestPodSetUpdatesNodeSelector struct {
-	// key specifies the key for the NodeSelector.
+	// key 指定 NodeSelector 的键。
 	//
 	// +required
 	// +kubebuilder:validation:MinLength=1
@@ -107,9 +85,8 @@ type ProvisioningRequestPodSetUpdatesNodeSelector struct {
 	// +kubebuilder:validation:Pattern=`^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$`
 	Key string `json:"key"`
 
-	// valueFromProvisioningClassDetail specifies the key of the
-	// ProvisioningRequest.status.provisioningClassDetails from which the value
-	// is used for the update.
+	// valueFromProvisioningClassDetail 指定 ProvisioningRequest.status.provisioningClassDetails 的键，
+	// 其值用于更新。
 	//
 	// +required
 	// +kubebuilder:validation:MinLength=1
@@ -118,39 +95,37 @@ type ProvisioningRequestPodSetUpdatesNodeSelector struct {
 }
 
 type ProvisioningRequestRetryStrategy struct {
-	// BackoffLimitCount defines the maximum number of re-queuing retries.
-	// Once the number is reached, the workload is deactivated (`.spec.activate`=`false`).
+	// BackoffLimitCount 定义了最大重试次数。
+	// 达到该次数后，workload 会被停用（`.spec.activate`=`false`）。
 	//
-	// Every backoff duration is about "b*2^(n-1)+Rand" where:
-	// - "b" represents the base set by "BackoffBaseSeconds" parameter,
-	// - "n" represents the "workloadStatus.requeueState.count",
-	// - "Rand" represents the random jitter.
-	// During this time, the workload is taken as an inadmissible and
-	// other workloads will have a chance to be admitted.
-	// By default, the consecutive requeue delays are around: (60s, 120s, 240s, ...).
+	// 每次退避时间大约为 "b*2^(n-1)+Rand"，其中：
+	// - "b" 由 "BackoffBaseSeconds" 参数设定，
+	// - "n" 为 "workloadStatus.requeueState.count"，
+	// - "Rand" 为随机抖动。
+	// 在此期间，workload 被视为不可接受，其他 workload 有机会被调度。
+	// 默认连续重排队延迟约为：(60s, 120s, 240s, ...)。
 	//
-	// Defaults to 3.
+	// 默认值为 3。
 	// +optional
 	// +kubebuilder:default=3
 	BackoffLimitCount *int32 `json:"backoffLimitCount,omitempty"`
 
-	// BackoffBaseSeconds defines the base for the exponential backoff for
-	// re-queuing an evicted workload.
+	// BackoffBaseSeconds 定义了被驱逐 workload 重新排队的指数退避基数。
 	//
-	// Defaults to 60.
+	// 默认值为 60。
 	// +optional
 	// +kubebuilder:default=60
 	BackoffBaseSeconds *int32 `json:"backoffBaseSeconds,omitempty"`
 
-	// BackoffMaxSeconds defines the maximum backoff time to re-queue an evicted workload.
+	// BackoffMaxSeconds 定义了被驱逐 workload 重新排队的最大退避时间。
 	//
-	// Defaults to 1800.
+	// 默认值为 1800。
 	// +optional
 	// +kubebuilder:default=1800
 	BackoffMaxSeconds *int32 `json:"backoffMaxSeconds,omitempty"`
 }
 
-// Parameter is limited to 255 characters.
+// Parameter 限制为 255 个字符。
 // +kubebuilder:validation:MaxLength=255
 type Parameter string
 
@@ -160,7 +135,7 @@ type Parameter string
 // +kubebuilder:storageversion
 // +kubebuilder:resource:scope=Cluster
 
-// ProvisioningRequestConfig is the Schema for the provisioningrequestconfig API
+// ProvisioningRequestConfig 是 provisioningrequestconfig API 的 Schema
 type ProvisioningRequestConfig struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -170,7 +145,7 @@ type ProvisioningRequestConfig struct {
 
 // +kubebuilder:object:root=true
 
-// ProvisioningRequestConfigList contains a list of ProvisioningRequestConfig
+// ProvisioningRequestConfigList 包含 ProvisioningRequestConfig 的列表
 type ProvisioningRequestConfigList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`

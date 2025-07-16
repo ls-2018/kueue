@@ -22,8 +22,9 @@ spec:
     name: v1beta1
     schema:
       openAPIV3Schema:
-        description: WorkloadPriorityClass is the Schema for the workloadPriorityClass
-          API
+        description: |-
+          WorkloadPriorityClass is the Schema for the workloadPriorityClass API
+          WorkloadPriorityClass 是 workloadPriorityClass API 的模式定义
         properties:
           apiVersion:
             description: |-
@@ -36,6 +37,7 @@ spec:
             description: |-
               description is an arbitrary string that usually provides guidelines on
               when this workloadPriorityClass should be used.
+              description 是一个任意字符串，通常用于提供何时应使用此 workloadPriorityClass 的指导。
             type: string
           kind:
             description: |-
@@ -52,6 +54,8 @@ spec:
               value represents the integer value of this workloadPriorityClass. This is the actual priority that workloads
               receive when jobs have the name of this class in their workloadPriorityClass label.
               Changing the value of workloadPriorityClass doesn't affect the priority of workloads that were already created.
+              value 表示此 workloadPriorityClass 的整数值。这是当作业在其 workloadPriorityClass 标签中具有此类名称时，工作负载实际获得的优先级。
+              更改 workloadPriorityClass 的 value 不会影响已创建工作负载的优先级。
             format: int32
             type: integer
         required:

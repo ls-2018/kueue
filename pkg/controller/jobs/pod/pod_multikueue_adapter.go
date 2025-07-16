@@ -1,19 +1,3 @@
-/*
-Copyright The Kubernetes Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package pod
 
 import (
@@ -31,9 +15,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	kueue "sigs.k8s.io/kueue/apis/kueue/v1beta1"
-	"sigs.k8s.io/kueue/pkg/controller/constants"
 	"sigs.k8s.io/kueue/pkg/controller/jobframework"
 	podconstants "sigs.k8s.io/kueue/pkg/controller/jobs/pod/constants"
+	"sigs.k8s.io/kueue/pkg/controller/over_constants"
 	"sigs.k8s.io/kueue/pkg/util/api"
 	clientutil "sigs.k8s.io/kueue/pkg/util/client"
 )
@@ -110,7 +94,7 @@ func (*multiKueueAdapter) WorkloadKeyFor(o runtime.Object) (types.NamespacedName
 		return types.NamespacedName{}, errors.New("not a pod")
 	}
 
-	prebuiltWl, hasPrebuiltWorkload := pod.Labels[constants.PrebuiltWorkloadLabel]
+	prebuiltWl, hasPrebuiltWorkload := pod.Labels[over_constants.PrebuiltWorkloadLabel]
 	if !hasPrebuiltWorkload {
 		return types.NamespacedName{}, fmt.Errorf("no prebuilt workload found for pod: %s", klog.KObj(pod))
 	}
@@ -183,7 +167,7 @@ func syncLocalPodWithRemote(
 	if remotePod.Labels == nil {
 		remotePod.Labels = map[string]string{}
 	}
-	remotePod.Labels[constants.PrebuiltWorkloadLabel] = workloadName
+	remotePod.Labels[over_constants.PrebuiltWorkloadLabel] = workloadName
 	remotePod.Labels[kueue.MultiKueueOriginLabel] = origin
 
 	if err = remoteClient.Create(ctx, &remotePod); err != nil {

@@ -1,19 +1,3 @@
-/*
-Copyright The Kubernetes Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package tas
 
 import (
@@ -42,10 +26,10 @@ import (
 	configapi "sigs.k8s.io/kueue/apis/config/v1beta1"
 	kueuealpha "sigs.k8s.io/kueue/apis/kueue/v1alpha1"
 	kueue "sigs.k8s.io/kueue/apis/kueue/v1beta1"
-	"sigs.k8s.io/kueue/pkg/constants"
-	controllerconsts "sigs.k8s.io/kueue/pkg/controller/constants"
 	"sigs.k8s.io/kueue/pkg/controller/core"
-	"sigs.k8s.io/kueue/pkg/controller/tas/indexer"
+	controllerconsts "sigs.k8s.io/kueue/pkg/controller/over_constants"
+	"sigs.k8s.io/kueue/pkg/controller/tas/over_indexer"
+	"sigs.k8s.io/kueue/pkg/over_constants"
 	utilclient "sigs.k8s.io/kueue/pkg/util/client"
 	"sigs.k8s.io/kueue/pkg/util/expectations"
 	"sigs.k8s.io/kueue/pkg/util/parallelize"
@@ -149,7 +133,7 @@ func (h *podHandler) queueReconcileForPod(ctx context.Context, object client.Obj
 			log := ctrl.LoggerFrom(ctx).WithValues("pod", klog.KObj(pod), "workload", key.String())
 			h.expectationsStore.ObservedUID(log, key, pod.UID)
 		}
-		q.AddAfter(reconcile.Request{NamespacedName: key}, constants.UpdatesBatchPeriod)
+		q.AddAfter(reconcile.Request{NamespacedName: key}, over_constants.UpdatesBatchPeriod)
 	}
 }
 
@@ -249,7 +233,7 @@ func (r *topologyUngater) podsForPodSet(ctx context.Context, ns, wlName string, 
 	if err := r.client.List(ctx, &pods, client.InNamespace(ns), client.MatchingLabels{
 		controllerconsts.PodSetLabel: string(psName),
 	}, client.MatchingFields{
-		indexer.WorkloadNameKey: wlName,
+		over_indexer.WorkloadNameKey: wlName,
 	}); err != nil {
 		return nil, err
 	}

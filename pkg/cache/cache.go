@@ -1,31 +1,15 @@
-/*
-Copyright The Kubernetes Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package cache
 
 import (
 	"context"
 	"errors"
 	"fmt"
+	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	"sort"
 	"sync"
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
-	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -36,7 +20,7 @@ import (
 	config "sigs.k8s.io/kueue/apis/config/v1beta1"
 	kueuealpha "sigs.k8s.io/kueue/apis/kueue/v1alpha1"
 	kueue "sigs.k8s.io/kueue/apis/kueue/v1beta1"
-	utilindexer "sigs.k8s.io/kueue/pkg/controller/core/indexer"
+	utilindexer "sigs.k8s.io/kueue/pkg/controller/core/over_indexer"
 	"sigs.k8s.io/kueue/pkg/features"
 	"sigs.k8s.io/kueue/pkg/hierarchy"
 	"sigs.k8s.io/kueue/pkg/metrics"
@@ -66,12 +50,11 @@ type options struct {
 	admissionFairSharing *config.AdmissionFairSharing
 }
 
-// Option configures the reconciler.
+// Option 用于配置调谐器。
 type Option func(*options)
 
-// WithPodsReadyTracking indicates the cache controller tracks the PodsReady
-// condition for admitted workloads, and allows to block admission of new
-// workloads until all admitted workloads are in the PodsReady condition.
+// WithPodsReadyTracking 表示缓存控制器会跟踪已接收工作负载的 PodsReady 条件，
+// 并允许在所有已接收工作负载都处于 PodsReady 条件之前，阻止新工作负载的接收。
 func WithPodsReadyTracking(f bool) Option {
 	return func(o *options) {
 		o.podsReadyTracking = f
@@ -84,7 +67,7 @@ func WithExcludedResourcePrefixes(excludedPrefixes []string) Option {
 	}
 }
 
-// WithResourceTransformations sets the resource transformations.
+// WithResourceTransformations 设置资源转换。
 func WithResourceTransformations(transforms []config.ResourceTransformation) Option {
 	return func(o *options) {
 		o.workloadInfoOptions = append(o.workloadInfoOptions, workload.WithResourceTransformations(transforms))
@@ -104,46 +87,6 @@ func WithAdmissionFairSharing(afs *config.AdmissionFairSharing) Option {
 }
 
 var defaultOptions = options{}
-
-// Cache keeps track of the Workloads that got admitted through ClusterQueues.
-type Cache struct {
-	sync.RWMutex
-	podsReadyCond sync.Cond
-
-	client               client.Client
-	assumedWorkloads     map[workload.Reference]kueue.ClusterQueueReference
-	resourceFlavors      map[kueue.ResourceFlavorReference]*kueue.ResourceFlavor
-	podsReadyTracking    bool
-	admissionChecks      map[kueue.AdmissionCheckReference]AdmissionCheck
-	workloadInfoOptions  []workload.InfoOption
-	fairSharingEnabled   bool
-	admissionFairSharing *config.AdmissionFairSharing
-
-	hm hierarchy.Manager[*clusterQueue, *cohort]
-
-	tasCache tasCache
-}
-
-func New(client client.Client, opts ...Option) *Cache {
-	options := defaultOptions
-	for _, opt := range opts {
-		opt(&options)
-	}
-	c := &Cache{
-		client:               client,
-		assumedWorkloads:     make(map[workload.Reference]kueue.ClusterQueueReference),
-		resourceFlavors:      make(map[kueue.ResourceFlavorReference]*kueue.ResourceFlavor),
-		admissionChecks:      make(map[kueue.AdmissionCheckReference]AdmissionCheck),
-		podsReadyTracking:    options.podsReadyTracking,
-		workloadInfoOptions:  options.workloadInfoOptions,
-		fairSharingEnabled:   options.fairSharingEnabled,
-		admissionFairSharing: options.admissionFairSharing,
-		hm:                   hierarchy.NewManager[*clusterQueue, *cohort](newCohort),
-		tasCache:             NewTASCache(client),
-	}
-	c.podsReadyCond.L = &c.RWMutex
-	return c
-}
 
 func (c *Cache) newClusterQueue(log logr.Logger, cq *kueue.ClusterQueue) (*clusterQueue, error) {
 	cqImpl := &clusterQueue{
@@ -169,8 +112,8 @@ func (c *Cache) newClusterQueue(log logr.Logger, cq *kueue.ClusterQueue) (*clust
 	return cqImpl, nil
 }
 
-// WaitForPodsReady waits for all admitted workloads to be in the PodsReady condition
-// if podsReadyTracking is enabled, otherwise returns immediately.
+// WaitForPodsReady 会等待所有已接收的工作负载都处于 PodsReady 条件，
+// 如果 podsReadyTracking 启用，否则会立即返回。
 func (c *Cache) WaitForPodsReady(ctx context.Context) {
 	if !c.podsReadyTracking {
 		return
@@ -216,32 +159,13 @@ func (c *Cache) podsReadyForAllAdmittedWorkloads(log logr.Logger) bool {
 	return true
 }
 
-// CleanUpOnContext tracks the context. When closed, it wakes routines waiting
-// on the podsReady condition. It should be called before doing any calls to
-// cache.WaitForPodsReady.
+// CleanUpOnContext 跟踪 context。当 context 关闭时，会唤醒等待 podsReady 条件的协程。
+// 应在调用 cache.WaitForPodsReady 之前调用。
 func (c *Cache) CleanUpOnContext(ctx context.Context) {
 	<-ctx.Done()
 	c.Lock()
 	defer c.Unlock()
 	c.podsReadyCond.Broadcast()
-}
-
-func (c *Cache) updateClusterQueues(log logr.Logger) sets.Set[kueue.ClusterQueueReference] {
-	cqs := sets.New[kueue.ClusterQueueReference]()
-
-	for _, cq := range c.hm.ClusterQueues() {
-		prevStatus := cq.Status
-		// We call update on all ClusterQueues irrespective of which CQ actually use this flavor
-		// because it is not expensive to do so, and is not worth tracking which ClusterQueues use
-		// which flavors.
-		cq.UpdateWithFlavors(log, c.resourceFlavors)
-		cq.updateWithAdmissionChecks(log, c.admissionChecks)
-		curStatus := cq.Status
-		if prevStatus == pending && curStatus == active {
-			cqs.Insert(cq.Name)
-		}
-	}
-	return cqs
 }
 
 func (c *Cache) ActiveClusterQueues() sets.Set[kueue.ClusterQueueReference] {
@@ -258,26 +182,6 @@ func (c *Cache) ActiveClusterQueues() sets.Set[kueue.ClusterQueueReference] {
 
 func (c *Cache) TASCache() *tasCache {
 	return &c.tasCache
-}
-
-func (c *Cache) AddOrUpdateResourceFlavor(log logr.Logger, rf *kueue.ResourceFlavor) sets.Set[kueue.ClusterQueueReference] {
-	c.Lock()
-	defer c.Unlock()
-	c.resourceFlavors[kueue.ResourceFlavorReference(rf.Name)] = rf
-	if handleTASFlavor(rf) {
-		c.tasCache.AddFlavor(rf)
-	}
-	return c.updateClusterQueues(log)
-}
-
-func (c *Cache) DeleteResourceFlavor(log logr.Logger, rf *kueue.ResourceFlavor) sets.Set[kueue.ClusterQueueReference] {
-	c.Lock()
-	defer c.Unlock()
-	delete(c.resourceFlavors, kueue.ResourceFlavorReference(rf.Name))
-	if handleTASFlavor(rf) {
-		c.tasCache.DeleteFlavor(kueue.ResourceFlavorReference(rf.Name))
-	}
-	return c.updateClusterQueues(log)
 }
 
 func (c *Cache) AddOrUpdateTopology(log logr.Logger, topology *kueuealpha.Topology) sets.Set[kueue.ClusterQueueReference] {
@@ -300,26 +204,6 @@ func (c *Cache) CloneTASCache() map[kueue.ResourceFlavorReference]*TASFlavorCach
 	return c.tasCache.Clone()
 }
 
-func (c *Cache) AddOrUpdateAdmissionCheck(log logr.Logger, ac *kueue.AdmissionCheck) sets.Set[kueue.ClusterQueueReference] {
-	c.Lock()
-	defer c.Unlock()
-
-	newAC := AdmissionCheck{
-		Active:     apimeta.IsStatusConditionTrue(ac.Status.Conditions, kueue.AdmissionCheckActive),
-		Controller: ac.Spec.ControllerName,
-	}
-	c.admissionChecks[kueue.AdmissionCheckReference(ac.Name)] = newAC
-
-	return c.updateClusterQueues(log)
-}
-
-func (c *Cache) DeleteAdmissionCheck(log logr.Logger, ac *kueue.AdmissionCheck) sets.Set[kueue.ClusterQueueReference] {
-	c.Lock()
-	defer c.Unlock()
-	delete(c.admissionChecks, kueue.AdmissionCheckReference(ac.Name))
-	return c.updateClusterQueues(log)
-}
-
 func (c *Cache) AdmissionChecksForClusterQueue(cqName kueue.ClusterQueueReference) []AdmissionCheck {
 	c.RLock()
 	defer c.RUnlock()
@@ -334,10 +218,6 @@ func (c *Cache) AdmissionChecksForClusterQueue(cqName kueue.ClusterQueueReferenc
 		}
 	}
 	return acs
-}
-
-func (c *Cache) ClusterQueueActive(name kueue.ClusterQueueReference) bool {
-	return c.clusterQueueInStatus(name, active)
 }
 
 func (c *Cache) ClusterQueueTerminating(name kueue.ClusterQueueReference) bool {
@@ -358,17 +238,6 @@ func (c *Cache) ClusterQueueReadiness(name kueue.ClusterQueueReference) (metav1.
 	return metav1.ConditionFalse, reason, msg
 }
 
-func (c *Cache) clusterQueueInStatus(name kueue.ClusterQueueReference, status metrics.ClusterQueueStatus) bool {
-	c.RLock()
-	defer c.RUnlock()
-
-	cq := c.hm.ClusterQueue(name)
-	if cq == nil {
-		return false
-	}
-	return cq.Status == status
-}
-
 func (c *Cache) TerminateClusterQueue(name kueue.ClusterQueueReference) {
 	c.Lock()
 	defer c.Unlock()
@@ -378,9 +247,8 @@ func (c *Cache) TerminateClusterQueue(name kueue.ClusterQueueReference) {
 	}
 }
 
-// ClusterQueueEmpty indicates whether there's any active workload admitted by
-// the provided clusterQueue.
-// Return true if the clusterQueue doesn't exist.
+// ClusterQueueEmpty 表示是否提供了 clusterQueue 的任何活动工作负载。
+// 如果 clusterQueue 不存在，则返回 true。
 func (c *Cache) ClusterQueueEmpty(name kueue.ClusterQueueReference) bool {
 	c.RLock()
 	defer c.RUnlock()
@@ -404,9 +272,8 @@ func (c *Cache) AddClusterQueue(ctx context.Context, cq *kueue.ClusterQueue) err
 		return err
 	}
 
-	// On controller restart, an add ClusterQueue event may come after
-	// add queue and workload, so here we explicitly list and add existing queues
-	// and workloads.
+	// 在控制器重启时，添加 ClusterQueue 事件可能会在添加队列和工作负载之后到来，
+	// 因此这里我们显式地列出并添加现有的队列和工作负载。
 	var queues kueue.LocalQueueList
 	if err := c.client.List(ctx, &queues, client.MatchingFields{utilindexer.QueueClusterQueueKey: cq.Name}); err != nil {
 		return fmt.Errorf("listing queues that match the clusterQueue: %w", err)
@@ -496,9 +363,9 @@ func (c *Cache) DeleteCohort(cohortName kueue.CohortReference) {
 	defer c.Unlock()
 	c.hm.DeleteCohort(cohortName)
 
-	// If the cohort still exists after deletion, it means
-	// that it has one or more children referencing it.
-	// We need to run update algorithm.
+	// 如果 cohort 在删除后仍然存在，说明
+	// 它有一个或多个子节点引用它。
+	// 我们需要运行更新算法。
 	if cohort := c.hm.Cohort(cohortName); cohort != nil {
 		updateCohortResourceNode(cohort)
 	}
@@ -696,6 +563,7 @@ type ClusterQueueUsageStats struct {
 }
 
 // Usage reports the reserved and admitted resources and number of workloads holding them in the ClusterQueue.
+// Usage 报告保留和已接收资源的数量和工作负载数量。
 func (c *Cache) Usage(cqObj *kueue.ClusterQueue) (*ClusterQueueUsageStats, error) {
 	c.RLock()
 	defer c.RUnlock()
@@ -742,34 +610,6 @@ func (c *Cache) CohortStats(cohortObj *kueue.Cohort) (*CohortUsageStats, error) 
 	return stats, nil
 }
 
-// ClusterQueueAncestors returns all ancestors (Cohorts), excluding the root,
-// for a given ClusterQueue. If the ClusterQueue contains a Cohort cycle, it
-// returns ErrCohortHasCycle.
-func (c *Cache) ClusterQueueAncestors(cqObj *kueue.ClusterQueue) ([]kueue.CohortReference, error) {
-	c.RLock()
-	defer c.RUnlock()
-
-	if cqObj.Spec.Cohort == "" {
-		return nil, nil
-	}
-
-	cohort := c.hm.Cohort(cqObj.Spec.Cohort)
-	if cohort == nil {
-		return nil, nil
-	}
-	if hierarchy.HasCycle(cohort) {
-		return nil, ErrCohortHasCycle
-	}
-
-	var ancestors []kueue.CohortReference
-
-	for ancestor := range cohort.PathSelfToRoot() {
-		ancestors = append(ancestors, ancestor.Name)
-	}
-
-	return ancestors[:len(ancestors)-1], nil
-}
-
 func getUsage(frq resources.FlavorResourceQuantities, cq *clusterQueue) []kueue.FlavorUsage {
 	usage := make([]kueue.FlavorUsage, 0, len(frq))
 	for _, rg := range cq.ResourceGroups {
@@ -787,6 +627,7 @@ func getUsage(frq resources.FlavorResourceQuantities, cq *clusterQueue) []kueue.
 					Total: resources.ResourceQuantity(rName, used),
 				}
 				// Enforce `borrowed=0` if the clusterQueue doesn't belong to a cohort.
+				// 如果 clusterQueue 不属于 cohort，则强制 `borrowed=0`。
 				if cq.HasParent() {
 					borrowed := used - rQuota.Nominal
 					if borrowed > 0 {
@@ -796,6 +637,7 @@ func getUsage(frq resources.FlavorResourceQuantities, cq *clusterQueue) []kueue.
 				outFlvUsage.Resources = append(outFlvUsage.Resources, rUsage)
 			}
 			// The resourceUsages should be in a stable order to avoid endless creation of update events.
+			// resourceUsages 应该保持稳定顺序，以避免无休止地创建更新事件。
 			sort.Slice(outFlvUsage.Resources, func(i, j int) bool {
 				return outFlvUsage.Resources[i].Name < outFlvUsage.Resources[j].Name
 			})
@@ -891,6 +733,7 @@ func filterLocalQueueUsage(orig resources.FlavorResourceQuantities, resourceGrou
 				})
 			}
 			// The resourceUsages should be in a stable order to avoid endless creation of update events.
+			// resourceUsages 应该保持稳定顺序，以避免无休止地创建更新事件。
 			sort.Slice(outFlvUsage.Resources, func(i, j int) bool {
 				return outFlvUsage.Resources[i].Name < outFlvUsage.Resources[j].Name
 			})
@@ -904,8 +747,7 @@ func (c *Cache) cleanupAssumedState(log logr.Logger, w *kueue.Workload) {
 	k := workload.Key(w)
 	assumedCQName, assumed := c.assumedWorkloads[k]
 	if assumed {
-		// If the workload's assigned ClusterQueue is different from the assumed
-		// one, then we should also clean up the assumed one.
+		// 如果工作负载分配的 ClusterQueue 与假设的 ClusterQueue 不同，则也应清理假设的 ClusterQueue。
 		if workload.HasQuotaReservation(w) && assumedCQName != w.Status.Admission.ClusterQueue {
 			if assumedCQ := c.hm.ClusterQueue(assumedCQName); assumedCQ != nil {
 				assumedCQ.deleteWorkload(log, w)
@@ -982,7 +824,142 @@ func (c *Cache) MatchingClusterQueues(nsLabels map[string]string) sets.Set[kueue
 	return cqs
 }
 
-// Key is the key used to index the queue.
+// Key 是用于索引队列的键。
 func queueKey(q *kueue.LocalQueue) queue.LocalQueueReference {
 	return queue.NewLocalQueueReference(q.Namespace, kueue.LocalQueueName(q.Name))
+}
+
+func New(client client.Client, opts ...Option) *Cache {
+	options := defaultOptions
+	for _, opt := range opts {
+		opt(&options)
+	}
+	c := &Cache{
+		client:               client,
+		assumedWorkloads:     make(map[workload.Reference]kueue.ClusterQueueReference),
+		resourceFlavors:      make(map[kueue.ResourceFlavorReference]*kueue.ResourceFlavor),
+		admissionChecks:      make(map[kueue.AdmissionCheckReference]AdmissionCheck),
+		podsReadyTracking:    options.podsReadyTracking,
+		workloadInfoOptions:  options.workloadInfoOptions,
+		fairSharingEnabled:   options.fairSharingEnabled,
+		admissionFairSharing: options.admissionFairSharing,
+		hm:                   hierarchy.NewManager[*clusterQueue, *cohort](newCohort),
+		tasCache:             NewTASCache(client),
+	}
+	c.podsReadyCond.L = &c.RWMutex
+	return c
+}
+
+// Cache 用于跟踪通过 ClusterQueues 接收的 Workloads。
+type Cache struct {
+	sync.RWMutex
+	podsReadyCond sync.Cond
+
+	client               client.Client
+	assumedWorkloads     map[workload.Reference]kueue.ClusterQueueReference      // 预估的工作量
+	resourceFlavors      map[kueue.ResourceFlavorReference]*kueue.ResourceFlavor // 资源类型
+	podsReadyTracking    bool                                                    // Pods 完成度跟踪
+	admissionChecks      map[kueue.AdmissionCheckReference]AdmissionCheck        // 准入考核
+	workloadInfoOptions  []workload.InfoOption                                   //
+	fairSharingEnabled   bool                                                    // 公平共享功能已启用
+	admissionFairSharing *config.AdmissionFairSharing
+
+	hm hierarchy.Manager[*clusterQueue, *cohort]
+
+	tasCache tasCache
+}
+
+func (c *Cache) AddOrUpdateResourceFlavor(log logr.Logger, rf *kueue.ResourceFlavor) sets.Set[kueue.ClusterQueueReference] {
+	c.Lock()
+	defer c.Unlock()
+	c.resourceFlavors[kueue.ResourceFlavorReference(rf.Name)] = rf
+	if handleTASFlavor(rf) {
+		c.tasCache.AddFlavor(rf)
+	}
+	return c.updateClusterQueues(log)
+}
+
+func (c *Cache) updateClusterQueues(log logr.Logger) sets.Set[kueue.ClusterQueueReference] {
+	cqs := sets.New[kueue.ClusterQueueReference]()
+
+	for _, cq := range c.hm.ClusterQueues() {
+		prevStatus := cq.Status
+		// 我们会对所有 ClusterQueues 调用 update，无论哪个 CQ 实际使用该 flavor，
+		// 因为这样做的开销不大，也不值得去跟踪哪些 ClusterQueues 使用哪些 flavors。
+		cq.UpdateWithFlavors(log, c.resourceFlavors) // 刷新 cq 记录的 flavor 缓存
+		cq.updateWithAdmissionChecks(log, c.admissionChecks)
+		curStatus := cq.Status
+		if prevStatus == pending && curStatus == active {
+			cqs.Insert(cq.Name)
+		}
+	}
+	return cqs
+}
+func (c *Cache) DeleteResourceFlavor(log logr.Logger, rf *kueue.ResourceFlavor) sets.Set[kueue.ClusterQueueReference] {
+	c.Lock()
+	defer c.Unlock()
+	delete(c.resourceFlavors, kueue.ResourceFlavorReference(rf.Name))
+	if handleTASFlavor(rf) {
+		c.tasCache.DeleteFlavor(kueue.ResourceFlavorReference(rf.Name))
+	}
+	return c.updateClusterQueues(log)
+}
+func (c *Cache) DeleteAdmissionCheck(log logr.Logger, ac *kueue.AdmissionCheck) sets.Set[kueue.ClusterQueueReference] {
+	c.Lock()
+	defer c.Unlock()
+	delete(c.admissionChecks, kueue.AdmissionCheckReference(ac.Name))
+	return c.updateClusterQueues(log)
+}
+
+func (c *Cache) AddOrUpdateAdmissionCheck(log logr.Logger, ac *kueue.AdmissionCheck) sets.Set[kueue.ClusterQueueReference] {
+	c.Lock()
+	defer c.Unlock()
+
+	newAC := AdmissionCheck{
+		Active:     apimeta.IsStatusConditionTrue(ac.Status.Conditions, kueue.AdmissionCheckActive),
+		Controller: ac.Spec.ControllerName,
+	}
+	c.admissionChecks[kueue.AdmissionCheckReference(ac.Name)] = newAC
+
+	return c.updateClusterQueues(log)
+}
+
+// ClusterQueueAncestors 返回 ClusterQueue 的所有祖先（Cohorts），不包括根，
+// 如果 ClusterQueue 包含 Cohort 循环，则返回 ErrCohortHasCycle。
+func (c *Cache) ClusterQueueAncestors(cqObj *kueue.ClusterQueue) ([]kueue.CohortReference, error) {
+	c.RLock()
+	defer c.RUnlock()
+
+	if cqObj.Spec.Cohort == "" {
+		return nil, nil
+	}
+
+	cohort := c.hm.Cohort(cqObj.Spec.Cohort)
+	if cohort == nil {
+		return nil, nil
+	}
+	if hierarchy.HasCycle(cohort) {
+		return nil, ErrCohortHasCycle
+	}
+
+	var ancestors []kueue.CohortReference
+
+	for ancestor := range cohort.PathSelfToRoot() {
+		ancestors = append(ancestors, ancestor.Name)
+	}
+
+	return ancestors[:len(ancestors)-1], nil
+}
+func (c *Cache) ClusterQueueActive(name kueue.ClusterQueueReference) bool {
+	return c.clusterQueueInStatus(name, active)
+}
+func (c *Cache) clusterQueueInStatus(name kueue.ClusterQueueReference, status metrics.ClusterQueueStatus) bool {
+	c.RLock()
+	defer c.RUnlock()
+
+	cq := c.hm.ClusterQueue(name)
+	if cq == nil {
+		return false
+	}
+	return cq.Status == status
 }

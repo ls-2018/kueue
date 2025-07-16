@@ -1,19 +1,3 @@
-/*
-Copyright The Kubernetes Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package cache
 
 import (
@@ -59,9 +43,9 @@ type clusterQueue struct {
 	Preemption        kueue.ClusterQueuePreemption
 	FairWeight        resource.Quantity
 	FlavorFungibility kueue.FlavorFungibility
-	// Aggregates AdmissionChecks from both .spec.AdmissionChecks and .spec.AdmissionCheckStrategy
-	// Sets hold ResourceFlavors to which an AdmissionCheck should apply.
-	// In case its empty, it means an AdmissionCheck should apply to all ResourceFlavor
+	// 从 .spec.AdmissionChecks 和 .spec.AdmissionCheckStrategy 中汇总获取准入检查信息
+	// 将应适用准入检查的资源类型设置为 hold
+	// 如果该集合为空，则表示准入检查应适用于所有资源类型
 	AdmissionChecks map[kueue.AdmissionCheckReference]sets.Set[kueue.ResourceFlavorReference]
 	Status          metrics.ClusterQueueStatus
 	// AllocatableResourceGeneration will be increased when some admitted workloads are
@@ -78,7 +62,7 @@ type clusterQueue struct {
 	multiKueueAdmissionChecks          []kueue.AdmissionCheckReference
 	provisioningAdmissionChecks        []kueue.AdmissionCheckReference
 	perFlavorMultiKueueAdmissionChecks []kueue.AdmissionCheckReference
-	tasFlavors                         map[kueue.ResourceFlavorReference]kueue.TopologyReference
+	tasFlavors                         map[kueue.ResourceFlavorReference]kueue.TopologyReference // flavor 里会指定 topo
 	admittedWorkloadsCount             int
 	isStopped                          bool
 	workloadInfoOptions                []workload.InfoOption
@@ -201,8 +185,7 @@ func (c *clusterQueue) updateQuotasAndResourceGroups(in []kueue.ResourceGroup) b
 
 func (c *clusterQueue) updateQueueStatus(log logr.Logger) {
 	if features.Enabled(features.TopologyAwareScheduling) &&
-		len(c.tasFlavors) > 0 &&
-		len(c.workloadsNotAccountedForTAS) > 0 &&
+		len(c.tasFlavors) > 0 && len(c.workloadsNotAccountedForTAS) > 0 &&
 		c.isTASSynced() {
 		log.V(2).Info("Delayed accounting for TAS usage for workloads", "count", len(c.workloadsNotAccountedForTAS))
 		// There are some workloads which are not accounted yet for TAS.
@@ -308,45 +291,6 @@ func (c *clusterQueue) isTASViolated() bool {
 		return true
 	}
 	return len(c.multiKueueAdmissionChecks) > 0
-}
-
-// UpdateWithFlavors updates a ClusterQueue based on the passed ResourceFlavors set.
-// Exported only for testing.
-func (c *clusterQueue) UpdateWithFlavors(log logr.Logger, flavors map[kueue.ResourceFlavorReference]*kueue.ResourceFlavor) {
-	c.updateLabelKeys(flavors)
-	c.updateQueueStatus(log)
-}
-
-func (c *clusterQueue) updateLabelKeys(flavors map[kueue.ResourceFlavorReference]*kueue.ResourceFlavor) {
-	c.missingFlavors = nil
-	c.tasFlavors = nil
-	for i := range c.ResourceGroups {
-		rg := &c.ResourceGroups[i]
-		if len(rg.Flavors) == 0 {
-			rg.LabelKeys = nil
-			continue
-		}
-		keys := sets.New[string]()
-		for _, fName := range rg.Flavors {
-			if flv, exist := flavors[fName]; exist {
-				for k := range flv.Spec.NodeLabels {
-					keys.Insert(k)
-				}
-				if flv.Spec.TopologyName != nil {
-					if c.tasFlavors == nil {
-						c.tasFlavors = make(map[kueue.ResourceFlavorReference]kueue.TopologyReference, 1)
-					}
-					c.tasFlavors[fName] = *flv.Spec.TopologyName
-				}
-			} else {
-				c.missingFlavors = append(c.missingFlavors, fName)
-			}
-		}
-
-		if keys.Len() > 0 {
-			rg.LabelKeys = keys
-		}
-	}
 }
 
 // updateWithAdmissionChecks updates a ClusterQueue based on the passed AdmissionChecks set.
@@ -653,4 +597,41 @@ func (c *clusterQueue) flavorsForAdmissionCheck(ac kueue.AdmissionCheckReference
 		}
 	}
 	return flvs
+}
+
+func (c *clusterQueue) UpdateWithFlavors(log logr.Logger, flavors map[kueue.ResourceFlavorReference]*kueue.ResourceFlavor) {
+	c.updateLabelKeys(flavors)
+	c.updateQueueStatus(log)
+}
+
+func (c *clusterQueue) updateLabelKeys(flavors map[kueue.ResourceFlavorReference]*kueue.ResourceFlavor) {
+	c.missingFlavors = nil
+	c.tasFlavors = nil
+	for i := range c.ResourceGroups {
+		rg := &c.ResourceGroups[i]
+		if len(rg.Flavors) == 0 {
+			rg.LabelKeys = nil
+			continue
+		}
+		keys := sets.New[string]()
+		for _, fName := range rg.Flavors {
+			if flv, exist := flavors[fName]; exist {
+				for k := range flv.Spec.NodeLabels {
+					keys.Insert(k)
+				}
+				if flv.Spec.TopologyName != nil {
+					if c.tasFlavors == nil {
+						c.tasFlavors = make(map[kueue.ResourceFlavorReference]kueue.TopologyReference, 1)
+					}
+					c.tasFlavors[fName] = *flv.Spec.TopologyName
+				}
+			} else {
+				c.missingFlavors = append(c.missingFlavors, fName)
+			}
+		}
+
+		if keys.Len() > 0 {
+			rg.LabelKeys = keys
+		}
+	}
 }

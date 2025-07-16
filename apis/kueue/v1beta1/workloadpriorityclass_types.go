@@ -1,19 +1,3 @@
-/*
-Copyright The Kubernetes Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package v1beta1
 
 import (
@@ -28,6 +12,7 @@ import (
 // +kubebuilder:printcolumn:name="Value",JSONPath=".value",type=integer,description="Value of workloadPriorityClass's Priority"
 
 // WorkloadPriorityClass is the Schema for the workloadPriorityClass API
+// WorkloadPriorityClass 是 workloadPriorityClass API 的模式定义
 type WorkloadPriorityClass struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -35,17 +20,21 @@ type WorkloadPriorityClass struct {
 	// value represents the integer value of this workloadPriorityClass. This is the actual priority that workloads
 	// receive when jobs have the name of this class in their workloadPriorityClass label.
 	// Changing the value of workloadPriorityClass doesn't affect the priority of workloads that were already created.
+	// value 表示此 workloadPriorityClass 的整数值。这是当作业在其 workloadPriorityClass 标签中具有此类名称时，工作负载实际获得的优先级。
+	// 更改 workloadPriorityClass 的 value 不会影响已创建工作负载的优先级。
 	Value int32 `json:"value"`
 
 	// description is an arbitrary string that usually provides guidelines on
 	// when this workloadPriorityClass should be used.
 	// +optional
+	// description 是一个任意字符串，通常用于提供何时应使用此 workloadPriorityClass 的指导。
 	Description string `json:"description,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 
 // WorkloadPriorityClassList contains a list of WorkloadPriorityClass
+// WorkloadPriorityClassList 包含 WorkloadPriorityClass 的列表
 type WorkloadPriorityClassList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`

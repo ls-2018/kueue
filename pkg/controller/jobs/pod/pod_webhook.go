@@ -1,19 +1,3 @@
-/*
-Copyright The Kubernetes Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package pod
 
 import (
@@ -34,12 +18,12 @@ import (
 
 	configapi "sigs.k8s.io/kueue/apis/config/v1beta1"
 	kueuealpha "sigs.k8s.io/kueue/apis/kueue/v1alpha1"
-	"sigs.k8s.io/kueue/pkg/constants"
-	ctrlconstants "sigs.k8s.io/kueue/pkg/controller/constants"
 	"sigs.k8s.io/kueue/pkg/controller/jobframework"
 	"sigs.k8s.io/kueue/pkg/controller/jobframework/webhook"
 	podconstants "sigs.k8s.io/kueue/pkg/controller/jobs/pod/constants"
+	ctrlconstants "sigs.k8s.io/kueue/pkg/controller/over_constants"
 	"sigs.k8s.io/kueue/pkg/features"
+	"sigs.k8s.io/kueue/pkg/over_constants"
 	"sigs.k8s.io/kueue/pkg/queue"
 	utilpod "sigs.k8s.io/kueue/pkg/util/pod"
 )
@@ -48,7 +32,7 @@ var (
 	metaPath                       = field.NewPath("metadata")
 	labelsPath                     = metaPath.Child("labels")
 	annotationsPath                = metaPath.Child("annotations")
-	managedLabelPath               = labelsPath.Key(constants.ManagedByKueueLabelKey)
+	managedLabelPath               = labelsPath.Key(over_constants.ManagedByKueueLabelKey)
 	groupNameLabelPath             = labelsPath.Key(podconstants.GroupNameLabel)
 	prebuiltWorkloadLabelPath      = labelsPath.Key(ctrlconstants.PrebuiltWorkloadLabel)
 	groupTotalCountAnnotationPath  = annotationsPath.Key(podconstants.GroupTotalCountAnnotation)
@@ -183,7 +167,7 @@ func (w *PodWebhook) Default(ctx context.Context, obj runtime.Object) error {
 			if pod.pod.Labels == nil {
 				pod.pod.Labels = make(map[string]string)
 			}
-			pod.pod.Labels[constants.ManagedByKueueLabelKey] = constants.ManagedByKueueLabelValue
+			pod.pod.Labels[over_constants.ManagedByKueueLabelKey] = over_constants.ManagedByKueueLabelValue
 		}
 	}
 
@@ -274,8 +258,8 @@ func validateCommon(pod *Pod) field.ErrorList {
 func validateManagedLabel(pod *Pod) field.ErrorList {
 	var allErrs field.ErrorList
 
-	if managedLabel, ok := pod.pod.GetLabels()[constants.ManagedByKueueLabelKey]; ok && managedLabel != constants.ManagedByKueueLabelValue {
-		return append(allErrs, field.Forbidden(managedLabelPath, fmt.Sprintf("managed label value can only be '%s'", constants.ManagedByKueueLabelValue)))
+	if managedLabel, ok := pod.pod.GetLabels()[over_constants.ManagedByKueueLabelKey]; ok && managedLabel != over_constants.ManagedByKueueLabelValue {
+		return append(allErrs, field.Forbidden(managedLabelPath, fmt.Sprintf("managed label value can only be '%s'", over_constants.ManagedByKueueLabelValue)))
 	}
 
 	return allErrs
@@ -283,10 +267,10 @@ func validateManagedLabel(pod *Pod) field.ErrorList {
 
 // warningForPodManagedLabel returns a warning message if the pod has a managed label, and it's parent is managed by kueue
 func warningForPodManagedLabel(p *Pod) string {
-	managedLabel := p.pod.GetLabels()[constants.ManagedByKueueLabelKey]
-	if managedLabel == constants.ManagedByKueueLabelValue && jobframework.IsOwnerManagedByKueueForObject(p.Object()) {
+	managedLabel := p.pod.GetLabels()[over_constants.ManagedByKueueLabelKey]
+	if managedLabel == over_constants.ManagedByKueueLabelValue && jobframework.IsOwnerManagedByKueueForObject(p.Object()) {
 		return fmt.Sprintf("pod owner is managed by kueue, label '%s=%s' might lead to unexpected behaviour",
-			constants.ManagedByKueueLabelKey, constants.ManagedByKueueLabelValue)
+			over_constants.ManagedByKueueLabelKey, over_constants.ManagedByKueueLabelValue)
 	}
 
 	return ""

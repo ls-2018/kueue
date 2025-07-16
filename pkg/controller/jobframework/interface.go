@@ -1,19 +1,3 @@
-/*
-Copyright The Kubernetes Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package jobframework
 
 import (
@@ -30,7 +14,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	kueue "sigs.k8s.io/kueue/apis/kueue/v1beta1"
-	"sigs.k8s.io/kueue/pkg/controller/constants"
+	"sigs.k8s.io/kueue/pkg/controller/over_constants"
 	"sigs.k8s.io/kueue/pkg/podset"
 	"sigs.k8s.io/kueue/pkg/util/admissioncheck"
 	"sigs.k8s.io/kueue/pkg/util/maps"
@@ -177,11 +161,11 @@ func QueueName(job GenericJob) kueue.LocalQueueName {
 }
 
 func QueueNameForObject(object client.Object) kueue.LocalQueueName {
-	if queueLabel := object.GetLabels()[constants.QueueLabel]; queueLabel != "" {
+	if queueLabel := object.GetLabels()[over_constants.QueueLabel]; queueLabel != "" {
 		return kueue.LocalQueueName(queueLabel)
 	}
 	// fallback to the annotation (deprecated)
-	return kueue.LocalQueueName(object.GetAnnotations()[constants.QueueAnnotation])
+	return kueue.LocalQueueName(object.GetAnnotations()[over_constants.QueueAnnotation])
 }
 
 func MaximumExecutionTimeSeconds(job GenericJob) *int32 {
@@ -189,7 +173,7 @@ func MaximumExecutionTimeSeconds(job GenericJob) *int32 {
 }
 
 func MaximumExecutionTimeSecondsForObject(object client.Object) *int32 {
-	strVal, found := object.GetLabels()[constants.MaxExecTimeSecondsLabel]
+	strVal, found := object.GetLabels()[over_constants.MaxExecTimeSecondsLabel]
 	if !found {
 		return nil
 	}
@@ -203,14 +187,14 @@ func MaximumExecutionTimeSecondsForObject(object client.Object) *int32 {
 }
 
 func WorkloadPriorityClassName(object client.Object) string {
-	if workloadPriorityClassLabel := object.GetLabels()[constants.WorkloadPriorityClassLabel]; workloadPriorityClassLabel != "" {
+	if workloadPriorityClassLabel := object.GetLabels()[over_constants.WorkloadPriorityClassLabel]; workloadPriorityClassLabel != "" {
 		return workloadPriorityClassLabel
 	}
 	return ""
 }
 
 func PrebuiltWorkloadFor(job GenericJob) (string, bool) {
-	name, found := job.Object().GetLabels()[constants.PrebuiltWorkloadLabel]
+	name, found := job.Object().GetLabels()[over_constants.PrebuiltWorkloadLabel]
 	return name, found
 }
 

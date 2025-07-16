@@ -21,7 +21,9 @@ spec:
   - name: v1beta1
     schema:
       openAPIV3Schema:
-        description: ResourceFlavor is the Schema for the resourceflavors API.
+        description: |-
+          ResourceFlavor is the Schema for the resourceflavors API.
+          ResourceFlavor 是 resourceflavors API 的架构。
         properties:
           apiVersion:
             description: |-
@@ -41,7 +43,9 @@ spec:
           metadata:
             type: object
           spec:
-            description: ResourceFlavorSpec defines the desired state of the ResourceFlavor
+            description: |-
+              ResourceFlavorSpec defines the desired state of the ResourceFlavor
+              ResourceFlavorSpec 定义了 ResourceFlavor 的期望状态
             properties:
               nodeLabels:
                 additionalProperties:
@@ -49,14 +53,10 @@ spec:
                 description: |-
                   nodeLabels are labels that associate the ResourceFlavor with Nodes that
                   have the same labels.
-                  When a Workload is admitted, its podsets can only get assigned
-                  ResourceFlavors whose nodeLabels match the nodeSelector and nodeAffinity
-                  fields.
-                  Once a ResourceFlavor is assigned to a podSet, the ResourceFlavor's
-                  nodeLabels should be injected into the pods of the Workload by the
-                  controller that integrates with the Workload object.
+                  当 Workload 被接纳时，其 podsets 只能分配到 nodeLabels 匹配 nodeSelector 和 nodeAffinity 字段的 ResourceFlavors。
+                  一旦 ResourceFlavor 被分配给 podSet，集成 Workload 对象的控制器应将 ResourceFlavor 的 nodeLabels 注入到 Workload 的 pods 中。
 
-                  nodeLabels can be up to 8 elements.
+                  nodeLabels 最多可以有 8 个元素。
                 maxProperties: 8
                 type: object
                 x-kubernetes-map-type: atomic
@@ -64,17 +64,14 @@ spec:
                 description: |-
                   nodeTaints are taints that the nodes associated with this ResourceFlavor
                   have.
-                  Workloads' podsets must have tolerations for these nodeTaints in order to
-                  get assigned this ResourceFlavor during admission.
-                  When this ResourceFlavor has also set the matching tolerations (in .spec.tolerations),
-                  then the nodeTaints are not considered during admission.
-                  Only the 'NoSchedule' and 'NoExecute' taint effects are evaluated,
-                  while 'PreferNoSchedule' is ignored.
+                  Workloads 的 podsets 必须对这些 nodeTaints 有容忍（tolerations），才能在接纳时分配到该 ResourceFlavor。
+                  当此 ResourceFlavor 也设置了匹配的容忍（在 .spec.tolerations 中），则在接纳时不会考虑 nodeTaints。
+                  只评估 'NoSchedule' 和 'NoExecute' 污点效果，忽略 'PreferNoSchedule'。
 
-                  An example of a nodeTaint is
+                  nodeTaints 示例：
                   cloud.provider.com/preemptible="true":NoSchedule
 
-                  nodeTaints can be up to 8 elements.
+                  nodeTaints 最多可以有 8 个元素。
                 items:
                   description: |-
                     The node this Taint is attached to has the "effect" on
@@ -115,10 +112,10 @@ spec:
                   tolerations are extra tolerations that will be added to the pods admitted in
                   the quota associated with this resource flavor.
 
-                  An example of a toleration is
+                  容忍（toleration）示例：
                   cloud.provider.com/preemptible="true":NoSchedule
 
-                  tolerations can be up to 8 elements.
+                  tolerations 最多可以有 8 个元素。
                 items:
                   description: |-
                     The pod this Toleration is attached to tolerates any taint that matches
@@ -178,8 +175,8 @@ spec:
               topologyName:
                 description: |-
                   topologyName indicates topology for the TAS ResourceFlavor.
-                  When specified, it enables scraping of the topology information from the
-                  nodes matching to the Resource Flavor node labels.
+                  topologyName 表示 TAS ResourceFlavor 的拓扑。
+                  指定后，会从与 Resource Flavor nodeLabels 匹配的节点中抓取拓扑信息。
                 maxLength: 253
                 pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                 type: string

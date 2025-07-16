@@ -20,7 +20,7 @@ description: Generated API reference documentation for kueue.x-k8s.io/v1alpha1.
 
 
 
-<p>Topology is the Schema for the topology API</p>
+<p>Topology 是 topology API 的 Schema</p>
 
 
 <table class="table">
@@ -48,7 +48,7 @@ description: Generated API reference documentation for kueue.x-k8s.io/v1alpha1.
 - [TopologySpec](#kueue-x-k8s-io-v1alpha1-TopologySpec)
 
 
-<p>TopologyLevel defines the desired state of TopologyLevel</p>
+<p>TopologyLevel 定义了 TopologyLevel 的期望状态</p>
 
 
 <table class="table">
@@ -60,9 +60,8 @@ description: Generated API reference documentation for kueue.x-k8s.io/v1alpha1.
 <code>string</code>
 </td>
 <td>
-   <p>nodeLabel indicates the name of the node label for a specific topology
-level.</p>
-<p>Examples:</p>
+   <p>nodeLabel 表示特定拓扑级别的节点标签名称。</p>
+<p>示例：</p>
 <ul>
 <li>cloud.provider.com/topology-block</li>
 <li>cloud.provider.com/topology-rack</li>
@@ -80,7 +79,7 @@ level.</p>
 - [Topology](#kueue-x-k8s-io-v1alpha1-Topology)
 
 
-<p>TopologySpec defines the desired state of Topology</p>
+<p>TopologySpec 定义了 Topology 的期望状态</p>
 
 
 <table class="table">
@@ -92,7 +91,7 @@ level.</p>
 <a href="#kueue-x-k8s-io-v1alpha1-TopologyLevel"><code>[]TopologyLevel</code></a>
 </td>
 <td>
-   <p>levels define the levels of topology.</p>
+   <p>levels 定义了拓扑的各级。</p>
 </td>
 </tr>
 </tbody>

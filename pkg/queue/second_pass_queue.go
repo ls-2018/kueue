@@ -1,19 +1,3 @@
-/*
-Copyright The Kubernetes Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package queue
 
 import (
@@ -33,22 +17,10 @@ type secondPassQueue struct {
 }
 
 func newSecondPassQueue() *secondPassQueue {
-	return &secondPassQueue{
+	return &secondPassQueue{ // 新的二次排队队列
 		prequeued: sets.New[workload.Reference](),
 		queued:    make(map[workload.Reference]*workload.Info),
 	}
-}
-
-func (q *secondPassQueue) takeAllReady() []workload.Info {
-	q.Lock()
-	defer q.Unlock()
-
-	var result []workload.Info
-	for _, v := range q.queued {
-		result = append(result, *v)
-	}
-	q.queued = make(map[workload.Reference]*workload.Info)
-	return result
 }
 
 func (q *secondPassQueue) prequeue(obj *kueue.Workload) {
@@ -77,4 +49,15 @@ func (q *secondPassQueue) deleteByKey(key workload.Reference) {
 
 	delete(q.queued, key)
 	q.prequeued.Delete(key)
+}
+func (q *secondPassQueue) takeAllReady() []workload.Info {
+	q.Lock()
+	defer q.Unlock()
+
+	var result []workload.Info
+	for _, v := range q.queued {
+		result = append(result, *v)
+	}
+	q.queued = make(map[workload.Reference]*workload.Info)
+	return result
 }

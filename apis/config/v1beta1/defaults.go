@@ -1,19 +1,3 @@
-/*
-Copyright The Kubernetes Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package v1beta1
 
 import (
@@ -66,9 +50,9 @@ func getOperatorNamespace() string {
 	return DefaultNamespace
 }
 
-// SetDefaults_Configuration sets default values for ComponentConfig.
+// SetDefaults_Configuration 设置 ComponentConfig 的默认值。
 //
-//nolint:revive // format required by generated code for defaulting
+//nolint:revive // 由生成的默认代码要求的格式
 func SetDefaults_Configuration(cfg *Configuration) {
 	cfg.Namespace = cmp.Or(cfg.Namespace, ptr.To(getOperatorNamespace()))
 	cfg.Webhook.Port = cmp.Or(cfg.Webhook.Port, ptr.To(DefaultWebhookPort))
@@ -78,8 +62,7 @@ func SetDefaults_Configuration(cfg *Configuration) {
 	cfg.LeaderElection = cmp.Or(cfg.LeaderElection, &configv1alpha1.LeaderElectionConfiguration{})
 	cfg.LeaderElection.ResourceName = cmp.Or(cfg.LeaderElection.ResourceName, DefaultLeaderElectionID)
 
-	// Default to Lease as component-base still defaults to endpoint resources
-	// until core components migrate to using Leases. See k/k #80289 for more details.
+	// 默认为 Lease，因为 component-base 仍然默认为 endpoint 资源，直到核心组件迁移到使用 Leases。详见 k/k #80289。
 	cfg.LeaderElection.ResourceLock = cmp.Or(cfg.LeaderElection.ResourceLock, resourcelock.LeasesResourceLock)
 
 	// Use the default LeaderElectionConfiguration options
@@ -118,7 +101,7 @@ func SetDefaults_Configuration(cfg *Configuration) {
 	})
 
 	if !features.Enabled(features.ManagedJobsNamespaceSelector) {
-		// Backwards compatibility: default podOptions.NamespaceSelector if ManagedJobsNamespaceSelector disabled
+		// 向后兼容性：如果 ManagedJobsNamespaceSelector 被禁用，则默认 podOptions.NamespaceSelector。
 		cfg.Integrations.PodOptions = cmp.Or(cfg.Integrations.PodOptions, &PodIntegrationOptions{})
 		cfg.Integrations.PodOptions.NamespaceSelector = cmp.Or(cfg.Integrations.PodOptions.NamespaceSelector, &metav1.LabelSelector{
 			MatchExpressions: []metav1.LabelSelectorRequirement{

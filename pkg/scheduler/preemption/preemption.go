@@ -1,19 +1,3 @@
-/*
-Copyright The Kubernetes Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package preemption
 
 import (
@@ -38,7 +22,7 @@ import (
 	config "sigs.k8s.io/kueue/apis/config/v1beta1"
 	kueue "sigs.k8s.io/kueue/apis/kueue/v1beta1"
 	"sigs.k8s.io/kueue/pkg/cache"
-	"sigs.k8s.io/kueue/pkg/controller/constants"
+	"sigs.k8s.io/kueue/pkg/controller/over_constants"
 	"sigs.k8s.io/kueue/pkg/features"
 	"sigs.k8s.io/kueue/pkg/metrics"
 	"sigs.k8s.io/kueue/pkg/resources"
@@ -104,8 +88,7 @@ type Target struct {
 	Reason       string
 }
 
-// GetTargets returns the list of workloads that should be evicted in
-// order to make room for wl.
+// GetTargets 返回为给 wl 腾出空间需要驱逐的工作负载列表。
 func (p *Preemptor) GetTargets(log logr.Logger, wl workload.Info, assignment flavorassigner.Assignment, snapshot *cache.Snapshot) []*Target {
 	cq := snapshot.ClusterQueue(wl.ClusterQueue)
 	tasRequests := assignment.WorkloadsTopologyRequests(&wl, cq)
@@ -131,31 +114,31 @@ func (p *Preemptor) getTargets(preemptionCtx *preemptionCtx) []*Target {
 }
 
 var HumanReadablePreemptionReasons = map[string]string{
-	kueue.InClusterQueueReason:                "prioritization in the ClusterQueue",
-	kueue.InCohortReclamationReason:           "reclamation within the cohort",
-	kueue.InCohortFairSharingReason:           "Fair Sharing within the cohort",
-	kueue.InCohortReclaimWhileBorrowingReason: "reclamation within the cohort while borrowing",
-	"": "UNKNOWN",
+	kueue.InClusterQueueReason:                "优先级在集群队列中",
+	kueue.InCohortReclamationReason:           "在 cohort 中回收",
+	kueue.InCohortFairSharingReason:           "在 cohort 中公平共享",
+	kueue.InCohortReclaimWhileBorrowingReason: "在 cohort 中借用时回收",
+	"": "未知",
 }
 
 func preemptionMessage(preemptor *kueue.Workload, reason string) string {
 	var wUID, jUID string
 	if preemptor == nil || preemptor.UID == "" {
-		wUID = "UNKNOWN"
+		wUID = "未知"
 	} else {
 		wUID = string(preemptor.UID)
 	}
-	uid, ok := preemptor.Labels[constants.JobUIDLabel]
+	uid, ok := preemptor.Labels[over_constants.JobUIDLabel]
 	if !ok || uid == "" {
-		jUID = "UNKNOWN"
+		jUID = "未知"
 	} else {
 		jUID = uid
 	}
 
-	return fmt.Sprintf("Preempted to accommodate a workload (UID: %s, JobUID: %s) due to %s", wUID, jUID, HumanReadablePreemptionReasons[reason])
+	return fmt.Sprintf("抢占以适应工作负载 (UID: %s, JobUID: %s) 由于 %s", wUID, jUID, HumanReadablePreemptionReasons[reason])
 }
 
-// IssuePreemptions marks the target workloads as evicted.
+// IssuePreemptions 将目标工作负载标记为已驱逐。
 func (p *Preemptor) IssuePreemptions(ctx context.Context, preemptor *workload.Info, targets []*Target) (int, error) {
 	log := ctrl.LoggerFrom(ctx)
 	errCh := routine.NewErrorChannel()
@@ -172,11 +155,11 @@ func (p *Preemptor) IssuePreemptions(ctx context.Context, preemptor *workload.In
 				return
 			}
 
-			log.V(3).Info("Preempted", "targetWorkload", klog.KObj(target.WorkloadInfo.Obj), "preemptingWorkload", klog.KObj(preemptor.Obj), "reason", target.Reason, "message", message, "targetClusterQueue", klog.KRef("", string(target.WorkloadInfo.ClusterQueue)))
-			p.recorder.Eventf(target.WorkloadInfo.Obj, corev1.EventTypeNormal, "Preempted", message)
+			log.V(3).Info("抢占", "targetWorkload", klog.KObj(target.WorkloadInfo.Obj), "preemptingWorkload", klog.KObj(preemptor.Obj), "reason", target.Reason, "message", message, "targetClusterQueue", klog.KRef("", string(target.WorkloadInfo.ClusterQueue)))
+			p.recorder.Eventf(target.WorkloadInfo.Obj, corev1.EventTypeNormal, "抢占", message)
 			metrics.ReportPreemption(preemptor.ClusterQueue, target.Reason, target.WorkloadInfo.ClusterQueue)
 		} else {
-			log.V(3).Info("Preemption ongoing", "targetWorkload", klog.KObj(target.WorkloadInfo.Obj), "preemptingWorkload", klog.KObj(preemptor.Obj))
+			log.V(3).Info("抢占中", "targetWorkload", klog.KObj(target.WorkloadInfo.Obj), "preemptingWorkload", klog.KObj(preemptor.Obj))
 		}
 		successfullyPreempted.Add(1)
 	})
@@ -199,14 +182,9 @@ type preemptionAttemptOpts struct {
 	borrowing bool
 }
 
-// classicalPreemptions implements a heuristic to find a minimal set of Workloads
-// to preempt.
-// The heuristic first removes candidates, in the input order, while their
-// ClusterQueues are still borrowing resources and while the incoming Workload
-// doesn't fit in the quota.
-// Once the Workload fits, the heuristic tries to add Workloads back, in the
-// reverse order in which they were removed, while the incoming Workload still
-// fits
+// classicalPreemptions 实现了一种启发式方法，用于找到最小的需要抢占的工作负载集合。
+// 该启发式方法首先按输入顺序移除候选项，只要它们的 ClusterQueue 仍在借用资源，且新工作负载无法适配配额。
+// 一旦新工作负载适配，启发式方法会按相反顺序尝试将工作负载加回，只要新工作负载仍然适配。
 func (p *Preemptor) classicalPreemptions(preemptionCtx *preemptionCtx) []*Target {
 	hierarchicalReclaimCtx := &classical.HierarchicalPreemptionCtx{
 		Wl:                preemptionCtx.preemptor.Obj,
@@ -218,21 +196,14 @@ func (p *Preemptor) classicalPreemptions(preemptionCtx *preemptionCtx) []*Target
 	candidatesGenerator := classical.NewCandidateIterator(hierarchicalReclaimCtx, preemptionCtx.frsNeedPreemption, preemptionCtx.snapshot, p.clock, CandidatesOrdering)
 	var attemptPossibleOpts []preemptionAttemptOpts
 	borrowWithinCohortForbidden, _ := classical.IsBorrowingWithinCohortForbidden(preemptionCtx.preemptorCQ)
-	// We have three types of candidates:
-	// 1. Hierarchy candidates. Candidates over which the incoming workload has a
-	// 	  hierarchical advantage (it is closer to the quota used by the candidate).
-	//    We can preempt such candidates regardless of their priority.
-	// 2. Priority candidates. Candidates over which there is no hiearchical advantage
-	//    but the possibility to preempt is determined based on priorities.
-	// 	  We respect the BorrowWithinCohort configuration only for these candidates.
-	// 3. Same queue candidates.
-	// We can only preempt a priority candidate with priority > MaxPriorityThreshold
-	// if the target CQ is not borrowing (by the definition of the MaxPriorityThreshold).
-	// We sometimes need to consider both options allowBorrowing = true and false
-	// (because with false we have more candidates but cannot use borrowing).
-	// The order in which the options are considered is arbitrary and the condition
-	// in which we try allowBorrowing=false before true is to keep compatibility with
-	// previous versions.
+	// 我们有三类候选项：
+	// 1. 层级候选项。新工作负载对其有层级优势（更接近候选项所用配额）。可以不考虑优先级直接抢占。
+	// 2. 优先级候选项。对其没有层级优势，但是否可抢占取决于优先级。仅对这些候选项遵循 BorrowWithinCohort 配置。
+	// 3. 同队列候选项。
+	// 我们只能抢占优先级大于 MaxPriorityThreshold 的优先级候选项，
+	// 如果目标 CQ 没有借用（根据 MaxPriorityThreshold 的定义）。
+	// 有时需要同时考虑 allowBorrowing = true 和 false 两种情况（因为 false 时候选项更多但不能借用）。
+	// 选项的考虑顺序是任意的，先尝试 allowBorrowing=false 是为了与旧版本兼容。
 	switch {
 	case candidatesGenerator.NoCandidateFromOtherQueues || (borrowWithinCohortForbidden && !queueUnderNominalInResourcesNeedingPreemption(preemptionCtx)):
 		attemptPossibleOpts = []preemptionAttemptOpts{{true}}
@@ -263,7 +234,7 @@ func (p *Preemptor) classicalPreemptions(preemptionCtx *preemptionCtx) []*Target
 }
 
 func fillBackWorkloads(preemptionCtx *preemptionCtx, targets []*Target, allowBorrowing bool) []*Target {
-	// In the reverse order, check if any of the workloads can be added back.
+	// 以相反顺序检查是否可以将部分工作负载加回。
 	for i := len(targets) - 2; i >= 0; i-- {
 		preemptionCtx.snapshot.AddWorkload(targets[i].WorkloadInfo)
 		if workloadFits(preemptionCtx, allowBorrowing) {
@@ -283,9 +254,9 @@ func restoreSnapshot(snapshot *cache.Snapshot, targets []*Target) {
 	}
 }
 
-// parseStrategies converts an array of strategies into the functions to the used by the algorithm.
-// This function takes advantage of the properties of the preemption algorithm and the strategies.
-// The number of functions returned might not match the input slice.
+// parseStrategies 将策略数组转换为算法使用的函数。
+// 该函数利用了抢占算法的属性和策略，以减少返回的函数数量。
+// 返回的函数数量可能与输入切片不匹配。
 func parseStrategies(s []config.PreemptionStrategy) []fairsharing.Strategy {
 	if len(s) == 0 {
 		return []fairsharing.Strategy{fairsharing.LessThanOrEqualToFinalShare, fairsharing.LessThanInitialShare}
@@ -302,9 +273,9 @@ func parseStrategies(s []config.PreemptionStrategy) []fairsharing.Strategy {
 	return strategies
 }
 
-// runFirstFsStrategy runs the first configured FairSharing strategy,
-// and returns (fits, targets, retryCandidates) retryCandidates may be
-// used if rule S2-b is configured.
+// runFirstFsStrategy 运行第一个配置的 FairSharing 策略，
+// 并返回 (fits, targets, retryCandidates) retryCandidates 可能
+// 在配置了规则 S2-b 时使用。
 func runFirstFsStrategy(preemptionCtx *preemptionCtx, candidates []*workload.Info, strategy fairsharing.Strategy) (bool, []*Target, []*workload.Info) {
 	ordering := fairsharing.MakeClusterQueueOrdering(preemptionCtx.preemptorCQ, candidates)
 	var targets []*Target
@@ -338,7 +309,7 @@ func runFirstFsStrategy(preemptionCtx *preemptionCtx, candidates []*workload.Inf
 				if workloadFitsForFairSharing(preemptionCtx) {
 					return true, targets, nil
 				}
-				// Might need to pick a different CQ due to changing values.
+				// 可能需要选择不同的 CQ 因为值发生变化。
 				break
 			} else {
 				retryCandidates = append(retryCandidates, candWl)
@@ -348,16 +319,16 @@ func runFirstFsStrategy(preemptionCtx *preemptionCtx, candidates []*workload.Inf
 	return false, targets, retryCandidates
 }
 
-// runSecondFsStrategy implements Fair Sharing Rule S2-b. It returns
-// (fits, targets).
+// runSecondFsStrategy 实现 Fair Sharing 规则 S2-b。它返回
+// (fits, targets)。
 func runSecondFsStrategy(retryCandidates []*workload.Info, preemptionCtx *preemptionCtx, targets []*Target) (bool, []*Target) {
 	ordering := fairsharing.MakeClusterQueueOrdering(preemptionCtx.preemptorCQ, retryCandidates)
 	for candCQ := range ordering.Iter() {
 		preemptorNewShare, targetOldShare := candCQ.ComputeShares()
-		// Due to API validation, we can only reach here if the second strategy is LessThanInitialShare,
-		// in which case the last parameter for the strategy function is irrelevant.
+		// 由于 API 验证，我们只能到达这里，如果第二个策略是 LessThanInitialShare，
+		// 在这种情况下，策略函数的最后一个参数无关紧要。
 		if fairsharing.LessThanInitialShare(preemptorNewShare, targetOldShare, 0) {
-			// The criteria doesn't depend on the preempted workload, so just preempt the first candidate.
+			// 标准不依赖于被抢占的工作负载，所以只需抢占第一个候选者。
 			candWl := candCQ.PopWorkload()
 			preemptionCtx.snapshot.RemoveWorkload(candWl)
 			targets = append(targets, &Target{
@@ -368,8 +339,7 @@ func runSecondFsStrategy(retryCandidates []*workload.Info, preemptionCtx *preemp
 				return true, targets
 			}
 		}
-		// There doesn't seem to be an scenario where
-		// it's possible to apply rule S2-b more than once in a CQ.
+		// 似乎没有场景可以多次应用规则 S2-b 在同一个 CQ 中。
 		ordering.DropQueue(candCQ)
 	}
 	return false, targets
@@ -384,10 +354,10 @@ func (p *Preemptor) fairPreemptions(preemptionCtx *preemptionCtx, strategies []f
 		return CandidatesOrdering(candidates[i], candidates[j], preemptionCtx.preemptorCQ.Name, p.clock.Now())
 	})
 	if logV := preemptionCtx.log.V(5); logV.Enabled() {
-		logV.Info("Simulating fair preemption", "candidates", workload.References(candidates), "resourcesRequiringPreemption", preemptionCtx.frsNeedPreemption.UnsortedList(), "preemptingWorkload", klog.KObj(preemptionCtx.preemptor.Obj))
+		logV.Info("模拟公平抢占", "candidates", workload.References(candidates), "resourcesRequiringPreemption", preemptionCtx.frsNeedPreemption.UnsortedList(), "preemptingWorkload", klog.KObj(preemptionCtx.preemptor.Obj))
 	}
 
-	// DRS values must include incoming workload.
+	// DRS 值必须包含新工作负载。
 	revertSimulation := preemptionCtx.preemptorCQ.SimulateUsageAddition(preemptionCtx.workloadUsage)
 
 	fits, targets, retryCandidates := runFirstFsStrategy(preemptionCtx, candidates, strategies[0])
@@ -417,9 +387,8 @@ func flavorResourcesNeedPreemption(assignment flavorassigner.Assignment) sets.Se
 	return resPerFlavor
 }
 
-// findCandidates obtains candidates for preemption within the ClusterQueue and
-// cohort that respect the preemption policy and are using a resource that the
-// preempting workload needs.
+// findCandidates 获取在 ClusterQueue 和 cohort 中需要抢占的工作负载，
+// 并尊重抢占策略。
 func (p *Preemptor) findCandidates(wl *kueue.Workload, cq *cache.ClusterQueueSnapshot, frsNeedPreemption sets.Set[resources.FlavorResource]) []*workload.Info {
 	var candidates []*workload.Info
 	wlPriority := priority.Priority(wl)
@@ -449,7 +418,7 @@ func (p *Preemptor) findCandidates(wl *kueue.Workload, cq *cache.ClusterQueueSna
 		onlyLowerPriority := cq.Preemption.ReclaimWithinCohort != kueue.PreemptionPolicyAny
 		for _, cohortCQ := range cq.Parent().Root().SubtreeClusterQueues() {
 			if cq == cohortCQ || !cqIsBorrowing(cohortCQ, frsNeedPreemption) {
-				// Can't reclaim quota from itself or ClusterQueues that are not borrowing.
+				// 不能从自身或不借用资源的 ClusterQueue 抢占配额。
 				continue
 			}
 			for _, candidateWl := range cohortCQ.Workloads {
@@ -478,9 +447,8 @@ func cqIsBorrowing(cq *cache.ClusterQueueSnapshot, frsNeedPreemption sets.Set[re
 	return false
 }
 
-// workloadFits determines if the workload requests would fit given the
-// requestable resources and simulated usage of the ClusterQueue and its cohort,
-// if it belongs to one.
+// workloadFits 确定工作负载请求是否适合给定资源和 ClusterQueue 及其 cohort 的模拟使用，
+// 如果它属于一个 cohort。
 func workloadFits(preemptionCtx *preemptionCtx, allowBorrowing bool) bool {
 	for fr, v := range preemptionCtx.workloadUsage.Quota {
 		if !allowBorrowing && preemptionCtx.preemptorCQ.BorrowingWith(fr, v) {
@@ -494,10 +462,9 @@ func workloadFits(preemptionCtx *preemptionCtx, allowBorrowing bool) bool {
 	return tasResult.Failure() == nil
 }
 
-// workloadFitsForFairSharing is a lightweight wrapper around
-// workloadFits, as we need to remove, and then add back, the usage of
-// the incoming workload, as FairSharing adds this usage at the start
-// of processing for accurate DominantResourceShare calculations.
+// workloadFitsForFairSharing 是一个轻量级的 workloadFits 包装，
+// 因为我们需要先移除，然后添加回，新工作负载的使用，
+// 因为 FairSharing 在处理开始时添加了此使用，以准确计算 DominantResourceShare。
 func workloadFitsForFairSharing(preemptionCtx *preemptionCtx) bool {
 	revertSimulation := preemptionCtx.preemptorCQ.SimulateUsageRemoval(preemptionCtx.workloadUsage)
 	res := workloadFits(preemptionCtx, true)
@@ -515,20 +482,20 @@ func queueUnderNominalInResourcesNeedingPreemption(preemptionCtx *preemptionCtx)
 }
 
 func resourceUsagePreemptionEnabled(a, b *workload.Info) bool {
-	// If both workloads are in the same ClusterQueue, but different LocalQueues,
-	// we can compare their LocalQueue usage.
-	// If the LocalQueueUsage is not nil for both Workloads, it means the feature gate has been enabled, and the
-	// AdmissionScope of the ClusterQueue is set to UsageBasedFairSharing. We inherit this information from the snapshot initialization.
+	// 如果两个工作负载在同一个 ClusterQueue 中，但属于不同的 LocalQueues，
+	// 我们可以比较它们的 LocalQueue 使用情况。
+	// 如果两个工作负载的 LocalQueueUsage 都不为 nil，则表示功能门已启用，
+	// 并且 ClusterQueue 的 AdmissionScope 设置为 UsageBasedFairSharing。
+	// 我们从快照初始化继承此信息。
 	return a.ClusterQueue == b.ClusterQueue && a.Obj.Spec.QueueName != b.Obj.Spec.QueueName && a.LocalQueueFSUsage != nil && b.LocalQueueFSUsage != nil
 }
 
-// candidatesOrdering criteria:
-// 0. Workloads already marked for preemption first.
-// 1. Workloads from other ClusterQueues in the cohort before the ones in the
-// same ClusterQueue as the preemptor.
-// 2. (AdmissionFairSharing only) Workloads with lower LocalQueue's usage first
-// 3. Workloads with lower priority first.
-// 4. Workloads admitted more recently first.
+// CandidatesOrdering 排序标准：
+// 0. 首先标记为需要抢占的工作负载。
+// 1. 在 cohort 中，其他 ClusterQueue 的工作负载优先于同一 ClusterQueue 的工作负载。
+// 2. (AdmissionFairSharing 仅) 使用 LocalQueue 较少的优先级工作负载优先。
+// 3. 优先级较低的工作负载优先。
+// 4. 更早被准入的工作负载优先。
 func CandidatesOrdering(a, b *workload.Info, cq kueue.ClusterQueueReference, now time.Time) bool {
 	aEvicted := meta.IsStatusConditionTrue(a.Obj.Status.Conditions, kueue.WorkloadEvicted)
 	bEvicted := meta.IsStatusConditionTrue(b.Obj.Status.Conditions, kueue.WorkloadEvicted)
@@ -556,14 +523,15 @@ func CandidatesOrdering(a, b *workload.Info, cq kueue.ClusterQueueReference, now
 	if !timeA.Equal(timeB) {
 		return timeA.After(timeB)
 	}
-	// Arbitrary comparison for deterministic sorting.
+	// 任意比较以确保排序确定性。
 	return a.Obj.UID < b.Obj.UID
 }
 
+// quotaReservationTime 返回配额保留的时间，如果条件未填充则使用当前时间。
 func quotaReservationTime(wl *kueue.Workload, now time.Time) time.Time {
 	cond := meta.FindStatusCondition(wl.Status.Conditions, kueue.WorkloadQuotaReserved)
 	if cond == nil || cond.Status != metav1.ConditionTrue {
-		// The condition wasn't populated yet, use the current time.
+		// 条件尚未填充，使用当前时间。
 		return now
 	}
 	return cond.LastTransitionTime.Time

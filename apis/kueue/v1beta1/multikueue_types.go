@@ -1,19 +1,3 @@
-/*
-Copyright The Kubernetes Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package v1beta1
 
 import (
@@ -24,34 +8,30 @@ const (
 	MultiKueueConfigSecretKey = "kubeconfig"
 	MultiKueueClusterActive   = "Active"
 
-	// MultiKueueOriginLabel is a label used to track the creator
-	// of multikueue remote objects.
+	// MultiKueueOriginLabel 是用于追踪 multikueue 远程对象创建者的标签。
 	MultiKueueOriginLabel = "kueue.x-k8s.io/multikueue-origin"
 
-	// MultiKueueControllerName is the name used by the MultiKueue
-	// admission check controller.
+	// MultiKueueControllerName 是 MultiKueue 准入检查控制器使用的名称。
 	MultiKueueControllerName = "kueue.x-k8s.io/multikueue"
 )
 
 type LocationType string
 
 const (
-	// PathLocationType is the path on the disk of kueue-controller-manager.
+	// PathLocationType 表示 kueue-controller-manager 磁盘上的路径。
 	PathLocationType LocationType = "Path"
 
-	// SecretLocationType is the name of the secret inside the namespace in which the kueue controller
-	// manager is running. The config should be stored in the "kubeconfig" key.
+	// SecretLocationType 表示 kueue 控制器管理器所在命名空间中的 Secret 名称。配置应存储在 "kubeconfig" 键中。
 	SecretLocationType LocationType = "Secret"
 )
 
 type KubeConfig struct {
-	// Location of the KubeConfig.
+	// KubeConfig 的位置。
 	//
-	// If LocationType is Secret then Location is the name of the secret inside the namespace in
-	// which the kueue controller manager is running. The config should be stored in the "kubeconfig" key.
+	// 如果 LocationType 为 Secret，则 Location 是 kueue 控制器管理器所在命名空间中的 Secret 名称。配置应存储在 "kubeconfig" 键中。
 	Location string `json:"location"`
 
-	// Type of the KubeConfig location.
+	// KubeConfig 位置的类型。
 	//
 	// +kubebuilder:default=Secret
 	// +kubebuilder:validation:Enum=Secret;Path
@@ -59,7 +39,7 @@ type KubeConfig struct {
 }
 
 type MultiKueueClusterSpec struct {
-	// Information how to connect to the cluster.
+	// 连接集群的信息。
 	KubeConfig KubeConfig `json:"kubeConfig"`
 }
 
@@ -81,7 +61,7 @@ type MultiKueueClusterStatus struct {
 
 // +kubebuilder:printcolumn:name="Connected",JSONPath=".status.conditions[?(@.type=='Active')].status",type="string",description="MultiKueueCluster is connected"
 // +kubebuilder:printcolumn:name="Age",JSONPath=".metadata.creationTimestamp",type="date",description="Time this workload was created"
-// MultiKueueCluster is the Schema for the multikueue API
+// MultiKueueCluster 是 multikueue API 的 Schema。
 type MultiKueueCluster struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -92,16 +72,16 @@ type MultiKueueCluster struct {
 
 // +kubebuilder:object:root=true
 
-// MultiKueueClusterList contains a list of MultiKueueCluster
+// MultiKueueClusterList 包含 MultiKueueCluster 的列表。
 type MultiKueueClusterList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []MultiKueueCluster `json:"items"`
 }
 
-// MultiKueueConfigSpec defines the desired state of MultiKueueConfig
+// MultiKueueConfigSpec 定义了 MultiKueueConfig 的期望状态。
 type MultiKueueConfigSpec struct {
-	// List of MultiKueueClusters names where the workloads from the ClusterQueue should be distributed.
+	// ClusterQueue 中的工作负载应分发到的 MultiKueueCluster 名称列表。
 	//
 	// +listType=set
 	// +kubebuilder:validation:MinItems=1
@@ -115,7 +95,7 @@ type MultiKueueConfigSpec struct {
 // +kubebuilder:storageversion
 // +kubebuilder:resource:scope=Cluster
 
-// MultiKueueConfig is the Schema for the multikueue API
+// MultiKueueConfig 是 multikueue API 的 Schema。
 type MultiKueueConfig struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -125,7 +105,7 @@ type MultiKueueConfig struct {
 
 // +kubebuilder:object:root=true
 
-// MultiKueueConfigList contains a list of MultiKueueConfig
+// MultiKueueConfigList 包含 MultiKueueConfig 的列表。
 type MultiKueueConfigList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`

@@ -17,8 +17,7 @@ spec:
   - name: v1beta1
     schema:
       openAPIV3Schema:
-        description: ProvisioningRequestConfig is the Schema for the provisioningrequestconfig
-          API
+        description: ProvisioningRequestConfig 是 provisioningrequestconfig API 的 Schema
         properties:
           apiVersion:
             description: |-
@@ -38,20 +37,18 @@ spec:
           metadata:
             type: object
           spec:
-            description: ProvisioningRequestConfigSpec defines the desired state of
-              ProvisioningRequestConfig
+            description: ProvisioningRequestConfigSpec 定义了 ProvisioningRequestConfig
+              的期望状态
             properties:
               managedResources:
                 description: |-
-                  managedResources contains the list of resources managed by the autoscaling.
+                  managedResources 包含由自动扩缩容管理的资源列表。
 
-                  If empty, all resources are considered managed.
+                  如果为空，则认为所有资源都被管理。
 
-                  If not empty, the ProvisioningRequest will contain only the podsets that are
-                  requesting at least one of them.
+                  如果不为空，ProvisioningRequest 只会包含请求了其中至少一个资源的 podset。
 
-                  If none of the workloads podsets is requesting at least a managed resource,
-                  the workload is considered ready.
+                  如果所有 workload 的 podset 都没有请求任何被管理的资源，则认为该 workload 已就绪。
                 items:
                   description: ResourceName is the name identifying various resources
                     in a ResourceList.
@@ -61,42 +58,35 @@ spec:
                 x-kubernetes-list-type: set
               parameters:
                 additionalProperties:
-                  description: Parameter is limited to 255 characters.
+                  description: Parameter 限制为 255 个字符。
                   maxLength: 255
                   type: string
-                description: Parameters contains all other parameters classes may
-                  require.
+                description: Parameters 包含类可能需要的所有其他参数。
                 maxProperties: 100
                 type: object
               podSetMergePolicy:
-                description: |-
-                  podSetMergePolicy specifies the policy for merging PodSets before being passed
-                  to the cluster autoscaler.
+                description: podSetMergePolicy 指定在传递给集群自动扩缩容器前合并 PodSet 的策略。
                 enum:
                 - IdenticalPodTemplates
                 - IdenticalWorkloadSchedulingRequirements
                 type: string
               podSetUpdates:
-                description: |-
-                  podSetUpdates specifies the update of the workload's PodSetUpdates which
-                  are used to target the provisioned nodes.
+                description: podSetUpdates 指定 workload 的 PodSetUpdates 更新，用于定位已调度节点。
                 properties:
                   nodeSelector:
-                    description: nodeSelector specifies the list of updates for the
-                      NodeSelector.
+                    description: nodeSelector 指定 NodeSelector 的更新列表。
                     items:
                       properties:
                         key:
-                          description: key specifies the key for the NodeSelector.
+                          description: key 指定 NodeSelector 的键。
                           maxLength: 317
                           minLength: 1
                           pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
                           type: string
                         valueFromProvisioningClassDetail:
                           description: |-
-                            valueFromProvisioningClassDetail specifies the key of the
-                            ProvisioningRequest.status.provisioningClassDetails from which the value
-                            is used for the update.
+                            valueFromProvisioningClassDetail 指定 ProvisioningRequest.status.provisioningClassDetails 的键，
+                            其值用于更新。
                           maxLength: 32768
                           minLength: 1
                           type: string
@@ -109,8 +99,8 @@ spec:
                 type: object
               provisioningClassName:
                 description: |-
-                  ProvisioningClassName describes the different modes of provisioning the resources.
-                  Check autoscaling.x-k8s.io ProvisioningRequestSpec.ProvisioningClassName for details.
+                  ProvisioningClassName 描述了资源调度的不同模式。
+                  详情请参考 autoscaling.x-k8s.io ProvisioningRequestSpec.ProvisioningClassName。
                 maxLength: 253
                 pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                 type: string
@@ -120,47 +110,44 @@ spec:
                   backoffLimitCount: 3
                   backoffMaxSeconds: 1800
                 description: |-
-                  retryStrategy defines strategy for retrying ProvisioningRequest.
-                  If null, then the default configuration is applied with the following parameter values:
+                  retryStrategy 定义了重试 ProvisioningRequest 的策略。
+                  如果为 null，则应用默认配置，参数如下：
                   backoffLimitCount:  3
-                  backoffBaseSeconds: 60 - 1 min
-                  backoffMaxSeconds:  1800 - 30 mins
+                  backoffBaseSeconds: 60 - 1 分钟
+                  backoffMaxSeconds:  1800 - 30 分钟
 
-                  To switch off retry mechanism
-                  set retryStrategy.backoffLimitCount to 0.
+                  若要关闭重试机制，将 retryStrategy.backoffLimitCount 设为 0。
                 properties:
                   backoffBaseSeconds:
                     default: 60
                     description: |-
-                      BackoffBaseSeconds defines the base for the exponential backoff for
-                      re-queuing an evicted workload.
+                      BackoffBaseSeconds 定义了被驱逐 workload 重新排队的指数退避基数。
 
-                      Defaults to 60.
+                      默认值为 60。
                     format: int32
                     type: integer
                   backoffLimitCount:
                     default: 3
                     description: |-
-                      BackoffLimitCount defines the maximum number of re-queuing retries.
-                      Once the number is reached, the workload is deactivated (`.spec.activate`=`false`).
+                      BackoffLimitCount 定义了最大重试次数。
+                      达到该次数后，workload 会被停用（`.spec.activate`=`false`）。
 
-                      Every backoff duration is about "b*2^(n-1)+Rand" where:
-                      - "b" represents the base set by "BackoffBaseSeconds" parameter,
-                      - "n" represents the "workloadStatus.requeueState.count",
-                      - "Rand" represents the random jitter.
-                      During this time, the workload is taken as an inadmissible and
-                      other workloads will have a chance to be admitted.
-                      By default, the consecutive requeue delays are around: (60s, 120s, 240s, ...).
+                      每次退避时间大约为 "b*2^(n-1)+Rand"，其中：
+                      - "b" 由 "BackoffBaseSeconds" 参数设定，
+                      - "n" 为 "workloadStatus.requeueState.count"，
+                      - "Rand" 为随机抖动。
+                      在此期间，workload 被视为不可接受，其他 workload 有机会被调度。
+                      默认连续重排队延迟约为：(60s, 120s, 240s, ...)。
 
-                      Defaults to 3.
+                      默认值为 3。
                     format: int32
                     type: integer
                   backoffMaxSeconds:
                     default: 1800
                     description: |-
-                      BackoffMaxSeconds defines the maximum backoff time to re-queue an evicted workload.
+                      BackoffMaxSeconds 定义了被驱逐 workload 重新排队的最大退避时间。
 
-                      Defaults to 1800.
+                      默认值为 1800。
                     format: int32
                     type: integer
                 type: object

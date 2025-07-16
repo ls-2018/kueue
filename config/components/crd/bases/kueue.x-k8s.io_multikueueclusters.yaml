@@ -26,7 +26,7 @@ spec:
     name: v1beta1
     schema:
       openAPIV3Schema:
-        description: MultiKueueCluster is the Schema for the multikueue API
+        description: MultiKueueCluster 是 multikueue API 的 Schema。
         properties:
           apiVersion:
             description: |-
@@ -48,18 +48,17 @@ spec:
           spec:
             properties:
               kubeConfig:
-                description: Information how to connect to the cluster.
+                description: 连接集群的信息。
                 properties:
                   location:
                     description: |-
-                      Location of the KubeConfig.
+                      KubeConfig 的位置。
 
-                      If LocationType is Secret then Location is the name of the secret inside the namespace in
-                      which the kueue controller manager is running. The config should be stored in the "kubeconfig" key.
+                      如果 LocationType 为 Secret，则 Location 是 kueue 控制器管理器所在命名空间中的 Secret 名称。配置应存储在 "kubeconfig" 键中。
                     type: string
                   locationType:
                     default: Secret
-                    description: Type of the KubeConfig location.
+                    description: KubeConfig 位置的类型。
                     enum:
                     - Secret
                     - Path

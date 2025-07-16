@@ -1,19 +1,3 @@
-/*
-Copyright The Kubernetes Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package cache
 
 import (
@@ -103,6 +87,53 @@ func (s *Snapshot) Log(log logr.Logger) {
 	}
 }
 
+// snapshotClusterQueue creates a copy of ClusterQueue that includes
+// references to immutable objects and deep copies of changing ones.
+func (c *Cache) snapshotClusterQueue(ctx context.Context, cq *clusterQueue) (*ClusterQueueSnapshot, error) {
+	cc := &ClusterQueueSnapshot{
+		Name:                          cq.Name,
+		ResourceGroups:                make([]ResourceGroup, len(cq.ResourceGroups)),
+		FlavorFungibility:             cq.FlavorFungibility,
+		FairWeight:                    cq.FairWeight,
+		AllocatableResourceGeneration: cq.AllocatableResourceGeneration,
+		Workloads:                     maps.Clone(cq.Workloads),
+		Preemption:                    cq.Preemption,
+		NamespaceSelector:             cq.NamespaceSelector,
+		Status:                        cq.Status,
+		AdmissionChecks:               utilmaps.DeepCopySets(cq.AdmissionChecks),
+		ResourceNode:                  cq.resourceNode.Clone(),
+		TASFlavors:                    make(map[kueue.ResourceFlavorReference]*TASFlavorSnapshot),
+		tasOnly:                       cq.isTASOnly(),
+		flavorsForProvReqACs:          cq.flavorsWithProvReqAdmissionCheck(),
+	}
+	for i, rg := range cq.ResourceGroups {
+		cc.ResourceGroups[i] = rg.Clone()
+	}
+	if features.Enabled(features.AdmissionFairSharing) {
+		if cq.AdmissionScope != nil {
+			cc.AdmissionScope = *cq.AdmissionScope.DeepCopy()
+		}
+		afsEnabled, resourceWeights := afs.ResourceWeights(&cc.AdmissionScope, c.admissionFairSharing)
+		if !afsEnabled {
+			return cc, nil
+		}
+		for _, wl := range cc.Workloads {
+			usage, err := wl.CalcLocalQueueFSUsage(ctx, c.client, resourceWeights)
+			if err != nil {
+				return nil, fmt.Errorf("failed to calculate LocalQueue FS usage for LocalQueue %v", client.ObjectKey{Namespace: wl.Obj.Namespace, Name: string(wl.Obj.Spec.QueueName)})
+			}
+			wl.LocalQueueFSUsage = &usage
+		}
+	}
+	return cc, nil
+}
+
+func newCohortSnapshot(name kueue.CohortReference) *CohortSnapshot {
+	return &CohortSnapshot{
+		Name:   name,
+		Cohort: hierarchy.NewCohort[*ClusterQueueSnapshot](),
+	}
+}
 func (c *Cache) Snapshot(ctx context.Context) (*Snapshot, error) {
 	c.RLock()
 	defer c.RUnlock()
@@ -158,52 +189,4 @@ func (c *Cache) Snapshot(ctx context.Context) (*Snapshot, error) {
 	// Shallow copy is enough
 	maps.Copy(snap.ResourceFlavors, c.resourceFlavors)
 	return &snap, nil
-}
-
-// snapshotClusterQueue creates a copy of ClusterQueue that includes
-// references to immutable objects and deep copies of changing ones.
-func (c *Cache) snapshotClusterQueue(ctx context.Context, cq *clusterQueue) (*ClusterQueueSnapshot, error) {
-	cc := &ClusterQueueSnapshot{
-		Name:                          cq.Name,
-		ResourceGroups:                make([]ResourceGroup, len(cq.ResourceGroups)),
-		FlavorFungibility:             cq.FlavorFungibility,
-		FairWeight:                    cq.FairWeight,
-		AllocatableResourceGeneration: cq.AllocatableResourceGeneration,
-		Workloads:                     maps.Clone(cq.Workloads),
-		Preemption:                    cq.Preemption,
-		NamespaceSelector:             cq.NamespaceSelector,
-		Status:                        cq.Status,
-		AdmissionChecks:               utilmaps.DeepCopySets(cq.AdmissionChecks),
-		ResourceNode:                  cq.resourceNode.Clone(),
-		TASFlavors:                    make(map[kueue.ResourceFlavorReference]*TASFlavorSnapshot),
-		tasOnly:                       cq.isTASOnly(),
-		flavorsForProvReqACs:          cq.flavorsWithProvReqAdmissionCheck(),
-	}
-	for i, rg := range cq.ResourceGroups {
-		cc.ResourceGroups[i] = rg.Clone()
-	}
-	if features.Enabled(features.AdmissionFairSharing) {
-		if cq.AdmissionScope != nil {
-			cc.AdmissionScope = *cq.AdmissionScope.DeepCopy()
-		}
-		afsEnabled, resourceWeights := afs.ResourceWeights(&cc.AdmissionScope, c.admissionFairSharing)
-		if !afsEnabled {
-			return cc, nil
-		}
-		for _, wl := range cc.Workloads {
-			usage, err := wl.CalcLocalQueueFSUsage(ctx, c.client, resourceWeights)
-			if err != nil {
-				return nil, fmt.Errorf("failed to calculate LocalQueue FS usage for LocalQueue %v", client.ObjectKey{Namespace: wl.Obj.Namespace, Name: string(wl.Obj.Spec.QueueName)})
-			}
-			wl.LocalQueueFSUsage = &usage
-		}
-	}
-	return cc, nil
-}
-
-func newCohortSnapshot(name kueue.CohortReference) *CohortSnapshot {
-	return &CohortSnapshot{
-		Name:   name,
-		Cohort: hierarchy.NewCohort[*ClusterQueueSnapshot](),
-	}
 }

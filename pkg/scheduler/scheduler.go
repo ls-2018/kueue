@@ -1,19 +1,17 @@
 /*
-Copyright The Kubernetes Authors.
+调度器（Scheduler）是 Kueue 的核心组件，负责从队列中挑选待调度的 Workload，
+并根据资源快照、优先级、配额、抢占等策略，决定哪些 Workload 可以被准入（admit），
+并为其分配资源风味（ResourceFlavor）和集群队列（ClusterQueue）。
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
+本文件实现了调度器的主要流程，包括：
+- 队列头部 Workload 的获取
+- 资源快照的构建
+- Workload 的资源需求分析与分配尝试
+- 公平/经典调度策略的迭代器
+- 抢占与资源借用处理
+- Workload 的准入与事件上报
+- Workload 的重入队与状态更新
 */
-
 package scheduler
 
 import (
@@ -22,7 +20,6 @@ import (
 	"maps"
 	"slices"
 	"sort"
-	"testing"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -63,22 +60,23 @@ var (
 	realClock = clock.RealClock{}
 )
 
+// Scheduler 结构体定义了调度器的核心依赖和配置项。
 type Scheduler struct {
-	queues                  *queue.Manager
-	cache                   *cache.Cache
-	client                  client.Client
-	recorder                record.EventRecorder
-	admissionRoutineWrapper routine.Wrapper
-	preemptor               *preemption.Preemptor
-	workloadOrdering        workload.Ordering
-	fairSharing             config.FairSharing
-	clock                   clock.Clock
+	queues                  *queue.Manager        // 队列管理器，负责管理所有队列及其 Workload
+	cache                   *cache.Cache          // 资源缓存，维护集群资源快照和已准入 Workload
+	client                  client.Client         // K8s 客户端，用于与 API Server 交互
+	recorder                record.EventRecorder  // 事件记录器，用于上报事件
+	admissionRoutineWrapper routine.Wrapper       // 准入异步包装器
+	preemptor               *preemption.Preemptor // 抢占器，负责抢占逻辑
+	workloadOrdering        workload.Ordering     // Workload 排序策略
+	fairSharing             config.FairSharing    // 公平调度配置
+	clock                   clock.Clock           // 时钟接口，便于测试
 
-	// schedulingCycle identifies the number of scheduling
-	// attempts since the last restart.
+	// schedulingCycle 表示自上次重启以来的调度周期数。
+	// 每次 schedule 调用自增，用于日志和调度追踪。
 	schedulingCycle int64
 
-	// Stubs.
+	// applyAdmission 是准入操作的实现函数，默认使用 SSA。
 	applyAdmission func(context.Context, *kueue.Workload) error
 }
 
@@ -88,7 +86,7 @@ type options struct {
 	clock                       clock.Clock
 }
 
-// Option configures the reconciler.
+// Option 用于配置 reconciler。
 type Option func(*options)
 
 var defaultOptions = options{
@@ -96,8 +94,7 @@ var defaultOptions = options{
 	clock:                       realClock,
 }
 
-// WithPodsReadyRequeuingTimestamp sets the timestamp that is used for ordering
-// workloads that have been requeued due to the PodsReady condition.
+// WithPodsReadyRequeuingTimestamp 设置用于对因 PodsReady 条件被重新入队的工作负载进行排序的时间戳。
 func WithPodsReadyRequeuingTimestamp(ts config.RequeuingTimestamp) Option {
 	return func(o *options) {
 		o.podsReadyRequeuingTimestamp = ts
@@ -112,12 +109,12 @@ func WithFairSharing(fs *config.FairSharing) Option {
 	}
 }
 
-func WithClock(_ testing.TB, c clock.Clock) Option {
-	return func(o *options) {
-		o.clock = c
-	}
-}
-
+// New 创建一个新的 Scheduler 实例。
+// queues: 队列管理器
+// cache: 资源缓存
+// cl: K8s 客户端
+// recorder: 事件记录器
+// opts: 可选配置项
 func New(queues *queue.Manager, cache *cache.Cache, cl client.Client, recorder record.EventRecorder, opts ...Option) *Scheduler {
 	options := defaultOptions
 	for _, opt := range opts {
@@ -141,16 +138,7 @@ func New(queues *queue.Manager, cache *cache.Cache, cl client.Client, recorder r
 	return s
 }
 
-// Start implements the Runnable interface to run scheduler as a controller.
-func (s *Scheduler) Start(ctx context.Context) error {
-	log := ctrl.LoggerFrom(ctx).WithName("scheduler")
-	ctx = ctrl.LoggerInto(ctx, log)
-	go wait.UntilWithBackoff(ctx, s.schedule)
-	return nil
-}
-
-// NeedLeaderElection Implements LeaderElectionRunnable interface to make scheduler
-// run in leader election mode
+// NeedLeaderElection 实现 LeaderElectionRunnable 接口，使调度器以主节点选举模式运行。
 func (s *Scheduler) NeedLeaderElection() bool {
 	return true
 }
@@ -162,10 +150,8 @@ func (s *Scheduler) setAdmissionRoutineWrapper(wrapper routine.Wrapper) {
 func setSkipped(e *entry, inadmissibleMsg string) {
 	e.status = skipped
 	e.inadmissibleMsg = inadmissibleMsg
-	// Reset assignment so that we retry all flavors
-	// after skipping due to Fit no longer fitting,
-	// or Preempt being skipped due to an overlapping
-	// earlier admission.
+	// 重置分配，以便在由于 Fit 不再适配而跳过，
+	// 或由于与先前准入重叠而跳过 Preempt 后，重试所有资源类型。
 	e.LastAssignment = nil
 }
 
@@ -175,21 +161,23 @@ func reportSkippedPreemptions(p map[kueue.ClusterQueueReference]int) {
 	}
 }
 
+// schedule 是调度器的主循环，每次调度周期会尝试准入一批 Workload。
+// 返回值用于控制调度速率（快/慢/继续）。
 func (s *Scheduler) schedule(ctx context.Context) wait.SpeedSignal {
 	s.schedulingCycle++
 	log := ctrl.LoggerFrom(ctx).WithValues("schedulingCycle", s.schedulingCycle)
 	ctx = ctrl.LoggerInto(ctx, log)
 
-	// 1. Get the heads from the queues, including their desired clusterQueue.
-	// This operation blocks while the queues are empty.
+	// 步骤1：从队列管理器获取所有队列的头部 Workload。
+	// 这些 Workload 是当前最有可能被调度的。
 	headWorkloads := s.queues.Heads(ctx)
-	// If there are no elements, it means that the program is finishing.
+	// 如果没有元素，说明程序正在结束。
 	if len(headWorkloads) == 0 {
 		return wait.KeepGoing
 	}
 	startTime := s.clock.Now()
 
-	// 2. Take a snapshot of the cache.
+	// 步骤2：对当前集群资源和已准入 Workload 进行快照，便于后续分配和回滚。
 	snapshot, err := s.cache.Snapshot(ctx)
 	if err != nil {
 		log.Error(err, "failed to build snapshot for scheduling")
@@ -197,24 +185,21 @@ func (s *Scheduler) schedule(ctx context.Context) wait.SpeedSignal {
 	}
 	logSnapshotIfVerbose(log, snapshot)
 
-	// 3. Calculate requirements (resource flavors, borrowing) for admitting workloads.
+	// 步骤3：分析每个 Workload 的资源需求，尝试分配资源风味和借用额度。
 	entries, inadmissibleEntries := s.nominate(ctx, headWorkloads, snapshot)
 
-	// 4. Create iterator which returns ordered entries.
+	// 步骤4：根据配置选择公平调度或经典调度的迭代器，对 entries 进行排序和遍历。
 	iterator := makeIterator(ctx, entries, s.workloadOrdering, s.fairSharing.Enable)
 
-	// 5. Admit entries, ensuring that no more than one workload gets
-	// admitted by a cohort (if borrowing).
-	// This is because there can be other workloads deeper in a clusterQueue whose
-	// head got admitted that should be scheduled in the cohort before the heads
-	// of other clusterQueues.
+	// 步骤5：遍历排序后的 entries，依次尝试准入。
+	// 处理抢占、借用、PodsReady 等特殊场景。
 	preemptedWorkloads := make(preemption.PreemptedWorkloads)
 	skippedPreemptions := make(map[kueue.ClusterQueueReference]int)
 	for iterator.hasNext() {
 		e := iterator.pop()
 
-		cq := snapshot.ClusterQueue(e.ClusterQueue)
-		log := log.WithValues("workload", klog.KObj(e.Obj), "clusterQueue", klog.KRef("", string(e.ClusterQueue)))
+		cq := snapshot.ClusterQueue(e.Info.ClusterQueue)
+		log := log.WithValues("workload", klog.KObj(e.Info.Obj), "clusterQueue", klog.KRef("", string(e.Info.ClusterQueue)))
 		if cq.HasParent() {
 			log = log.WithValues("parentCohort", klog.KRef("", string(cq.Parent().GetName())), "rootCohort", klog.KRef("", string(cq.Parent().Root().GetName())))
 		}
@@ -222,9 +207,9 @@ func (s *Scheduler) schedule(ctx context.Context) wait.SpeedSignal {
 
 		mode := e.assignment.RepresentativeMode()
 
-		if features.Enabled(features.TASFailedNodeReplacementFailFast) && workload.HasTopologyAssignmentWithNodeToReplace(e.Obj) && mode != flavorassigner.Fit {
-			// evict workload we couldn't find the replacement for
-			if err := s.evictWorkloadAfterFailedTASReplacement(ctx, log, e.Obj); err != nil {
+		if features.Enabled(features.TASFailedNodeReplacementFailFast) && workload.HasTopologyAssignmentWithNodeToReplace(e.Info.Obj) && mode != flavorassigner.Fit {
+			// 驱逐无法找到替换节点的工作负载
+			if err := s.evictWorkloadAfterFailedTASReplacement(ctx, log, e.Info.Obj); err != nil {
 				log.V(2).Error(err, "Failed to evict workload after failed try to find a node replacement")
 				continue
 			}
@@ -238,24 +223,27 @@ func (s *Scheduler) schedule(ctx context.Context) wait.SpeedSignal {
 		}
 		log.V(2).Info("Attempting to schedule workload")
 
+		// 处理抢占模式下的特殊逻辑：
+		// - 如果需要抢占但没有候选目标，则保留资源，防止被低优先级抢占
+		// - 如果抢占目标有重叠，跳过本次准入
+		// - 如果资源不再适配，跳过
+		// - 如果发起抢占，记录抢占目标，等待抢占完成
+		// - 如果需要等待所有已准入 Workload PodsReady，则阻塞准入
+		// - 最终调用 admit 进行准入
 		if mode == flavorassigner.Preempt && len(e.preemptionTargets) == 0 {
 			log.V(2).Info("Workload requires preemption, but there are no candidate workloads allowed for preemption", "preemption", cq.Preemption)
-			// we reserve capacity if we are uncertain
-			// whether we can reclaim the capacity
-			// later. Otherwise, we allow other workloads
-			// in the Cohort to borrow this capacity,
-			// confident we can reclaim it later.
+			// 如果我们不确定是否能回收容量，则保留容量
+			// 否则，允许 Cohort 中的其他工作负载借用该容量，
+			// 并确信我们之后可以回收。
 			if !preemption.CanAlwaysReclaim(cq) {
-				// reserve capacity up to the
-				// borrowing limit, so that
-				// lower-priority workloads in another
-				// Cohort cannot admit before us.
+				// 保留容量直到借用上限，
+				// 这样其他 Cohort 中优先级较低的工作负载就不能在我们之前被批准。
 				cq.AddUsage(resourcesToReserve(e, cq))
 			}
 			continue
 		}
 
-		// We skip multiple-preemptions per cohort if any of the targets are overlapping
+		// 如果任何目标有重叠，则每个 cohort 跳过多次抢占
 		if preemptedWorkloads.HasAny(e.preemptionTargets) {
 			setSkipped(e, "Workload has overlapping preemption targets with another workload")
 			skippedPreemptions[cq.Name]++
@@ -274,7 +262,7 @@ func (s *Scheduler) schedule(ctx context.Context) wait.SpeedSignal {
 		cq.AddUsage(usage)
 
 		if e.assignment.RepresentativeMode() == flavorassigner.Preempt {
-			// If preemptions are issued, the next attempt should try all the flavors.
+			// 如果发起了抢占，下次尝试应尝试所有资源类型。
 			e.LastAssignment = nil
 			preempted, err := s.preemptor.IssuePreemptions(ctx, &e.Info, e.preemptionTargets)
 			if err != nil {
@@ -291,8 +279,8 @@ func (s *Scheduler) schedule(ctx context.Context) wait.SpeedSignal {
 			// If WaitForPodsReady is enabled and WaitForPodsReady.BlockAdmission is true
 			// Block admission until all currently admitted workloads are in
 			// PodsReady condition if the waitForPodsReady is enabled
-			workload.UnsetQuotaReservationWithCondition(e.Obj, "Waiting", "waiting for all admitted workloads to be in PodsReady condition", s.clock.Now())
-			if err := workload.ApplyAdmissionStatus(ctx, s.client, e.Obj, false, s.clock); err != nil {
+			workload.UnsetQuotaReservationWithCondition(e.Info.Obj, "Waiting", "waiting for all admitted workloads to be in PodsReady condition", s.clock.Now())
+			if err := workload.ApplyAdmissionStatus(ctx, s.client, e.Info.Obj, false, s.clock); err != nil {
 				log.Error(err, "Could not update Workload status")
 			}
 			s.cache.WaitForPodsReady(ctx)
@@ -304,7 +292,7 @@ func (s *Scheduler) schedule(ctx context.Context) wait.SpeedSignal {
 		}
 	}
 
-	// 6. Requeue the heads that were not scheduled.
+	// 步骤6：对未被准入的 Workload 进行重入队和状态更新。
 	result := metrics.AdmissionResultInadmissible
 	for _, e := range entries {
 		logAdmissionAttemptIfVerbose(log, &e)
@@ -332,38 +320,37 @@ func (s *Scheduler) schedule(ctx context.Context) wait.SpeedSignal {
 type entryStatus string
 
 const (
-	// indicates if the workload was nominated for admission.
+	// 表示工作负载已被提名准入。
 	nominated entryStatus = "nominated"
-	// indicates if the workload was skipped in this cycle.
+	// 表示工作负载在本周期被跳过。
 	skipped entryStatus = "skipped"
-	// indicates if the workload was evicted in this cycle.
+	// 表示工作负载在本周期被驱逐。
 	evicted entryStatus = "evicted"
-	// indicates if the workload was assumed to have been admitted.
+	// 表示工作负载已被假设已准入。
 	assumed entryStatus = "assumed"
-	// indicates that the workload was never nominated for admission.
+	// 表示工作负载从未被提名准入。
 	notNominated entryStatus = ""
 )
 
-// entry holds requirements for a workload to be admitted by a clusterQueue.
+// entry 结构体表示一个待准入的 Workload 及其分配需求和状态。
 type entry struct {
-	// workload.Info holds the workload from the API as well as resource usage
-	// and flavors assigned.
-	workload.Info
-	assignment           flavorassigner.Assignment
-	status               entryStatus
-	inadmissibleMsg      string
-	requeueReason        queue.RequeueReason
-	preemptionTargets    []*preemption.Target
-	clusterQueueSnapshot *cache.ClusterQueueSnapshot
+	workload.Info                                              // Workload 及其资源需求
+	assignment           flavorassigner.Assignment             // 资源风味分配结果
+	status               entryStatus                           // 当前准入状态
+	inadmissibleMsg      string                                // 不可准入原因
+	requeueReason        queue.RequeueReason                   // 重入队原因
+	preemptionTargets    []*preemption.Target                  // 抢占目标列表
+	clusterQueueSnapshot *cache.ClusterQueueSnapshot           // 所属 ClusterQueue 快照
+	LastAssignment       *workload.AssignmentClusterQueueState // 上一次分配的 AssignmentClusterQueueState，用于重试和回滚
 }
 
 func (e *entry) assignmentUsage() workload.Usage {
 	return netUsage(e, e.assignment.Usage.Quota)
 }
 
-// nominate returns the workloads with their requirements (resource flavors, borrowing) if
-// they were admitted by the clusterQueues in the snapshot. The second return value
-// is the list of inadmissibleEntries.
+// nominate 尝试为每个队首 Workload 分配资源风味和借用额度，返回可准入和不可准入的 entry 列表。
+// - entries: 可准入的 entry
+// - inadmissibleEntries: 不可准入的 entry
 func (s *Scheduler) nominate(ctx context.Context, workloads []workload.Info, snap *cache.Snapshot) ([]entry, []entry) {
 	log := ctrl.LoggerFrom(ctx)
 	entries := make([]entry, 0, len(workloads))
@@ -403,6 +390,7 @@ func (s *Scheduler) nominate(ctx context.Context, workloads []workload.Info, sna
 	return entries, inadmissibleEntries
 }
 
+// fits 判断在考虑已抢占 Workload 后，当前 usage 是否还能适配 ClusterQueue。
 func fits(cq *cache.ClusterQueueSnapshot, usage *workload.Usage, preemptedWorkloads preemption.PreemptedWorkloads, newTargets []*preemption.Target) bool {
 	workloads := slices.Collect(maps.Values(preemptedWorkloads))
 	for _, target := range newTargets {
@@ -413,18 +401,18 @@ func fits(cq *cache.ClusterQueueSnapshot, usage *workload.Usage, preemptedWorklo
 	return cq.Fits(*usage)
 }
 
-// resourcesToReserve calculates how much of the available resources in cq/cohort assignment should be reserved.
+// resourcesToReserve 计算在 cq/cohort 分配中需要预留的资源量。
 func resourcesToReserve(e *entry, cq *cache.ClusterQueueSnapshot) workload.Usage {
 	return netUsage(e, quotaResourcesToReserve(e, cq))
 }
 
-// netUsage calculates the net usage for quota and TAS to reserve
+// netUsage 计算配额和 TAS 预留的净用量。
 func netUsage(e *entry, netQuota resources.FlavorResourceQuantities) workload.Usage {
 	result := workload.Usage{}
 	if features.Enabled(features.TopologyAwareScheduling) {
-		result.TAS = e.assignment.ComputeTASNetUsage(e.Obj.Status.Admission)
+		result.TAS = e.assignment.ComputeTASNetUsage(e.Info.Obj.Status.Admission)
 	}
-	if !workload.HasQuotaReservation(e.Obj) {
+	if !workload.HasQuotaReservation(e.Info.Obj) {
 		result.Quota = netQuota
 	}
 	return result
@@ -455,6 +443,8 @@ type partialAssignment struct {
 	preemptionTargets []*preemption.Target
 }
 
+// getAssignments 尝试为 Workload 分配资源风味和抢占目标。
+// 先尝试完整分配，不行则尝试部分分配（PartialAdmission）。
 func (s *Scheduler) getAssignments(log logr.Logger, wl *workload.Info, snap *cache.Snapshot) (flavorassigner.Assignment, []*preemption.Target) {
 	assignment, targets := s.getInitialAssignments(log, wl, snap)
 	cq := snap.ClusterQueue(wl.ClusterQueue)
@@ -539,14 +529,13 @@ func updateAssignmentForTAS(cq *cache.ClusterQueueSnapshot, wl *workload.Info, a
 	}
 }
 
-// admit sets the admitting clusterQueue and flavors into the workload of
-// the entry, and asynchronously updates the object in the apiserver after
-// assuming it in the cache.
+// admit 将 entry 的资源分配写入 Workload，并异步更新到 apiserver。
+// 先在本地 cache 假定准入，后续异步 applyAdmission。
 func (s *Scheduler) admit(ctx context.Context, e *entry, cq *cache.ClusterQueueSnapshot) error {
 	log := ctrl.LoggerFrom(ctx)
-	newWorkload := e.Obj.DeepCopy()
+	newWorkload := e.Info.Obj.DeepCopy()
 	admission := &kueue.Admission{
-		ClusterQueue:      e.ClusterQueue,
+		ClusterQueue:      e.Info.ClusterQueue,
 		PodSetAssignments: e.assignment.ToAPI(),
 	}
 
@@ -565,7 +554,7 @@ func (s *Scheduler) admit(ctx context.Context, e *entry, cq *cache.ClusterQueueS
 		err := s.applyAdmission(ctx, newWorkload)
 		if err == nil {
 			// Record metrics and events for quota reservation and admission
-			s.recordWorkloadAdmissionMetrics(newWorkload, e.Obj, admission)
+			s.recordWorkloadAdmissionMetrics(newWorkload, e.Info.Obj, admission)
 
 			log.V(2).Info("Workload successfully admitted and assigned flavors", "assignments", admission.PodSetAssignments)
 			return
@@ -585,10 +574,6 @@ func (s *Scheduler) admit(ctx context.Context, e *entry, cq *cache.ClusterQueueS
 	return nil
 }
 
-func (s *Scheduler) applyAdmissionWithSSA(ctx context.Context, w *kueue.Workload) error {
-	return workload.ApplyAdmissionStatus(ctx, s.client, w, false, s.clock)
-}
-
 type entryOrdering struct {
 	entries          []entry
 	workloadOrdering workload.Ordering
@@ -602,42 +587,42 @@ func (e entryOrdering) Swap(i, j int) {
 	e.entries[i], e.entries[j] = e.entries[j], e.entries[i]
 }
 
-// Less is the ordering criteria
+// Less 是排序依据
 func (e entryOrdering) Less(i, j int) bool {
 	a := e.entries[i]
 	b := e.entries[j]
 
-	// First process workloads which already have quota reserved. Such workload
-	// may be considered if this is their second pass.
-	aHasQuota := workload.HasQuotaReservation(a.Obj)
-	bHasQuota := workload.HasQuotaReservation(b.Obj)
+	// 首先处理已预留配额的工作负载。这样的工作负载
+	// 如果这是它们的第二次通过，则可能被考虑。
+	aHasQuota := workload.HasQuotaReservation(a.Info.Obj)
+	bHasQuota := workload.HasQuotaReservation(b.Info.Obj)
 	if aHasQuota != bHasQuota {
 		return aHasQuota
 	}
 
-	// 1. Request under nominal quota.
+	// 1. 请求在名义配额下。
 	aBorrows := a.assignment.Borrows()
 	bBorrows := b.assignment.Borrows()
 	if aBorrows != bBorrows {
 		return aBorrows < bBorrows
 	}
 
-	// 2. Higher priority first if not disabled.
+	// 2. 优先级较高的优先级（如果未禁用）。
 	if features.Enabled(features.PrioritySortingWithinCohort) {
-		p1 := priority.Priority(a.Obj)
-		p2 := priority.Priority(b.Obj)
+		p1 := priority.Priority(a.Info.Obj)
+		p2 := priority.Priority(b.Info.Obj)
 		if p1 != p2 {
 			return p1 > p2
 		}
 	}
 
-	// 3. FIFO.
-	aComparisonTimestamp := e.workloadOrdering.GetQueueOrderTimestamp(a.Obj)
-	bComparisonTimestamp := e.workloadOrdering.GetQueueOrderTimestamp(b.Obj)
+	// 3. FIFO。
+	aComparisonTimestamp := e.workloadOrdering.GetQueueOrderTimestamp(a.Info.Obj)
+	bComparisonTimestamp := e.workloadOrdering.GetQueueOrderTimestamp(b.Info.Obj)
 	return aComparisonTimestamp.Before(bComparisonTimestamp)
 }
 
-// entryInterator defines order that entries are returned.
+// entryInterator 定义了条目返回的顺序。
 // pop->nil IFF hasNext->False
 type entryIterator interface {
 	pop() *entry
@@ -651,11 +636,11 @@ func makeIterator(ctx context.Context, entries []entry, workloadOrdering workloa
 	return makeClassicalIterator(entries, workloadOrdering)
 }
 
-// classicalIterator returns entries ordered on:
-// 1. request under nominal quota before borrowing.
-// 2. Fair Sharing: lower DominantResourceShare first.
-// 3. higher priority first.
-// 4. FIFO on eviction or creation timestamp.
+// classicalIterator 返回按以下顺序排序的条目：
+// 1. 请求在名义配额之前。
+// 2. 公平共享：优先级较低的 DominantResourceShare。
+// 3. 优先级较高的优先级。
+// 4. 驱逐或创建时间戳的 FIFO。
 type classicalIterator struct {
 	entries []entry
 }
@@ -680,6 +665,7 @@ func makeClassicalIterator(entries []entry, workloadOrdering workload.Ordering) 
 	}
 }
 
+// requeueAndUpdate 负责将未准入的 Workload 重入队，并根据状态更新其 Admission/Pending 状态。
 func (s *Scheduler) requeueAndUpdate(ctx context.Context, e entry) {
 	log := ctrl.LoggerFrom(ctx)
 	if e.status != notNominated && e.requeueReason == queue.RequeueReasonGeneric {
@@ -687,17 +673,17 @@ func (s *Scheduler) requeueAndUpdate(ctx context.Context, e entry) {
 		e.requeueReason = queue.RequeueReasonFailedAfterNomination
 	}
 
-	if s.queues.QueueSecondPassIfNeeded(ctx, e.Obj) {
-		log.V(2).Info("Workload re-queued for second pass", "workload", klog.KObj(e.Obj), "clusterQueue", klog.KRef("", string(e.ClusterQueue)), "queue", klog.KRef(e.Obj.Namespace, string(e.Obj.Spec.QueueName)), "requeueReason", e.requeueReason, "status", e.status)
-		s.recorder.Eventf(e.Obj, corev1.EventTypeWarning, "SecondPassFailed", api.TruncateEventMessage(e.inadmissibleMsg))
+	if s.queues.QueueSecondPassIfNeeded(ctx, e.Info.Obj) {
+		log.V(2).Info("Workload re-queued for second pass", "workload", klog.KObj(e.Info.Obj), "clusterQueue", klog.KRef("", string(e.Info.ClusterQueue)), "queue", klog.KRef(e.Info.Obj.Namespace, string(e.Info.Obj.Spec.QueueName)), "requeueReason", e.requeueReason, "status", e.status)
+		s.recorder.Eventf(e.Info.Obj, corev1.EventTypeWarning, "SecondPassFailed", api.TruncateEventMessage(e.inadmissibleMsg))
 		return
 	}
 
 	added := s.queues.RequeueWorkload(ctx, &e.Info, e.requeueReason)
-	log.V(2).Info("Workload re-queued", "workload", klog.KObj(e.Obj), "clusterQueue", klog.KRef("", string(e.ClusterQueue)), "queue", klog.KRef(e.Obj.Namespace, string(e.Obj.Spec.QueueName)), "requeueReason", e.requeueReason, "added", added, "status", e.status)
+	log.V(2).Info("Workload re-queued", "workload", klog.KObj(e.Info.Obj), "clusterQueue", klog.KRef("", string(e.Info.ClusterQueue)), "queue", klog.KRef(e.Info.Obj.Namespace, string(e.Info.Obj.Spec.QueueName)), "requeueReason", e.requeueReason, "added", added, "status", e.status)
 
 	if e.status == notNominated || e.status == skipped {
-		patch := workload.PrepareWorkloadPatch(e.Obj, true, s.clock)
+		patch := workload.PrepareWorkloadPatch(e.Info.Obj, true, s.clock)
 		reservationIsChanged := workload.UnsetQuotaReservationWithCondition(patch, "Pending", e.inadmissibleMsg, s.clock.Now())
 		resourceRequestsIsChanged := workload.PropagateResourceRequests(patch, &e.Info)
 		if reservationIsChanged || resourceRequestsIsChanged {
@@ -705,11 +691,11 @@ func (s *Scheduler) requeueAndUpdate(ctx context.Context, e entry) {
 				log.Error(err, "Could not update Workload status")
 			}
 		}
-		s.recorder.Eventf(e.Obj, corev1.EventTypeWarning, "Pending", api.TruncateEventMessage(e.inadmissibleMsg))
+		s.recorder.Eventf(e.Info.Obj, corev1.EventTypeWarning, "Pending", api.TruncateEventMessage(e.inadmissibleMsg))
 	}
 }
 
-// recordWorkloadAdmissionMetrics records metrics and events for workload admission process
+// recordWorkloadAdmissionMetrics 记录 Workload 准入过程的指标和事件。
 func (s *Scheduler) recordWorkloadAdmissionMetrics(newWorkload, originalWorkload *kueue.Workload, admission *kueue.Admission) {
 	waitTime := workload.QueuedWaitTime(newWorkload, s.clock)
 
@@ -717,13 +703,13 @@ func (s *Scheduler) recordWorkloadAdmissionMetrics(newWorkload, originalWorkload
 	s.recordWorkloadAdmissionEvents(newWorkload, originalWorkload, admission, waitTime)
 }
 
-// recordQuotaReservationMetrics records metrics and events for quota reservation
+// recordQuotaReservationMetrics 记录配额预留的指标和事件。
 func (s *Scheduler) recordQuotaReservationMetrics(newWorkload, originalWorkload *kueue.Workload, admission *kueue.Admission, waitTime time.Duration) {
 	if workload.HasQuotaReservation(originalWorkload) {
 		return
 	}
 
-	s.recorder.Eventf(newWorkload, corev1.EventTypeNormal, "QuotaReserved", "Quota reserved in ClusterQueue %v, wait time since queued was %.0fs", admission.ClusterQueue, waitTime.Seconds())
+	s.recorder.Eventf(newWorkload, corev1.EventTypeNormal, "QuotaReserved", "配额在集群队列 %v 中已预留，等待时间为 %.0fs", admission.ClusterQueue, waitTime.Seconds())
 
 	metrics.QuotaReservedWorkload(admission.ClusterQueue, waitTime)
 	if features.Enabled(features.LocalQueueMetrics) {
@@ -731,13 +717,13 @@ func (s *Scheduler) recordQuotaReservationMetrics(newWorkload, originalWorkload 
 	}
 }
 
-// recordWorkloadAdmissionEvents records metrics and events for workload admission
+// recordWorkloadAdmissionEvents 记录 Workload 准入事件。
 func (s *Scheduler) recordWorkloadAdmissionEvents(newWorkload, originalWorkload *kueue.Workload, admission *kueue.Admission, waitTime time.Duration) {
 	if !workload.IsAdmitted(newWorkload) || workload.HasNodeToReplace(originalWorkload) {
 		return
 	}
 
-	s.recorder.Eventf(newWorkload, corev1.EventTypeNormal, "Admitted", "Admitted by ClusterQueue %v, wait time since reservation was 0s", admission.ClusterQueue)
+	s.recorder.Eventf(newWorkload, corev1.EventTypeNormal, "Admitted", "集群队列 %v 已准入，等待时间为 0s", admission.ClusterQueue)
 	metrics.AdmittedWorkload(admission.ClusterQueue, waitTime)
 
 	if features.Enabled(features.LocalQueueMetrics) {
@@ -750,4 +736,16 @@ func (s *Scheduler) recordWorkloadAdmissionEvents(newWorkload, originalWorkload 
 			metrics.LocalQueueAdmissionChecksWaitTime(metrics.LQRefFromWorkload(newWorkload), 0)
 		}
 	}
+}
+
+// Start 启动调度器主循环，作为 controller-runtime 的 Runnable 实现。
+func (s *Scheduler) Start(ctx context.Context) error {
+	log := ctrl.LoggerFrom(ctx).WithName("scheduler")
+	ctx = ctrl.LoggerInto(ctx, log)
+	go wait.UntilWithBackoff(ctx, s.schedule)
+	return nil
+}
+
+func (s *Scheduler) applyAdmissionWithSSA(ctx context.Context, w *kueue.Workload) error {
+	return workload.ApplyAdmissionStatus(ctx, s.client, w, false, s.clock)
 }

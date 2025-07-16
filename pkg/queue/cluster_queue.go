@@ -1,23 +1,8 @@
-/*
-Copyright The Kubernetes Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package queue
 
 import (
 	"context"
+	"k8s.io/apimachinery/pkg/types"
 	"sort"
 	"sync"
 
@@ -26,7 +11,6 @@ import (
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/clock"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -60,19 +44,17 @@ type ClusterQueue struct {
 	namespaceSelector labels.Selector
 	active            bool
 
-	// inadmissibleWorkloads are workloads that have been tried at least once and couldn't be admitted.
+	// inadmissibleWorkloads 是那些已经尝试过但未能被接受的工作负载。
 	inadmissibleWorkloads map[workload.Reference]*workload.Info
 
-	// popCycle identifies the last call to Pop. It's incremented when calling Pop.
-	// popCycle and queueInadmissibleCycle are used to track when there is a requeuing
-	// of inadmissible workloads while a workload is being scheduled.
+	// popCycle 用于标识最后一次调用 Pop 操作的时刻。每次调用 Pop 时，该计数器都会加一。
+	// popCycle 和 queueInadmissibleCycle 用于追踪在某个工作负载正在被调度时，是否出现了对其重新排队的情况。
 	popCycle int64
 
 	// inflight indicates the workload that was last popped by scheduler.
 	inflight *workload.Info
 
-	// queueInadmissibleCycle stores the popId at the time when
-	// QueueInadmissibleWorkloads is called.
+	// queueInadmissibleCycle stores the popId at the time when QueueInadmissibleWorkloads is called.
 	queueInadmissibleCycle int64
 
 	lessFunc func(a, b *workload.Info) bool
@@ -187,21 +169,6 @@ func (c *ClusterQueue) Heapify(lqName string) {
 	}
 }
 
-// backoffWaitingTimeExpired returns true if the current time is after the requeueAt
-// and Requeued condition not present or equal True.
-func (c *ClusterQueue) backoffWaitingTimeExpired(wInfo *workload.Info) bool {
-	if apimeta.IsStatusConditionFalse(wInfo.Obj.Status.Conditions, kueue.WorkloadRequeued) {
-		return false
-	}
-	if wInfo.Obj.Status.RequeueState == nil || wInfo.Obj.Status.RequeueState.RequeueAt == nil {
-		return true
-	}
-	// It needs to verify the requeueAt by "Equal" function
-	// since the "After" function evaluates the nanoseconds despite the metav1.Time is seconds level precision.
-	return c.clock.Now().After(wInfo.Obj.Status.RequeueState.RequeueAt.Time) ||
-		c.clock.Now().Equal(wInfo.Obj.Status.RequeueState.RequeueAt.Time)
-}
-
 // Delete removes the workload from ClusterQueue.
 func (c *ClusterQueue) Delete(w *kueue.Workload) {
 	c.rwm.Lock()
@@ -273,54 +240,11 @@ func (c *ClusterQueue) forgetInflightByKey(key workload.Reference) {
 	}
 }
 
-// QueueInadmissibleWorkloads moves all workloads from inadmissibleWorkloads to heap.
-// If at least one workload is moved, returns true, otherwise returns false.
-func (c *ClusterQueue) QueueInadmissibleWorkloads(ctx context.Context, client client.Client) bool {
-	c.rwm.Lock()
-	defer c.rwm.Unlock()
-	c.queueInadmissibleCycle = c.popCycle
-	if len(c.inadmissibleWorkloads) == 0 {
-		return false
-	}
-
-	inadmissibleWorkloads := make(map[workload.Reference]*workload.Info)
-	moved := false
-	for key, wInfo := range c.inadmissibleWorkloads {
-		ns := corev1.Namespace{}
-		err := client.Get(ctx, types.NamespacedName{Name: wInfo.Obj.Namespace}, &ns)
-		if err != nil || !c.namespaceSelector.Matches(labels.Set(ns.Labels)) || !c.backoffWaitingTimeExpired(wInfo) {
-			inadmissibleWorkloads[key] = wInfo
-		} else {
-			moved = c.heap.PushIfNotPresent(wInfo) || moved
-		}
-	}
-
-	c.inadmissibleWorkloads = inadmissibleWorkloads
-	return moved
-}
-
 // Pending returns the total number of pending workloads.
 func (c *ClusterQueue) Pending() int {
 	c.rwm.RLock()
 	defer c.rwm.RUnlock()
 	return c.PendingActive() + c.PendingInadmissible()
-}
-
-// PendingActive returns the number of active pending workloads,
-// workloads that are in the admission queue.
-func (c *ClusterQueue) PendingActive() int {
-	result := c.heap.Len()
-	if c.inflight != nil {
-		result++
-	}
-	return result
-}
-
-// PendingInadmissible returns the number of inadmissible pending workloads,
-// workloads that were already tried and are waiting for cluster conditions
-// to change to potentially become admissible.
-func (c *ClusterQueue) PendingInadmissible() int {
-	return len(c.inadmissibleWorkloads)
 }
 
 // Pop removes the head of the queue and returns it. It returns nil if the
@@ -456,4 +380,60 @@ func queueOrderingFunc(ctx context.Context, c client.Client, wo workload.Orderin
 		tB := wo.GetQueueOrderTimestamp(b.Obj)
 		return !tB.Before(tA)
 	}
+}
+
+// backoffWaitingTimeExpired 如果当前时间晚于“重新排队时间”且“重新排队”条件不存在或为“真”，则返回“真”。
+func (c *ClusterQueue) backoffWaitingTimeExpired(wInfo *workload.Info) bool {
+	if apimeta.IsStatusConditionFalse(wInfo.Obj.Status.Conditions, kueue.WorkloadRequeued) { // condition 中 requeue 设置为了false
+		return false
+	}
+	if wInfo.Obj.Status.RequeueState == nil || wInfo.Obj.Status.RequeueState.RequeueAt == nil {
+		return true
+	}
+	// It needs to verify the requeueAt by "Equal" function
+	// since the "After" function evaluates the nanoseconds despite the metav1.Time is seconds level precision.
+	return c.clock.Now().After(wInfo.Obj.Status.RequeueState.RequeueAt.Time) || c.clock.Now().Equal(wInfo.Obj.Status.RequeueState.RequeueAt.Time)
+}
+
+// QueueInadmissibleWorkloads 函数将所有来自“不可接受工作负载”列表中的工作负载移至堆区。
+// 若有至少一个工作负载被移除，则返回真值，否则返回假值。
+func (c *ClusterQueue) QueueInadmissibleWorkloads(ctx context.Context, client client.Client) bool {
+	c.rwm.Lock()
+	defer c.rwm.Unlock()
+	c.queueInadmissibleCycle = c.popCycle
+	if len(c.inadmissibleWorkloads) == 0 {
+		return false
+	}
+
+	inadmissibleWorkloads := make(map[workload.Reference]*workload.Info)
+	moved := false
+	for key, wInfo := range c.inadmissibleWorkloads {
+		ns := corev1.Namespace{}
+		err := client.Get(ctx, types.NamespacedName{Name: wInfo.Obj.Namespace}, &ns)
+		if err != nil || !c.namespaceSelector.Matches(labels.Set(ns.Labels)) || !c.backoffWaitingTimeExpired(wInfo) {
+			inadmissibleWorkloads[key] = wInfo
+		} else {
+			moved = c.heap.PushIfNotPresent(wInfo) || moved
+		}
+	}
+
+	c.inadmissibleWorkloads = inadmissibleWorkloads
+	return moved
+}
+
+// PendingActive returns the number of active pending workloads,
+// workloads that are in the admission queue.
+func (c *ClusterQueue) PendingActive() int {
+	result := c.heap.Len()
+	if c.inflight != nil {
+		result++
+	}
+	return result
+}
+
+// PendingInadmissible returns the number of inadmissible pending workloads,
+// workloads that were already tried and are waiting for cluster conditions
+// to change to potentially become admissible.
+func (c *ClusterQueue) PendingInadmissible() int {
+	return len(c.inadmissibleWorkloads)
 }

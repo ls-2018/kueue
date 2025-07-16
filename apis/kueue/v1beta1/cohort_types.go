@@ -1,72 +1,40 @@
-/*
-Copyright The Kubernetes Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package v1beta1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// CohortSpec defines the desired state of Cohort
+// CohortSpec 定义了 Cohort 的期望状态
 type CohortSpec struct {
-	// ParentName references the name of the Cohort's parent, if
-	// any. It satisfies one of three cases:
-	// 1) Unset. This Cohort is the root of its Cohort tree.
-	// 2) References a non-existent Cohort. We use default Cohort (no borrowing/lending limits).
-	// 3) References an existent Cohort.
+	// ParentName 引用该 Cohort 父级的名称（如果有）。它满足以下三种情况之一：
+	// 1) 未设置。本 Cohort 是其 Cohort 树的根。
+	// 2) 引用了一个不存在的 Cohort。我们使用默认 Cohort（无借用/出借限制）。
+	// 3) 引用了一个存在的 Cohort。
 	//
-	// If a cycle is created, we disable all members of the
-	// Cohort, including ClusterQueues, until the cycle is
-	// removed.  We prevent further admission while the cycle
-	// exists.
+	// 如果创建了循环，我们会禁用该 Cohort 的所有成员，包括 ClusterQueues，直到循环被移除。在循环存在期间，阻止进一步的准入。
 	ParentName CohortReference `json:"parentName,omitempty"`
 
-	// ResourceGroups describes groupings of Resources and
-	// Flavors.  Each ResourceGroup defines a list of Resources
-	// and a list of Flavors which provide quotas for these
-	// Resources. Each Resource and each Flavor may only form part
-	// of one ResourceGroup.  There may be up to 16 ResourceGroups
-	// within a Cohort.
+	// ResourceGroups 描述了资源和风味的分组。每个 ResourceGroup 定义了一组资源和一组为这些资源提供配额的风味。每个资源和每个风味只能属于一个 ResourceGroup。一个 Cohort 最多可以有 16 个 ResourceGroup。
 	//
-	// BorrowingLimit limits how much members of this Cohort
-	// subtree can borrow from the parent subtree.
+	// BorrowingLimit 限制该 Cohort 子树成员可以从父子树借用的资源量。
 	//
-	// LendingLimit limits how much members of this Cohort subtree
-	// can lend to the parent subtree.
+	// LendingLimit 限制该 Cohort 子树成员可以借给父子树的资源量。
 	//
-	// Borrowing and Lending limits must only be set when the
-	// Cohort has a parent.  Otherwise, the Cohort create/update
-	// will be rejected by the webhook.
+	// 只有当 Cohort 有父级时，才能设置借用和出借限制。否则，webhook 会拒绝 Cohort 的创建/更新。
 	//
 	//+listType=atomic
 	//+kubebuilder:validation:MaxItems=16
 	ResourceGroups []ResourceGroup `json:"resourceGroups,omitempty"`
 
-	// fairSharing defines the properties of the Cohort when
-	// participating in FairSharing. The values are only relevant
-	// if FairSharing is enabled in the Kueue configuration.
+	// fairSharing 定义了 Cohort 参与公平共享时的属性。仅当 Kueue 配置中启用公平共享时，这些值才有意义。
 	// +optional
 	FairSharing *FairSharing `json:"fairSharing,omitempty"`
 }
 
-// CohortStatus defines the observed state of Cohort.
+// CohortStatus 定义了 Cohort 的观测状态。
 type CohortStatus struct {
-	// fairSharing contains the current state for this Cohort
-	// when participating in Fair Sharing.
-	// The is recorded only when Fair Sharing is enabled in the Kueue configuration.
+	// fairSharing 包含该 Cohort 参与公平共享时的当前状态。
+	// 仅当 Kueue 配置中启用公平共享时才会记录。
 	// +optional
 	FairSharing *FairSharingStatus `json:"fairSharing,omitempty"`
 }
@@ -77,11 +45,9 @@ type CohortStatus struct {
 // +kubebuilder:resource:scope=Cluster
 // +kubebuilder:subresource:status
 
-// Cohort defines the Cohorts API.
+// Cohort 定义了 Cohorts API。
 //
-// Hierarchical Cohorts (any Cohort which has a parent) are compatible
-// with Fair Sharing as of v0.11. Using these features together in
-// V0.9 and V0.10 is unsupported, and results in undefined behavior.
+// 分层 Cohort（有父级的 Cohort）自 v0.11 起兼容公平共享。在 v0.9 和 v0.10 中同时使用这些特性是不支持的，会导致未定义行为。
 type Cohort struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -92,7 +58,7 @@ type Cohort struct {
 
 // +kubebuilder:object:root=true
 
-// CohortList contains a list of Cohort
+// CohortList 包含 Cohort 的列表
 type CohortList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`

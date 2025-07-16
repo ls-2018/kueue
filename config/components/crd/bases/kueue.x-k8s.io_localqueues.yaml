@@ -34,7 +34,9 @@ spec:
     name: v1beta1
     schema:
       openAPIV3Schema:
-        description: LocalQueue is the Schema for the localQueues API
+        description: |-
+          LocalQueue is the Schema for the localQueues API
+          LocalQueue 是 localQueues API 的架构
         properties:
           apiVersion:
             description: |-
@@ -54,11 +56,10 @@ spec:
           metadata:
             type: object
           spec:
-            description: LocalQueueSpec defines the desired state of LocalQueue
+            description: LocalQueueSpec 定义了 LocalQueue 的期望状态
             properties:
               clusterQueue:
-                description: clusterQueue is a reference to a clusterQueue that backs
-                  this localQueue.
+                description: clusterQueue 是指向支持此 localQueue 的 clusterQueue 的引用。
                 maxLength: 253
                 pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                 type: string
@@ -66,10 +67,8 @@ spec:
                 - message: field is immutable
                   rule: self == oldSelf
               fairSharing:
-                description: |-
-                  fairSharing defines the properties of the LocalQueue when
-                  participating in AdmissionFairSharing.  The values are only relevant
-                  if AdmissionFairSharing is enabled in the Kueue configuration.
+                description: fairSharing 定义了 LocalQueue 在参与 AdmissionFairSharing 时的属性。仅当
+                  Kueue 配置中启用 AdmissionFairSharing 时，这些值才有意义。
                 properties:
                   weight:
                     anyOf:
@@ -77,30 +76,21 @@ spec:
                     - type: string
                     default: 1
                     description: |-
-                      weight gives a comparative advantage to this ClusterQueue
-                      or Cohort when competing for unused resources in the
-                      Cohort.  The share is based on the dominant resource usage
-                      above nominal quotas for each resource, divided by the
-                      weight.  Admission prioritizes scheduling workloads from
-                      ClusterQueues and Cohorts with the lowest share and
-                      preempting workloads from the ClusterQueues and Cohorts
-                      with the highest share.  A zero weight implies infinite
-                      share value, meaning that this Node will always be at
-                      disadvantage against other ClusterQueues and Cohorts.
+                      weight 为该 ClusterQueue 或 Cohort 在 Cohort 中争夺未使用资源时提供比较优势。
+                      份额基于每种资源超出名义配额的主导资源使用量，除以权重。
+                      调度优先考虑来自份额最低的 ClusterQueue 和 Cohort 的工作负载，并抢占份额最高的。
+                      权重为零意味着份额值为无穷大，这意味着该节点在与其他 ClusterQueue 和 Cohort 竞争时总是处于劣势。
                     pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                     x-kubernetes-int-or-string: true
                 type: object
               stopPolicy:
                 default: None
                 description: |-
-                  stopPolicy - if set to a value different from None, the LocalQueue is considered Inactive,
-                  no new reservation being made.
-
-                  Depending on its value, its associated workloads will:
-
-                  - None - Workloads are admitted
-                  - HoldAndDrain - Admitted workloads are evicted and Reserving workloads will cancel the reservation.
-                  - Hold - Admitted workloads will run to completion and Reserving workloads will cancel the reservation.
+                  stopPolicy - 如果设置为非 None 的值，则 LocalQueue 被视为非活动状态，不会进行新的预留。
+                  根据其值，相关的工作负载将：
+                  - None - 工作负载被接纳
+                  - HoldAndDrain - 已接纳的工作负载会被驱逐，预留中的工作负载会取消预留
+                  - Hold - 已接纳的工作负载会运行至完成，预留中的工作负载会取消预留
                 enum:
                 - None
                 - Hold
@@ -108,18 +98,22 @@ spec:
                 type: string
             type: object
           status:
-            description: LocalQueueStatus defines the observed state of LocalQueue
+            description: |-
+              LocalQueueStatus defines the observed state of LocalQueue
+              LocalQueueStatus 定义了 LocalQueue 的观测状态
             properties:
               admittedWorkloads:
                 description: |-
                   admittedWorkloads is the number of workloads in this LocalQueue
                   admitted to a ClusterQueue and that haven't finished yet.
+                  admittedWorkloads 是此 LocalQueue 中已被接纳到 ClusterQueue 且尚未完成的工作负载数量。
                 format: int32
                 type: integer
               conditions:
                 description: |-
                   Conditions hold the latest available observations of the LocalQueue
                   current state.
+                  Conditions 保存了 LocalQueue 当前状态的最新可用观测信息。
                 items:
                   description: Condition contains details for one aspect of the current
                     state of this API Resource.
@@ -179,12 +173,13 @@ spec:
                 - type
                 x-kubernetes-list-type: map
               fairSharing:
-                description: FairSharing contains the information about the current
-                  status of fair sharing.
+                description: |-
+                  FairSharing contains the information about the current status of fair sharing.
+                  FairSharing 包含有关当前公平共享状态的信息。
                 properties:
                   admissionFairSharingStatus:
-                    description: admissionFairSharingStatus represents information
-                      relevant to the Admission Fair Sharing
+                    description: admissionFairSharingStatus 表示与 Admission Fair Sharing
+                      相关的信息
                     properties:
                       consumedResources:
                         additionalProperties:
@@ -194,13 +189,11 @@ spec:
                           pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                           x-kubernetes-int-or-string: true
                         description: |-
-                          ConsumedResources represents the aggregated usage of resources over time,
-                          with decaying function applied.
-                          The value is populated if usage consumption functionality is enabled in Kueue config.
+                          ConsumedResources 表示资源随时间的聚合使用量，应用了衰减函数。
+                          如果在 Kueue 配置中启用了使用量消耗功能，则会填充值。
                         type: object
                       lastUpdate:
-                        description: LastUpdate is the time when share and consumed
-                          resources were updated.
+                        description: LastUpdate 是份额和已消耗资源被更新的时间。
                         format: date-time
                         type: string
                     required:
@@ -209,13 +202,8 @@ spec:
                     type: object
                   weightedShare:
                     description: |-
-                      WeightedShare represents the maximum of the ratios of usage
-                      above nominal quota to the lendable resources in the
-                      Cohort, among all the resources provided by the Node, and
-                      divided by the weight.  If zero, it means that the usage of
-                      the Node is below the nominal quota.  If the Node has a
-                      weight of zero and is borrowing, this will return
-                      9223372036854775807, the maximum possible share value.
+                      WeightedShare 表示节点所提供的所有资源中，超出名义配额的使用量与 Cohort 可借用资源的比值的最大值，再除以权重。
+                      如果为零，表示节点的使用量低于名义配额。如果节点权重为零且正在借用，则返回 9223372036854775807，即最大可能的份额值。
                     format: int64
                     type: integer
                 required:
@@ -225,26 +213,34 @@ spec:
                 description: |-
                   flavorsUsage are the used quotas, by flavor currently in use by the
                   workloads assigned to this LocalQueue.
+                  flavorsUsage 是分配给此 LocalQueue 的工作负载当前使用的 flavor 的已用配额。
                 items:
                   properties:
                     name:
-                      description: name of the flavor.
+                      description: |-
+                        name of the flavor.
+                        flavor 的名称。
                       maxLength: 253
                       pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                       type: string
                     resources:
-                      description: resources lists the quota usage for the resources
-                        in this flavor.
+                      description: |-
+                        resources lists the quota usage for the resources in this flavor.
+                        resources 列出了此 flavor 中资源的配额使用情况。
                       items:
                         properties:
                           name:
-                            description: name of the resource.
+                            description: |-
+                              name of the resource.
+                              资源的名称。
                             type: string
                           total:
                             anyOf:
                             - type: integer
                             - type: string
-                            description: total is the total quantity of used quota.
+                            description: |-
+                              total is the total quantity of used quota.
+                              total 是已用配额的总量。
                             pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                             x-kubernetes-int-or-string: true
                         required:
@@ -265,12 +261,15 @@ spec:
                 - name
                 x-kubernetes-list-type: map
               flavors:
-                description: flavors lists all currently available ResourceFlavors
-                  in specified ClusterQueue.
+                description: |-
+                  flavors lists all currently available ResourceFlavors in specified ClusterQueue.
+                  flavors 列出了指定 ClusterQueue 中当前可用的所有 ResourceFlavor。
                 items:
                   properties:
                     name:
-                      description: name of the flavor.
+                      description: |-
+                        name of the flavor.
+                        flavor 的名称。
                       maxLength: 253
                       pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                       type: string
@@ -280,6 +279,7 @@ spec:
                       description: |-
                         nodeLabels are labels that associate the ResourceFlavor with Nodes that
                         have the same labels.
+                        nodeLabels 是将 ResourceFlavor 与具有相同标签的节点关联的标签。
                       maxProperties: 8
                       type: object
                       x-kubernetes-map-type: atomic
@@ -287,6 +287,7 @@ spec:
                       description: |-
                         nodeTaints are taints that the nodes associated with this ResourceFlavor
                         have.
+                        nodeTaints 是与此 ResourceFlavor 关联的节点所具有的污点。
                       items:
                         description: |-
                           The node this Taint is attached to has the "effect" on
@@ -320,7 +321,9 @@ spec:
                       type: array
                       x-kubernetes-list-type: atomic
                     resources:
-                      description: resources used in the flavor.
+                      description: |-
+                        resources used in the flavor.
+                        flavor 中使用的资源。
                       items:
                         description: ResourceName is the name identifying various
                           resources in a ResourceList.
@@ -334,9 +337,15 @@ spec:
 
                         This is an alpha field and requires enabling the TopologyAwareScheduling
                         feature gate.
+
+                        topology 是与此 ResourceFlavor 关联的拓扑。
+                        这是一个 alpha 字段，需要启用 TopologyAwareScheduling 特性门控。
                       properties:
                         levels:
-                          description: levels define the levels of topology.
+                          description: |-
+                            levels define the levels of topology.
+
+                            levels 定义了拓扑的层级。
                           items:
                             type: string
                           maxItems: 8
@@ -344,7 +353,10 @@ spec:
                           type: array
                           x-kubernetes-list-type: atomic
                         name:
-                          description: name is the name of the topology.
+                          description: |-
+                            name is the name of the topology.
+
+                            name 是拓扑的名称。
                           maxLength: 253
                           pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                           type: string
@@ -364,26 +376,34 @@ spec:
                 description: |-
                   flavorsReservation are the reserved quotas, by flavor currently in use by the
                   workloads assigned to this LocalQueue.
+                  flavorsReservation 是分配给此 LocalQueue 的工作负载当前使用的 flavor 的预留配额。
                 items:
                   properties:
                     name:
-                      description: name of the flavor.
+                      description: |-
+                        name of the flavor.
+                        flavor 的名称。
                       maxLength: 253
                       pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                       type: string
                     resources:
-                      description: resources lists the quota usage for the resources
-                        in this flavor.
+                      description: |-
+                        resources lists the quota usage for the resources in this flavor.
+                        resources 列出了此 flavor 中资源的配额使用情况。
                       items:
                         properties:
                           name:
-                            description: name of the resource.
+                            description: |-
+                              name of the resource.
+                              资源的名称。
                             type: string
                           total:
                             anyOf:
                             - type: integer
                             - type: string
-                            description: total is the total quantity of used quota.
+                            description: |-
+                              total is the total quantity of used quota.
+                              total 是已用配额的总量。
                             pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                             x-kubernetes-int-or-string: true
                         required:
@@ -404,14 +424,16 @@ spec:
                 - name
                 x-kubernetes-list-type: map
               pendingWorkloads:
-                description: PendingWorkloads is the number of Workloads in the LocalQueue
-                  not yet admitted to a ClusterQueue
+                description: |-
+                  PendingWorkloads is the number of Workloads in the LocalQueue not yet admitted to a ClusterQueue
+                  PendingWorkloads 是 LocalQueue 中尚未被接纳到 ClusterQueue 的工作负载数量
                 format: int32
                 type: integer
               reservingWorkloads:
                 description: |-
                   reservingWorkloads is the number of workloads in this LocalQueue
                   reserving quota in a ClusterQueue and that haven't finished yet.
+                  reservingWorkloads 是此 LocalQueue 中正在 ClusterQueue 预留配额且尚未完成的工作负载数量。
                 format: int32
                 type: integer
             type: object

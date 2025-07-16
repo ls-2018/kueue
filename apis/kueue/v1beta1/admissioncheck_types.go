@@ -1,19 +1,3 @@
-/*
-Copyright The Kubernetes Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package v1beta1
 
 import (
@@ -23,68 +7,60 @@ import (
 type CheckState string
 
 const (
-	// CheckStateRetry means that the check cannot pass at this moment, back off (possibly
-	// allowing other to try, unblock quota) and retry.
-	// A workload having at least one check in this state will be evicted if admitted and
-	// will not be considered for admission while the check is in this state.
+	// CheckStateRetry 表示该检查当前无法通过，需回退（可能允许其他尝试，解除配额阻塞）并重试。
+	// 如果某个工作负载至少有一个检查处于此状态，则在被接收后会被驱逐，并且在检查处于此状态时不会被考虑接收。
 	CheckStateRetry CheckState = "Retry"
 
-	// CheckStateRejected means that the check will not pass in the near future. It is not worth
-	// to retry.
-	// A workload having at least one check in this state will be evicted if admitted and deactivated.
+	// CheckStateRejected 表示该检查在近期内不会通过，不值得重试。
+	// 如果某个工作负载至少有一个检查处于此状态，则在被接收后会被驱逐并被停用。
 	CheckStateRejected CheckState = "Rejected"
 
-	// CheckStatePending means that the check still hasn't been performed and the state can be
-	// 1. Unknown, the condition was added by kueue and its controller was not able to evaluate it.
-	// 2. Set by its controller and reevaluated after quota is reserved.
+	// CheckStatePending 表示该检查尚未执行，状态可能为：
+	// 1. Unknown，该条件由 kueue 添加，其控制器无法评估。
+	// 2. 由其控制器设置，并在配额保留后重新评估。
 	CheckStatePending CheckState = "Pending"
 
-	// CheckStateReady means that the check has passed.
-	// A workload having all its checks ready, and quota reserved can begin execution.
+	// CheckStateReady 表示该检查已通过。
+	// 如果所有检查都为 ready 且配额已保留，工作负载即可开始执行。
 	CheckStateReady CheckState = "Ready"
 )
 
-// AdmissionCheckSpec defines the desired state of AdmissionCheck
+// AdmissionCheckSpec 定义 AdmissionCheck 的期望状态
 type AdmissionCheckSpec struct {
-	// controllerName identifies the controller that processes the AdmissionCheck,
-	// not necessarily a Kubernetes Pod or Deployment name. Cannot be empty.
+	// controllerName 标识处理 AdmissionCheck 的控制器，不一定是 Kubernetes Pod 或 Deployment 名称。不能为空。
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf", message="field is immutable"
 	ControllerName string `json:"controllerName"`
 
-	// RetryDelayMinutes specifies how long to keep the workload suspended after
-	// a failed check (after it transitioned to False). When the delay period has passed, the check
-	// state goes to "Unknown". The default is 15 min.
+	// RetryDelayMinutes 指定检查失败（转为 False）后，工作负载保持挂起的时间。延迟期过后，检查状态变为 "Unknown"。默认 15 分钟。
 	// +optional
 	// +kubebuilder:default=15
-	// Deprecated: retryDelayMinutes has already been deprecated since v0.8 and will be removed in v1beta2.
+	// 已废弃：retryDelayMinutes 自 v0.8 起已废弃，将在 v1beta2 移除。
 	RetryDelayMinutes *int64 `json:"retryDelayMinutes,omitempty"`
 
-	// Parameters identifies a configuration with additional parameters for the
-	// check.
+	// Parameters 标识带有附加参数的检查配置。
 	// +optional
 	Parameters *AdmissionCheckParametersReference `json:"parameters,omitempty"`
 }
 
 type AdmissionCheckParametersReference struct {
-	// ApiGroup is the group for the resource being referenced.
+	// ApiGroup 是被引用资源的组。
 	// +kubebuilder:validation:MaxLength=253
 	// +kubebuilder:validation:Pattern="^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
 	APIGroup string `json:"apiGroup"`
-	// Kind is the type of the resource being referenced.
+	// Kind 是被引用资源的类型。
 	// +kubebuilder:validation:MaxLength=63
 	// +kubebuilder:validation:Pattern="^(?i)[a-z]([-a-z0-9]*[a-z0-9])?$"
 	Kind string `json:"kind"`
-	// Name is the name of the resource being referenced.
+	// Name 是被引用资源的名称。
 	// +kubebuilder:validation:MaxLength=63
 	// +kubebuilder:validation:Pattern="^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
 	Name string `json:"name"`
 }
 
-// AdmissionCheckStatus defines the observed state of AdmissionCheck
+// AdmissionCheckStatus 定义 AdmissionCheck 的观测状态
 type AdmissionCheckStatus struct {
-	// conditions hold the latest available observations of the AdmissionCheck
-	// current state.
+	// conditions 保存 AdmissionCheck 当前状态的最新可用观测信息。
 	// +optional
 	// +listType=map
 	// +listMapKey=type
@@ -94,8 +70,7 @@ type AdmissionCheckStatus struct {
 }
 
 const (
-	// AdmissionCheckActive indicates that the controller of the admission check is
-	// ready to evaluate the checks states
+	// AdmissionCheckActive 表示 admission check 的控制器已准备好评估检查状态
 	AdmissionCheckActive string = "Active"
 )
 
@@ -106,7 +81,7 @@ const (
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:scope=Cluster
 
-// AdmissionCheck is the Schema for the admissionchecks API
+// AdmissionCheck 是 admissionchecks API 的 Schema
 type AdmissionCheck struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -117,7 +92,7 @@ type AdmissionCheck struct {
 
 // +kubebuilder:object:root=true
 
-// AdmissionCheckList contains a list of AdmissionCheck
+// AdmissionCheckList 包含 AdmissionCheck 的列表
 type AdmissionCheckList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`

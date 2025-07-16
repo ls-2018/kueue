@@ -17,7 +17,7 @@ spec:
   - name: v1beta1
     schema:
       openAPIV3Schema:
-        description: MultiKueueConfig is the Schema for the multikueue API
+        description: MultiKueueConfig 是 multikueue API 的 Schema。
         properties:
           apiVersion:
             description: |-
@@ -37,11 +37,10 @@ spec:
           metadata:
             type: object
           spec:
-            description: MultiKueueConfigSpec defines the desired state of MultiKueueConfig
+            description: MultiKueueConfigSpec 定义了 MultiKueueConfig 的期望状态。
             properties:
               clusters:
-                description: List of MultiKueueClusters names where the workloads
-                  from the ClusterQueue should be distributed.
+                description: ClusterQueue 中的工作负载应分发到的 MultiKueueCluster 名称列表。
                 items:
                   type: string
                 maxItems: 10

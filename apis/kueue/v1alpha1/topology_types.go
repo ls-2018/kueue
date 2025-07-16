@@ -1,19 +1,3 @@
-/*
-Copyright The Kubernetes Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package v1alpha1
 
 import (
@@ -21,78 +5,65 @@ import (
 )
 
 const (
-	// PodSetRequiredTopologyAnnotation indicates that a PodSet requires
-	// Topology Aware Scheduling, and requires scheduling all pods on nodes
-	// within the same topology domain corresponding to the topology level
-	// indicated by the annotation value (e.g. within a rack or within a block).
+	// PodSetRequiredTopologyAnnotation 表示某个 PodSet 需要启用拓扑感知调度（Topology Aware Scheduling）。
+	// 该注解要求将 PodSet 中的所有 Pod 调度到处于同一拓扑域（Topology Domain）内的节点上，
+	// 拓扑域的级别由注解的值指定（例如：在同一个机架 rack 或同一个机柜 block 内）。
 	PodSetRequiredTopologyAnnotation = "kueue.x-k8s.io/podset-required-topology"
 
-	// PodSetPreferredTopologyAnnotation indicates that a PodSet requires
-	// Topology Aware Scheduling, but scheduling all pods within pods on nodes
-	// within the same topology domain is a preference rather than requirement.
+	// PodSetPreferredTopologyAnnotation 表示某个 PodSet 需要启用拓扑感知调度（Topology Aware Scheduling），
+	// 但将所有 pod 调度到同一拓扑域内只是偏好而非强制要求。
 	//
-	// The levels are evaluated one-by-one going up from the level indicated by
-	// the annotation. If the PodSet cannot fit within a given topology domain
-	// then the next topology level up is considered. If the PodSet cannot fit
-	// at the highest topology level, then it gets admitted as distributed
-	// among multiple topology domains.
+	// 级别会自下而上逐一评估。如果 PodSet 无法适应某个拓扑域，则会考虑下一个更高的拓扑级别。
+	// 如果在最高拓扑级别也无法适应，则会分布在多个拓扑域中。
 	PodSetPreferredTopologyAnnotation = "kueue.x-k8s.io/podset-preferred-topology"
 
-	// PodSetUnconstrainedTopologyAnnotation indicates that a PodSet does not have any topology requirements.
-	// Kueue admits the PodSet if there's enough free capacity available.
-	// Recommended for PodSets that don't need low-latency or high-throughput pod-to-pod communication,
-	// but want to leverage TAS capabilities improve accuracy of admitting jobs
+	// PodSetUnconstrainedTopologyAnnotation 表示 PodSet 没有任何拓扑要求。
+	// 如果有足够的空闲容量，Kueue 会接收该 PodSet。
+	// 推荐用于不需要低延迟或高吞吐量 pod 间通信，但希望利用 TAS 能力提升作业接收准确性的 PodSet。
 	//
 	// +kubebuilder:validation:Type=boolean
 	PodSetUnconstrainedTopologyAnnotation = "kueue.x-k8s.io/podset-unconstrained-topology"
 
-	// PodSetSliceRequiredTopologyAnnotation indicates that a PodSet requires
-	// Topology Aware Scheduling, and requires scheduling each PodSet slice on nodes
-	// within the topology domain corresponding to the topology level
-	// indicated by the annotation value (e.g. within a rack or within a block).
+	// PodSetSliceRequiredTopologyAnnotation 表示某个 PodSet 需要启用拓扑感知调度，
+	// 并要求每个 PodSet 切片调度到注解值指定的拓扑级别对应的拓扑域内（如同一机架或同一机柜）。
 	PodSetSliceRequiredTopologyAnnotation = "kueue.x-k8s.io/podset-slice-required-topology"
 
-	// PodSetSliceSizeAnnotation describes the requested size of a podset slice
-	// for which Kueue finds a requested topology domain.
+	// PodSetSliceSizeAnnotation 描述了 Kueue 为其查找拓扑域的 podset 切片的请求大小。
 	//
-	// This annotation is required if `kueue.x-k8s.io/podset-slice-required-topology`
-	// is defined.
+	// 如果定义了 `kueue.x-k8s.io/podset-slice-required-topology`，则该注解为必需。
 	PodSetSliceSizeAnnotation = "kueue.x-k8s.io/podset-slice-size"
 
-	// TopologySchedulingGate is used to delay scheduling of a Pod until the
-	// nodeSelectors corresponding to the assigned topology domain are injected
-	// into the Pod. For the Pod-based integrations the gate is added in webhook
-	// during the Pod creation.
+	// TopologySchedulingGate 用于延迟 Pod 的调度，直到分配的拓扑域对应的 nodeSelector 注入到 Pod 中。
+	// 对于基于 Pod 的集成，该 gate 在 Pod 创建时由 webhook 添加。
 	TopologySchedulingGate = "kueue.x-k8s.io/topology"
 
-	// WorkloadAnnotation is an annotation set on the Job's PodTemplate to
-	// indicate the name of the admitted Workload corresponding to the Job. The
-	// annotation is set when starting the Job, and removed on stopping the Job.
+	// WorkloadAnnotation 是设置在 Job 的 PodTemplate 上的注解，
+	// 用于指示与 Job 对应的已接收 Workload 的名称。
+	// 启动 Job 时设置该注解，停止 Job 时移除。
 	WorkloadAnnotation = "kueue.x-k8s.io/workload"
 
-	// TASLabel is a label set on the Job's PodTemplate to indicate that the
-	// PodSet is admitted using TopologyAwareScheduling, and all Pods created
-	// from the Job's PodTemplate also have the label. For the Pod-based
-	// integrations the label is added in webhook during the Pod creation.
+	// TASLabel 是设置在 Job 的 PodTemplate 上的标签，
+	// 表示 PodSet 是通过 TopologyAwareScheduling 接收的，
+	// 并且所有由该 PodTemplate 创建的 Pod 也有该标签。
+	// 对于基于 Pod 的集成，该标签在 Pod 创建时由 webhook 添加。
 	TASLabel = "kueue.x-k8s.io/tas"
 
-	// PodGroupPodIndexLabel is a label set on the Pod's metadata belonging
-	// to a Pod group. It indicates the Pod's index within the group.
+	// PodGroupPodIndexLabel 是设置在属于 Pod 组的 Pod 元数据上的标签，
+	// 表示 Pod 在组内的索引。
 	PodGroupPodIndexLabel = "kueue.x-k8s.io/pod-group-pod-index"
 
-	// PodGroupPodIndexLabelAnnotation is an annotation on the Pod's metadata
-	// belonging to a Pod group. It indicates a label name used to retrieve
-	// the Pod's index within the group.
+	// PodGroupPodIndexLabelAnnotation 是设置在属于 Pod 组的 Pod 元数据上的注解，
+	// 表示用于获取 Pod 在组内索引的标签名。
 	PodGroupPodIndexLabelAnnotation = "kueue.x-k8s.io/pod-group-pod-index-label"
 
-	// NodeToReplaceAnnotation is an annotation on a Workload. It holds a
-	// name of a failed node running at least one pod of this workload.
+	// NodeToReplaceAnnotation 是设置在 Workload 上的注解，
+	// 保存运行该工作负载至少一个 pod 的故障节点的名称。
 	NodeToReplaceAnnotation = "alpha.kueue.x-k8s.io/node-to-replace"
 )
 
-// TopologySpec defines the desired state of Topology
+// TopologySpec 定义了 Topology 的期望状态
 type TopologySpec struct {
-	// levels define the levels of topology.
+	// levels 定义了拓扑的各级。
 	//
 	// +required
 	// +listType=atomic
@@ -104,12 +75,11 @@ type TopologySpec struct {
 	Levels []TopologyLevel `json:"levels,omitempty"`
 }
 
-// TopologyLevel defines the desired state of TopologyLevel
+// TopologyLevel 定义了 TopologyLevel 的期望状态
 type TopologyLevel struct {
-	// nodeLabel indicates the name of the node label for a specific topology
-	// level.
+	// nodeLabel 表示特定拓扑级别的节点标签名称。
 	//
-	// Examples:
+	// 示例：
 	// - cloud.provider.com/topology-block
 	// - cloud.provider.com/topology-rack
 	//
@@ -127,7 +97,7 @@ type TopologyLevel struct {
 // +kubebuilder:storageversion
 // +kubebuilder:resource:scope=Cluster
 
-// Topology is the Schema for the topology API
+// Topology 是 topology API 的 Schema
 type Topology struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -138,7 +108,7 @@ type Topology struct {
 
 //+kubebuilder:object:root=true
 
-// TopologyList contains a list of Topology
+// TopologyList 包含 Topology 的列表
 type TopologyList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`

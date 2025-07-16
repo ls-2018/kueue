@@ -1,19 +1,3 @@
-/*
-Copyright The Kubernetes Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package v1beta1
 
 import (
@@ -29,7 +13,7 @@ import (
 
 	kueue "sigs.k8s.io/kueue/apis/kueue/v1beta1"
 	visibility "sigs.k8s.io/kueue/apis/visibility/v1beta1"
-	"sigs.k8s.io/kueue/pkg/constants"
+	"sigs.k8s.io/kueue/pkg/over_constants"
 	"sigs.k8s.io/kueue/pkg/queue"
 
 	_ "k8s.io/metrics/pkg/apis/metrics/install"
@@ -99,7 +83,7 @@ func (m *pendingWorkloadsInLqREST) Get(ctx context.Context, name string, opts ru
 func (m *pendingWorkloadsInLqREST) NewGetOptions() (runtime.Object, bool, string) {
 	// If no query parameters were passed the generated defaults function are not executed so it's necessary to set default values here as well
 	return &visibility.PendingWorkloadOptions{
-		Limit: constants.DefaultPendingWorkloadsLimit,
+		Limit: over_constants.DefaultPendingWorkloadsLimit,
 	}, false, ""
 }
 

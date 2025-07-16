@@ -40,7 +40,7 @@ spec:
     name: v1beta1
     schema:
       openAPIV3Schema:
-        description: Workload is the Schema for the workloads API
+        description: Workload 是工作负载 API 的 Schema
         properties:
           apiVersion:
             description: |-
@@ -60,78 +60,72 @@ spec:
           metadata:
             type: object
           spec:
-            description: WorkloadSpec defines the desired state of Workload
+            description: WorkloadSpec 定义了 Workload 的期望状态
             properties:
               active:
                 default: true
                 description: |-
-                  Active determines if a workload can be admitted into a queue.
-                  Changing active from true to false will evict any running workloads.
-                  Possible values are:
+                  Active 决定 workload 是否可以被接纳到队列中。
+                  将 active 从 true 改为 false 会驱逐所有正在运行的 workload。
+                  可能的值有：
 
-                    - false: indicates that a workload should never be admitted and evicts running workloads
-                    - true: indicates that a workload can be evaluated for admission into it's respective queue.
+                    - false: 表示 workload 永远不会被接纳，并驱逐正在运行的 workload
+                    - true: 表示 workload 可以被评估是否接纳到其所属队列。
 
-                  Defaults to true
+                  默认为 true
                 type: boolean
               maximumExecutionTimeSeconds:
                 description: |-
-                  maximumExecutionTimeSeconds if provided, determines the maximum time, in seconds,
-                  the workload can be admitted before it's automatically deactivated.
+                  maximumExecutionTimeSeconds 如果提供，表示 workload 最多可被接纳的时间（秒），超时后会自动被停用。
 
-                  If unspecified, no execution time limit is enforced on the Workload.
+                  如果未指定，则不对 Workload 强制执行执行时间限制。
                 format: int32
                 minimum: 1
                 type: integer
               podSets:
                 description: |-
-                  podSets is a list of sets of homogeneous pods, each described by a Pod spec
-                  and a count.
-                  There must be at least one element and at most 8.
-                  podSets cannot be changed.
+                  podSets 是一组同质 Pod 的集合，每个由 Pod 规范和数量描述。
+                  必须至少有一个元素，最多 8 个。
+                  podSets 不可更改。
                 items:
                   properties:
                     count:
                       default: 1
-                      description: count is the number of pods for the spec.
+                      description: count 是规范中的 Pod 数量。
                       format: int32
                       minimum: 0
                       type: integer
                     minCount:
                       description: |-
-                        minCount is the minimum number of pods for the spec acceptable
-                        if the workload supports partial admission.
+                        minCount 是规范中接受的 Pod 最小数量
+                        如果工作负载支持部分接纳。
 
-                        If not provided, partial admission for the current PodSet is not
-                        enabled.
+                        如果未提供，则当前 PodSet 的部分接纳未启用。
 
-                        Only one podSet within the workload can use this.
+                        工作负载中只能有一个 PodSet 使用此字段。
 
-                        This is an alpha field and requires enabling PartialAdmission feature gate.
+                        这是一个 alpha 字段，需要启用 PartialAdmission 功能门。
                       format: int32
                       minimum: 1
                       type: integer
                     name:
                       default: main
-                      description: name is the PodSet name.
+                      description: name 是 PodSet 的名称。
                       maxLength: 63
                       pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                       type: string
                     template:
                       description: |-
-                        template is the Pod template.
+                        template 是 Pod 模板。
 
-                        The only allowed fields in template.metadata are labels and annotations.
+                        template.metadata 中只允许标签和注解。
 
-                        If requests are omitted for a container or initContainer,
-                        they default to the limits if they are explicitly specified for the
-                        container or initContainer.
+                        如果容器或 initContainer 的请求被省略，
+                        它们默认为容器或 initContainer 的限制。
 
-                        During admission, the rules in nodeSelector and
-                        nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution that match
-                        the keys in the nodeLabels from the ResourceFlavors considered for this
-                        Workload are used to filter the ResourceFlavors that can be assigned to
-                        this podSet.
+                        在准入时，用于过滤可以分配给此 podSet 的 ResourceFlavors 的规则
+                        是 nodeSelector 和 nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution
+                        中与 ResourceFlavors 考虑的 nodeLabels 匹配的键。
                       properties:
                         metadata:
                           description: |-
@@ -8288,57 +8282,52 @@ spec:
                           type: object
                       type: object
                     topologyRequest:
-                      description: topologyRequest defines the topology request for
-                        the PodSet.
+                      description: topologyRequest 定义了 PodSet 的拓扑请求。
                       properties:
                         podIndexLabel:
                           description: |-
-                            PodIndexLabel indicates the name of the label indexing the pods.
-                            For example, in the context of
-                            - kubernetes job this is: kubernetes.io/job-completion-index
-                            - JobSet: kubernetes.io/job-completion-index (inherited from Job)
-                            - Kubeflow: training.kubeflow.org/replica-index
+                            PodIndexLabel 表示 Pod 的索引标签名称。
+                            例如，在 kubernetes job 中是：kubernetes.io/job-completion-index
+                            JobSet 中是：kubernetes.io/job-completion-index（从 Job 继承）
                           type: string
                         podSetSliceRequiredTopology:
                           description: |-
-                            PodSetSliceRequiredTopology indicates the topology level required by the PodSet slice, as
-                            indicated by the `kueue.x-k8s.io/podset-slice-required-topology` annotation.
+                            PodSetSliceRequiredTopology 表示 PodSet 切片的拓扑级别要求，由 `kueue.x-k8s.io/podset-slice-required-topology`
+                            注解指示。
                           type: string
                         podSetSliceSize:
                           description: |-
-                            PodSetSliceSize indicates the size of a subgroup of pods in a PodSet for which
-                            Kueue finds a requested topology domain on a level defined
-                            in `kueue.x-k8s.io/podset-slice-required-topology` annotation.
+                            PodSetSliceSize 表示 PodSet 中一个子组（subgroup）的 Pod 数量，
+                            其中 Kueue 在 `kueue.x-k8s.io/podset-slice-required-topology` 注解中定义的拓扑域级别上找到
+                            请求的拓扑域。
                           format: int32
                           type: integer
                         preferred:
                           description: |-
-                            preferred indicates the topology level preferred by the PodSet, as
-                            indicated by the `kueue.x-k8s.io/podset-preferred-topology` PodSet
-                            annotation.
+                            preferred 表示 PodSet 偏好的拓扑级别，由 `kueue.x-k8s.io/podset-preferred-topology` PodSet
+                            注解指示。
                           type: string
                         required:
                           description: |-
-                            required indicates the topology level required by the PodSet, as
-                            indicated by the `kueue.x-k8s.io/podset-required-topology` PodSet
-                            annotation.
+                            required 表示 PodSet 所需的拓扑级别，由 `kueue.x-k8s.io/podset-required-topology` PodSet
+                            注解指示。
                           type: string
                         subGroupCount:
                           description: |-
-                            SubGroupIndexLabel indicates the count of replicated Jobs (groups) within a PodSet.
-                            For example, in the context of JobSet this value is read from jobset.sigs.k8s.io/replicatedjob-replicas.
+                            SubGroupIndexLabel 表示 PodSet 中复制的 Job（组）数量。
+                            例如，在 JobSet 中，此值从 jobset.sigs.k8s.io/replicatedjob-replicas 读取。
                           format: int32
                           type: integer
                         subGroupIndexLabel:
                           description: |-
-                            SubGroupIndexLabel indicates the name of the label indexing the instances of replicated Jobs (groups)
-                            within a PodSet. For example, in the context of JobSet this is jobset.sigs.k8s.io/job-index.
+                            SubGroupIndexLabel 表示 PodSet 中复制的 Job（组）实例的索引标签名称。
+                            例如，在 JobSet 中是 jobset.sigs.k8s.io/job-index。
                           type: string
                         unconstrained:
                           description: |-
-                            unconstrained indicates that Kueue has the freedom to schedule the PodSet within
-                            the entire available capacity, without constraints on the compactness of the placement.
-                            This is indicated by the `kueue.x-k8s.io/podset-unconstrained-topology` PodSet annotation.
+                            unconstrained 表示 Kueue 在完全可用容量内调度 PodSet 时没有约束，
+                            没有对放置紧凑性的约束。这由 `kueue.x-k8s.io/podset-unconstrained-topology` PodSet
+                            注解指示。
                           type: boolean
                       type: object
                   required:
@@ -8346,7 +8335,7 @@ spec:
                   - template
                   type: object
                   x-kubernetes-validations:
-                  - message: minCount should be positive and less or equal to count
+                  - message: minCount应为正数且小于等于count
                     rule: 'has(self.minCount) ? self.minCount <= self.count : true'
                 maxItems: 8
                 minItems: 1
@@ -8356,30 +8345,27 @@ spec:
                 x-kubernetes-list-type: map
               priority:
                 description: |-
-                  Priority determines the order of access to the resources managed by the
-                  ClusterQueue where the workload is queued.
-                  The priority value is populated from PriorityClassName.
-                  The higher the value, the higher the priority.
-                  If priorityClassName is specified, priority must not be null.
+                  Priority 决定了在 ClusterQueue 中访问资源的顺序。
+                  优先级值由 PriorityClassName 填充。
+                  值越高，优先级越高。
+                  如果指定了 priorityClassName，则 priority 不能为空。
                 format: int32
                 type: integer
               priorityClassName:
                 description: |-
-                  If specified, indicates the workload's priority.
-                  "system-node-critical" and "system-cluster-critical" are two special
-                  keywords which indicate the highest priorities with the former being
-                  the highest priority. Any other name must be defined by creating a
-                  PriorityClass object with that name. If not specified, the workload
-                  priority will be default or zero if there is no default.
+                  如果指定，表示 workload 的优先级。
+                  "system-node-critical" 和 "system-cluster-critical" 是两个特殊关键字，分别表示最高和次高优先级。
+                  其他名称必须通过创建具有该名称的 PriorityClass 对象来定义。
+                  如果未指定，workload 的优先级将为默认值或零（如果没有默认值）。
                 maxLength: 253
                 pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                 type: string
               priorityClassSource:
                 default: ""
                 description: |-
-                  priorityClassSource determines whether the priorityClass field refers to a pod PriorityClass or kueue.x-k8s.io/workloadpriorityclass.
-                  Workload's PriorityClass can accept the name of a pod priorityClass or a workloadPriorityClass.
-                  When using pod PriorityClass, a priorityClassSource field has the scheduling.k8s.io/priorityclass value.
+                  priorityClassSource 决定 priorityClass 字段是指 pod PriorityClass 还是 kueue.x-k8s.io/workloadpriorityclass。
+                  Workload 的 PriorityClass 可以接受 pod priorityClass 或 workloadPriorityClass 的名称。
+                  当使用 pod PriorityClass 时，priorityClassSource 字段值为 scheduling.k8s.io/priorityclass。
                 enum:
                 - kueue.x-k8s.io/workloadpriorityclass
                 - scheduling.k8s.io/priorityclass
@@ -8387,8 +8373,8 @@ spec:
                 type: string
               queueName:
                 description: |-
-                  queueName is the name of the LocalQueue the Workload is associated with.
-                  queueName cannot be changed while .status.admission is not null.
+                  queueName 是 Workload 关联的 LocalQueue 的名称。
+                  当 .status.admission 不为 null 时，queueName 不可更改。
                 maxLength: 253
                 pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                 type: string
@@ -8396,66 +8382,59 @@ spec:
             - podSets
             type: object
             x-kubernetes-validations:
-            - message: priority should not be nil when priorityClassName is set
+            - message: 优先级不应为空，当优先级类名设置时
               rule: 'has(self.priorityClassName) ? has(self.priority) : true'
           status:
-            description: WorkloadStatus defines the observed state of Workload
+            description: WorkloadStatus 定义了 Workload 的观察状态。
             properties:
               accumulatedPastExexcutionTimeSeconds:
                 description: |-
-                  accumulatedPastExexcutionTimeSeconds holds the total time, in seconds, the workload spent
-                  in Admitted state, in the previous `Admit` - `Evict` cycles.
+                  accumulatedPastExexcutionTimeSeconds 持有工作负载在 Admitted 状态中花费的总时间（秒），
+                  在之前的 `Admit` - `Evict` 周期中。
                 format: int32
                 type: integer
               admission:
                 description: |-
-                  admission holds the parameters of the admission of the workload by a
-                  ClusterQueue. admission can be set back to null, but its fields cannot be
-                  changed once set.
+                  admission 持有工作负载被集群队列接纳的参数。admission 可以设置为 null，
+                  但一旦设置，其字段不能更改。
                 properties:
                   clusterQueue:
-                    description: clusterQueue is the name of the ClusterQueue that
-                      admitted this workload.
+                    description: clusterQueue 是集群队列的名称，该集群队列接纳了此 workload。
                     maxLength: 253
                     pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                     type: string
                   podSetAssignments:
-                    description: PodSetAssignments hold the admission results for
-                      each of the .spec.podSets entries.
+                    description: PodSetAssignments 持有 .spec.podSets 条目对每个的接纳结果。
                     items:
                       properties:
                         count:
                           description: |-
-                            count is the number of pods taken into account at admission time.
-                            This field will not change in case of quota reclaim.
-                            Value could be missing for Workloads created before this field was added,
-                            in that case spec.podSets[*].count value will be used.
+                            count 是准入时考虑的 Pod 数量。
+                            配额回收时此字段不会改变。
+                            如果此字段在添加此字段之前创建的 Workload，则可能缺少值，
+                            在这种情况下，spec.podSets[*].count 值将用于。
                           format: int32
                           minimum: 0
                           type: integer
                         delayedTopologyRequest:
                           description: |-
-                            delayedTopologyRequest indicates the topology assignment is delayed.
-                            Topology assignment might be delayed in case there is ProvisioningRequest
-                            AdmissionCheck used.
-                            Kueue schedules the second pass of scheduling for each workload with at
-                            least one PodSet which has delayedTopologyRequest=true and without
-                            topologyAssignment.
+                            delayedTopologyRequest 表示拓扑请求被延迟。
+                            如果使用了 ProvisioningRequest AdmissionCheck，则拓扑分配可能被延迟。
+                            Kueue 对每个 workload 调度第二个调度周期，其中至少有一个 PodSet
+                            具有 delayedTopologyRequest=true 且没有 topologyAssignment。
                           type: string
                         flavors:
                           additionalProperties:
-                            description: ResourceFlavorReference is the name of the
-                              ResourceFlavor.
+                            description: ResourceFlavorReference 是 ResourceFlavor
+                              的名称。
                             maxLength: 253
                             pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                             type: string
-                          description: Flavors are the flavors assigned to the workload
-                            for each resource.
+                          description: Flavors 为工作负载分配了每个资源的口味。
                           type: object
                         name:
                           default: main
-                          description: Name is the name of the podSet. It should match
-                            one of the names in .spec.podSets.
+                          description: Name 是 podSet 的名称。它应该与 .spec.podSets 中的名称之一匹配。
                           maxLength: 63
                           pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                           type: string
@@ -8467,25 +8446,21 @@ spec:
                             pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                             x-kubernetes-int-or-string: true
                           description: |-
-                            resourceUsage keeps track of the total resources all the pods in the podset need to run.
+                            resourceUsage 跟踪工作负载中所有 Pod 所需的资源总量。
 
-                            Beside what is provided in podSet's specs, this calculation takes into account
-                            the LimitRange defaults and RuntimeClass overheads at the moment of admission.
-                            This field will not change in case of quota reclaim.
+                            除了 podSet 规范中提供的内容外，此计算还考虑了准入时的 LimitRange 默认值和 RuntimeClass 开销。
+                            配额回收时此字段不会改变。
                           type: object
                         topologyAssignment:
                           description: |-
-                            topologyAssignment indicates the topology assignment divided into
-                            topology domains corresponding to the lowest level of the topology.
-                            The assignment specifies the number of Pods to be scheduled per topology
-                            domain and specifies the node selectors for each topology domain, in the
-                            following way: the node selector keys are specified by the levels field
-                            (same for all domains), and the corresponding node selector value is
-                            specified by the domains.values subfield. If the TopologySpec.Levels field contains
-                            "kubernetes.io/hostname" label, topologyAssignment will contain data only for
-                            this label, and omit higher levels in the topology
+                            topologyAssignment 表示拓扑分配，分为拓扑域，对应拓扑的最低级别。
+                            分配指定每个拓扑域中要调度的 Pod 数量，并指定每个拓扑域的节点选择器，
+                            如下所示：节点选择器键由 levels 字段指定（所有域都相同），
+                            对应的节点选择器值由 domains.values 子字段指定。如果 TopologySpec.Levels 字段包含
+                            "kubernetes.io/hostname" 标签，则 topologyAssignment 仅包含此标签的数据，
+                            并省略拓扑中的更高级别
 
-                            Example:
+                            示例：
 
                             topologyAssignment:
                               levels:
@@ -8497,19 +8472,19 @@ spec:
                               - values: [block-1, rack-2]
                                 count: 2
 
-                            Here:
-                            - 4 Pods are to be scheduled on nodes matching the node selector:
+                            这里：
+                            - 4 个 Pod 要调度到匹配节点选择器的节点：
                               cloud.provider.com/topology-block: block-1
                               cloud.provider.com/topology-rack: rack-1
-                            - 2 Pods are to be scheduled on nodes matching the node selector:
+                            - 2 个 Pod 要调度到匹配节点选择器的节点：
                               cloud.provider.com/topology-block: block-1
                               cloud.provider.com/topology-rack: rack-2
 
-                            Example:
-                            Below there is an equivalent of the above example assuming, Topology
-                            object defines kubernetes.io/hostname as the lowest level in topology.
-                            Hence we omit higher level of topologies, since the hostname label
-                            is sufficient to explicitly identify a proper node.
+                            示例：
+                            下面是一个等效于上述示例的示例，假设 Topology
+                            对象将 kubernetes.io/hostname 定义为拓扑的最低级别。
+                            因此，我们省略了拓扑中的更高级别，因为主机名标签
+                            足以明确识别一个合适的节点。
 
                             topologyAssignment:
                               levels:
@@ -8521,23 +8496,19 @@ spec:
                                 count: 2
                           properties:
                             domains:
-                              description: |-
-                                domains is a list of topology assignments split by topology domains at
-                                the lowest level of the topology.
+                              description: domains 是拓扑分配的列表，按拓扑域在拓扑的最低级别划分。
                               items:
                                 properties:
                                   count:
-                                    description: |-
-                                      count indicates the number of Pods to be scheduled in the topology
-                                      domain indicated by the values field.
+                                    description: count 表示在 values 字段指示的拓扑域中要调度的 Pod
+                                      数量。
                                     format: int32
                                     minimum: 1
                                     type: integer
                                   values:
                                     description: |-
-                                      values is an ordered list of node selector values describing a topology
-                                      domain. The values correspond to the consecutive topology levels, from
-                                      the highest to the lowest.
+                                      values 是描述拓扑域的节点选择器值的有序列表。
+                                      值对应连续的拓扑级别，从最高到最低。
                                     items:
                                       type: string
                                     maxItems: 8
@@ -8550,10 +8521,7 @@ spec:
                                 type: object
                               type: array
                             levels:
-                              description: |-
-                                levels is an ordered list of keys denoting the levels of the assigned
-                                topology (i.e. node label keys), from the highest to the lowest level of
-                                the topology.
+                              description: levels 是拓扑分配中拓扑级别的有序列表（即节点标签键），从最高到最低。
                               items:
                                 type: string
                               maxItems: 8
@@ -8577,33 +8545,31 @@ spec:
                 - podSetAssignments
                 type: object
               admissionChecks:
-                description: admissionChecks list all the admission checks required
-                  by the workload and the current status
+                description: admissionChecks 列出工作负载所需的所有接纳检查及其当前状态。
                 items:
                   properties:
                     lastTransitionTime:
                       description: |-
-                        lastTransitionTime is the last time the condition transitioned from one status to another.
-                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                        lastTransitionTime 是条件从一种状态转换到另一种状态的最后时间。
+                        这应该是底层条件发生变化的时间。 如果不知道，则使用 API 字段更改的时间是可接受的。
                       format: date-time
                       type: string
                     message:
                       description: |-
-                        message is a human readable message indicating details about the transition.
-                        This may be an empty string.
+                        message 是人类可读的消息，指示转换的详细信息。
+                        这可能是空字符串。
                       maxLength: 32768
                       type: string
                     name:
-                      description: name identifies the admission check.
+                      description: name 标识接纳检查。
                       maxLength: 316
                       type: string
                     podSetUpdates:
                       items:
                         description: |-
-                          PodSetUpdate contains a list of pod set modifications suggested by AdmissionChecks.
-                          The modifications should be additive only - modifications of already existing keys
-                          or having the same key provided by multiple AdmissionChecks is not allowed and will
-                          result in failure during workload admission.
+                          PodSetUpdate 包含 AdmissionChecks 建议的 PodSet 修改。
+                          修改应仅限于添加 - 修改现有键或由多个 AdmissionChecks 提供相同键的修改是不允许的，
+                          并且在工作负载接纳期间会导致失败。
                         properties:
                           annotations:
                             additionalProperties:
@@ -8614,8 +8580,7 @@ spec:
                               type: string
                             type: object
                           name:
-                            description: Name of the PodSet to modify. Should match
-                              to one of the Workload's PodSets.
+                            description: 要修改的 PodSet 的名称。应与 Workload 的 PodSets 之一匹配。
                             maxLength: 63
                             pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                             type: string
@@ -8663,23 +8628,20 @@ spec:
                             maxItems: 8
                             type: array
                             x-kubernetes-validations:
-                            - message: operator must be Exists when 'key' is empty,
-                                which means 'match all values and all keys'
+                            - message: operator必须为Exists，当'key'为空时，表示'匹配所有值和所有键'
                               rule: 'self.all(x, !has(x.key) ? x.operator == ''Exists''
                                 : true)'
-                            - message: effect must be 'NoExecute' when 'tolerationSeconds'
-                                is set
+                            - message: effect必须为'NoExecute'，当'tolerationSeconds'设置时
                               rule: 'self.all(x, has(x.tolerationSeconds) ? x.effect
                                 == ''NoExecute'' : true)'
-                            - message: 'supported toleration values: ''Equal''(default),
-                                ''Exists'''
+                            - message: 支持的容忍值：'Equal'(默认), 'Exists'
                               rule: self.all(x, !has(x.operator) || x.operator in
                                 ['Equal', 'Exists'])
-                            - message: a value must be empty when 'operator' is 'Exists'
+                            - message: 当'operator'为'Exists'时，值必须为空
                               rule: 'self.all(x, has(x.operator) && x.operator ==
                                 ''Exists'' ? !has(x.value) : true)'
-                            - message: 'supported taint effect values: ''NoSchedule'',
-                                ''PreferNoSchedule'', ''NoExecute'''
+                            - message: 支持的污点效果值：'NoSchedule', 'PreferNoSchedule',
+                                'NoExecute'
                               rule: self.all(x, !has(x.effect) || x.effect in ['NoSchedule',
                                 'PreferNoSchedule', 'NoExecute'])
                         required:
@@ -8689,8 +8651,7 @@ spec:
                       type: array
                       x-kubernetes-list-type: atomic
                     state:
-                      description: state of the admissionCheck, one of Pending, Ready,
-                        Retry, Rejected
+                      description: admissionCheck的状态，Pending, Ready, Retry, Rejected
                       enum:
                       - Pending
                       - Ready
@@ -8710,15 +8671,13 @@ spec:
                 x-kubernetes-list-type: map
               conditions:
                 description: |-
-                  conditions hold the latest available observations of the Workload
-                  current state.
+                  conditions 持有工作负载的最新可用观察结果。
 
-                  The type of the condition could be:
+                  条件的类型可以是：
 
-                  - Admitted: the Workload was admitted through a ClusterQueue.
-                  - Finished: the associated workload finished running (failed or succeeded).
-                  - PodsReady: at least `.spec.podSets[*].count` Pods are ready or have
-                  succeeded.
+                  - Admitted: 工作负载通过集群队列被接纳。
+                  - Finished: 关联的工作负载运行完成（失败或成功）。
+                  - PodsReady: 至少 `.spec.podSets[*].count` Pods 已就绪或成功。
                 items:
                   description: Condition contains details for one aspect of the current
                     state of this API Resource.
@@ -8778,19 +8737,16 @@ spec:
                 - type
                 x-kubernetes-list-type: map
               reclaimablePods:
-                description: |-
-                  reclaimablePods keeps track of the number pods within a podset for which
-                  the resource reservation is no longer needed.
+                description: reclaimablePods 跟踪资源预留不再需要的 Pod 数量。
                 items:
                   properties:
                     count:
-                      description: count is the number of pods for which the requested
-                        resources are no longer needed.
+                      description: count 是请求资源不再需要的 Pod 数量。
                       format: int32
                       minimum: 0
                       type: integer
                     name:
-                      description: name is the PodSet name.
+                      description: name 是 PodSet 的名称。
                       maxLength: 63
                       pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                       type: string
@@ -8804,38 +8760,35 @@ spec:
                 - name
                 x-kubernetes-list-type: map
               requeueState:
-                description: |-
-                  requeueState holds the re-queue state
-                  when a workload meets Eviction with PodsReadyTimeout reason.
+                description: requeueState 持有工作负载在 PodsReadyTimeout 原因下被驱逐时的重队列状态。
                 properties:
                   count:
                     description: |-
-                      count records the number of times a workload has been re-queued
-                      When a deactivated (`.spec.activate`=`false`) workload is reactivated (`.spec.activate`=`true`),
-                      this count would be reset to null.
+                      count 记录工作负载被重队列的次数
+                      当 deactivated (`.spec.activate`=`false`) 工作负载被 reactivated (`.spec.activate`=`true`) 时，
+                      此计数将重置为 null。
                     format: int32
                     minimum: 0
                     type: integer
                   requeueAt:
                     description: |-
-                      requeueAt records the time when a workload will be re-queued.
-                      When a deactivated (`.spec.activate`=`false`) workload is reactivated (`.spec.activate`=`true`),
-                      this time would be reset to null.
+                      requeueAt 记录工作负载将被重队列的时间。
+                      当 deactivated (`.spec.activate`=`false`) 工作负载被 reactivated (`.spec.activate`=`true`) 时，
+                      此时间将重置为 null。
                     format: date-time
                     type: string
                 type: object
               resourceRequests:
                 description: |-
-                  resourceRequests provides a detailed view of the resources that were
-                  requested by a non-admitted workload when it was considered for admission.
-                  If admission is non-null, resourceRequests will be empty because
-                  admission.resourceUsage contains the detailed information.
+                  resourceRequests 提供了资源请求的详细视图，
+                  这些资源在非接纳工作负载被考虑接纳时请求。
+                  如果 admission 不为 null，则 resourceRequests 将为空，
+                  因为 admission.resourceUsage 包含详细信息。
                 items:
                   properties:
                     name:
                       default: main
-                      description: name is the name of the podSet. It should match
-                        one of the names in .spec.podSets.
+                      description: name 是 podSet 的名称。它应该与 .spec.podSets 中的名称之一匹配。
                       maxLength: 63
                       pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                       type: string
@@ -8847,11 +8800,10 @@ spec:
                         pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                         x-kubernetes-int-or-string: true
                       description: |-
-                        resources is the total resources all the pods in the podset need to run.
+                        resources 是 podSet 中所有 Pod 所需的资源总量。
 
-                        Beside what is provided in podSet's specs, this value also takes into account
-                        the LimitRange defaults and RuntimeClass overheads at the moment of consideration
-                        and the application of resource.excludeResourcePrefixes and resource.transformations.
+                        除了 podSet 规范中提供的内容外，此值还考虑了准入时的 LimitRange 默认值和 RuntimeClass 开销，
+                        以及 resource.excludeResourcePrefixes 和 resource.transformations 的应用。
                       type: object
                   required:
                   - name
@@ -8862,28 +8814,25 @@ spec:
                 - name
                 x-kubernetes-list-type: map
               schedulingStats:
-                description: schedulingStats tracks scheduling statistics
+                description: schedulingStats 跟踪调度统计信息
                 properties:
                   evictions:
-                    description: evictions tracks eviction statistics by reason and
-                      underlyingCause.
+                    description: evictions 跟踪按原因和底层原因的驱逐统计。
                     items:
                       properties:
                         count:
-                          description: count tracks the number of evictions for this
-                            reason and detailed reason.
+                          description: count 跟踪此原因和详细原因的驱逐次数。
                           format: int32
                           minimum: 0
                           type: integer
                         reason:
-                          description: reason specifies the programmatic identifier
-                            for the eviction cause.
+                          description: reason 指定驱逐原因的程序化标识符。
                           maxLength: 316
                           type: string
                         underlyingCause:
                           description: |-
-                            underlyingCause specifies a finer-grained explanation that complements the eviction reason.
-                            This may be an empty string.
+                            underlyingCause 提供更详细的解释，补充驱逐原因。
+                            这可能是空字符串。
                           maxLength: 316
                           type: string
                       required:
@@ -8900,28 +8849,28 @@ spec:
             type: object
         type: object
         x-kubernetes-validations:
-        - message: podSetAssignments must have the same number of podSets as the spec
+        - message: podSetAssignments必须与spec中的podSets数量相同
           rule: 'has(self.status) && has(self.status.conditions) && self.status.conditions.exists(c,
             c.type == ''QuotaReserved'' && c.status == ''True'') && has(self.status.admission)
             ? size(self.spec.podSets) == size(self.status.admission.podSetAssignments)
             : true'
-        - message: field is immutable
+        - message: 字段不可变
           rule: '(has(oldSelf.status) && has(oldSelf.status.conditions) && oldSelf.status.conditions.exists(c,
             c.type == ''QuotaReserved'' && c.status == ''True'')) ? (oldSelf.spec.priorityClassSource
             == self.spec.priorityClassSource) : true'
-        - message: field is immutable
+        - message: 字段不可变
           rule: '(has(oldSelf.status) && has(oldSelf.status.conditions) && oldSelf.status.conditions.exists(c,
             c.type == ''QuotaReserved'' && c.status == ''True'') && has(oldSelf.spec.priorityClassName)
             && has(self.spec.priorityClassName)) ? (oldSelf.spec.priorityClassName
             == self.spec.priorityClassName) : true'
-        - message: field is immutable
+        - message: 字段不可变
           rule: '(has(oldSelf.status) && has(oldSelf.status.conditions) && oldSelf.status.conditions.exists(c,
             c.type == ''QuotaReserved'' && c.status == ''True'')) && (has(self.status)
             && has(self.status.conditions) && self.status.conditions.exists(c, c.type
             == ''QuotaReserved'' && c.status == ''True'')) && has(oldSelf.spec.queueName)
             && has(self.spec.queueName) ? oldSelf.spec.queueName == self.spec.queueName
             : true'
-        - message: maximumExecutionTimeSeconds is immutable while admitted
+        - message: maximumExecutionTimeSeconds不可变，当被准入时
           rule: ((has(oldSelf.status) && has(oldSelf.status.conditions) && oldSelf.status.conditions.exists(c,
             c.type == 'Admitted' && c.status == 'True')) && (has(self.status) && has(self.status.conditions)
             && self.status.conditions.exists(c, c.type == 'Admitted' && c.status ==

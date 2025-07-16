@@ -1,19 +1,3 @@
-/*
-Copyright The Kubernetes Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package v1beta1
 
 import (
@@ -61,29 +45,27 @@ type LocalQueueList struct {
 	Items []LocalQueue `json:"items"`
 }
 
-// PendingWorkload is a user-facing representation of a pending workload that summarizes the relevant information for
-// position in the cluster queue.
+// PendingWorkload 是面向用户的待处理工作负载表示，用于汇总在集群队列中的相关位置信息。
 type PendingWorkload struct {
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	// Priority indicates the workload's priority
+	// Priority 表示工作负载的优先级
 	Priority int32 `json:"priority"`
 
-	// LocalQueueName indicates the name of the LocalQueue the workload is submitted to
+	// LocalQueueName 表示该工作负载提交到的 LocalQueue 的名称
 	LocalQueueName v1beta1.LocalQueueName `json:"localQueueName"`
 
-	// PositionInClusterQueue indicates the workload's position in the ClusterQueue, starting from 0
+	// PositionInClusterQueue 表示工作负载在 ClusterQueue 中的位置，从 0 开始
 	PositionInClusterQueue int32 `json:"positionInClusterQueue"`
 
-	// PositionInLocalQueue indicates the workload's position in the LocalQueue, starting from 0
+	// PositionInLocalQueue 表示工作负载在 LocalQueue 中的位置，从 0 开始
 	PositionInLocalQueue int32 `json:"positionInLocalQueue"`
 }
 
 // +k8s:openapi-gen=true
 // +kubebuilder:object:root=true
 
-// PendingWorkloadsSummary contains a list of pending workloads in the context
-// of the query (within LocalQueue or ClusterQueue).
+// PendingWorkloadsSummary 包含在查询上下文（LocalQueue 或 ClusterQueue 内）中的待处理工作负载列表。
 type PendingWorkloadsSummary struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -96,14 +78,14 @@ type PendingWorkloadsSummary struct {
 // +k8s:conversion-gen:explicit-from=net/url.Values
 // +k8s:defaulter-gen=true
 
-// PendingWorkloadOptions are query params used in the visibility queries
+// PendingWorkloadOptions 是可见性查询中使用的查询参数
 type PendingWorkloadOptions struct {
 	metav1.TypeMeta `json:",inline"`
 
-	// Offset indicates position of the first pending workload that should be fetched, starting from 0. 0 by default
+	// Offset 表示应获取的第一个待处理工作负载的位置，从 0 开始。默认值为 0
 	Offset int64 `json:"offset"`
 
-	// Limit indicates max number of pending workloads that should be fetched. 1000 by default
+	// Limit 表示应获取的待处理工作负载的最大数量。默认值为 1000
 	Limit int64 `json:"limit,omitempty"`
 }
 

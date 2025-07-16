@@ -29,7 +29,7 @@ description: Generated API reference documentation for kueue.x-k8s.io/v1beta1.
 
 
 
-<p>AdmissionCheck is the Schema for the admissionchecks API</p>
+<p>AdmissionCheck 是 admissionchecks API 的 Schema</p>
 
 
 <table class="table">
@@ -95,10 +95,8 @@ description: Generated API reference documentation for kueue.x-k8s.io/v1beta1.
 
 
 
-<p>Cohort defines the Cohorts API.</p>
-<p>Hierarchical Cohorts (any Cohort which has a parent) are compatible
-with Fair Sharing as of v0.11. Using these features together in
-V0.9 and V0.10 is unsupported, and results in undefined behavior.</p>
+<p>Cohort 定义了 Cohorts API。</p>
+<p>分层 Cohort（有父级的 Cohort）自 v0.11 起兼容公平共享。在 v0.9 和 v0.10 中同时使用这些特性是不支持的，会导致未定义行为。</p>
 
 
 <table class="table">
@@ -131,7 +129,8 @@ V0.9 and V0.10 is unsupported, and results in undefined behavior.</p>
 
 
 
-<p>LocalQueue is the Schema for the localQueues API</p>
+<p>LocalQueue is the Schema for the localQueues API
+LocalQueue 是 localQueues API 的架构</p>
 
 
 <table class="table">
@@ -164,7 +163,7 @@ V0.9 and V0.10 is unsupported, and results in undefined behavior.</p>
 
 
 
-<p>MultiKueueCluster is the Schema for the multikueue API</p>
+<p>MultiKueueCluster 是 multikueue API 的 Schema。</p>
 
 
 <table class="table">
@@ -197,7 +196,7 @@ V0.9 and V0.10 is unsupported, and results in undefined behavior.</p>
 
 
 
-<p>MultiKueueConfig is the Schema for the multikueue API</p>
+<p>MultiKueueConfig 是 multikueue API 的 Schema。</p>
 
 
 <table class="table">
@@ -224,7 +223,7 @@ V0.9 and V0.10 is unsupported, and results in undefined behavior.</p>
 
 
 
-<p>ProvisioningRequestConfig is the Schema for the provisioningrequestconfig API</p>
+<p>ProvisioningRequestConfig 是 provisioningrequestconfig API 的 Schema</p>
 
 
 <table class="table">
@@ -251,7 +250,8 @@ V0.9 and V0.10 is unsupported, and results in undefined behavior.</p>
 
 
 
-<p>ResourceFlavor is the Schema for the resourceflavors API.</p>
+<p>ResourceFlavor is the Schema for the resourceflavors API.
+ResourceFlavor 是 resourceflavors API 的架构。</p>
 
 
 <table class="table">
@@ -278,7 +278,7 @@ V0.9 and V0.10 is unsupported, and results in undefined behavior.</p>
 
 
 
-<p>Workload is the Schema for the workloads API</p>
+<p>Workload 是工作负载 API 的 Schema</p>
 
 
 <table class="table">
@@ -311,7 +311,8 @@ V0.9 and V0.10 is unsupported, and results in undefined behavior.</p>
 
 
 
-<p>WorkloadPriorityClass is the Schema for the workloadPriorityClass API</p>
+<p>WorkloadPriorityClass is the Schema for the workloadPriorityClass API
+WorkloadPriorityClass 是 workloadPriorityClass API 的模式定义</p>
 
 
 <table class="table">
@@ -328,7 +329,9 @@ V0.9 and V0.10 is unsupported, and results in undefined behavior.</p>
 <td>
    <p>value represents the integer value of this workloadPriorityClass. This is the actual priority that workloads
 receive when jobs have the name of this class in their workloadPriorityClass label.
-Changing the value of workloadPriorityClass doesn't affect the priority of workloads that were already created.</p>
+Changing the value of workloadPriorityClass doesn't affect the priority of workloads that were already created.
+value 表示此 workloadPriorityClass 的整数值。这是当作业在其 workloadPriorityClass 标签中具有此类名称时，工作负载实际获得的优先级。
+更改 workloadPriorityClass 的 value 不会影响已创建工作负载的优先级。</p>
 </td>
 </tr>
 <tr><td><code>description</code><br/>
@@ -336,7 +339,8 @@ Changing the value of workloadPriorityClass doesn't affect the priority of workl
 </td>
 <td>
    <p>description is an arbitrary string that usually provides guidelines on
-when this workloadPriorityClass should be used.</p>
+when this workloadPriorityClass should be used.
+description 是一个任意字符串，通常用于提供何时应使用此 workloadPriorityClass 的指导。</p>
 </td>
 </tr>
 </tbody>
@@ -360,14 +364,14 @@ when this workloadPriorityClass should be used.</p>
 <a href="#kueue-x-k8s-io-v1beta1-ClusterQueueReference"><code>ClusterQueueReference</code></a>
 </td>
 <td>
-   <p>clusterQueue is the name of the ClusterQueue that admitted this workload.</p>
+   <p>clusterQueue 是集群队列的名称，该集群队列接纳了此 workload。</p>
 </td>
 </tr>
 <tr><td><code>podSetAssignments</code> <B>[Required]</B><br/>
 <a href="#kueue-x-k8s-io-v1beta1-PodSetAssignment"><code>[]PodSetAssignment</code></a>
 </td>
 <td>
-   <p>PodSetAssignments hold the admission results for each of the .spec.podSets entries.</p>
+   <p>PodSetAssignments 持有 .spec.podSets 条目对每个的接纳结果。</p>
 </td>
 </tr>
 </tbody>
@@ -391,21 +395,21 @@ when this workloadPriorityClass should be used.</p>
 <code>string</code>
 </td>
 <td>
-   <p>ApiGroup is the group for the resource being referenced.</p>
+   <p>ApiGroup 是被引用资源的组。</p>
 </td>
 </tr>
 <tr><td><code>kind</code> <B>[Required]</B><br/>
 <code>string</code>
 </td>
 <td>
-   <p>Kind is the type of the resource being referenced.</p>
+   <p>Kind 是被引用资源的类型。</p>
 </td>
 </tr>
 <tr><td><code>name</code> <B>[Required]</B><br/>
 <code>string</code>
 </td>
 <td>
-   <p>Name is the name of the resource being referenced.</p>
+   <p>Name 是被引用资源的名称。</p>
 </td>
 </tr>
 </tbody>
@@ -424,7 +428,7 @@ when this workloadPriorityClass should be used.</p>
 - [ClusterQueueSpec](#kueue-x-k8s-io-v1beta1-ClusterQueueSpec)
 
 
-<p>AdmissionCheckReference is the name of an AdmissionCheck.</p>
+<p>AdmissionCheckReference 是接纳检查的名称。</p>
 
 
 
@@ -437,7 +441,7 @@ when this workloadPriorityClass should be used.</p>
 - [AdmissionCheck](#kueue-x-k8s-io-v1beta1-AdmissionCheck)
 
 
-<p>AdmissionCheckSpec defines the desired state of AdmissionCheck</p>
+<p>AdmissionCheckSpec 定义 AdmissionCheck 的期望状态</p>
 
 
 <table class="table">
@@ -449,26 +453,22 @@ when this workloadPriorityClass should be used.</p>
 <code>string</code>
 </td>
 <td>
-   <p>controllerName identifies the controller that processes the AdmissionCheck,
-not necessarily a Kubernetes Pod or Deployment name. Cannot be empty.</p>
+   <p>controllerName 标识处理 AdmissionCheck 的控制器，不一定是 Kubernetes Pod 或 Deployment 名称。不能为空。</p>
 </td>
 </tr>
 <tr><td><code>retryDelayMinutes</code><br/>
 <code>int64</code>
 </td>
 <td>
-   <p>RetryDelayMinutes specifies how long to keep the workload suspended after
-a failed check (after it transitioned to False). When the delay period has passed, the check
-state goes to &quot;Unknown&quot;. The default is 15 min.
-Deprecated: retryDelayMinutes has already been deprecated since v0.8 and will be removed in v1beta2.</p>
+   <p>RetryDelayMinutes 指定检查失败（转为 False）后，工作负载保持挂起的时间。延迟期过后，检查状态变为 &quot;Unknown&quot;。默认 15 分钟。
+已废弃：retryDelayMinutes 自 v0.8 起已废弃，将在 v1beta2 移除。</p>
 </td>
 </tr>
 <tr><td><code>parameters</code><br/>
 <a href="#kueue-x-k8s-io-v1beta1-AdmissionCheckParametersReference"><code>AdmissionCheckParametersReference</code></a>
 </td>
 <td>
-   <p>Parameters identifies a configuration with additional parameters for the
-check.</p>
+   <p>Parameters 标识带有附加参数的检查配置。</p>
 </td>
 </tr>
 </tbody>
@@ -492,30 +492,30 @@ check.</p>
 <a href="#kueue-x-k8s-io-v1beta1-AdmissionCheckReference"><code>AdmissionCheckReference</code></a>
 </td>
 <td>
-   <p>name identifies the admission check.</p>
+   <p>name 标识接纳检查。</p>
 </td>
 </tr>
 <tr><td><code>state</code> <B>[Required]</B><br/>
 <a href="#kueue-x-k8s-io-v1beta1-CheckState"><code>CheckState</code></a>
 </td>
 <td>
-   <p>state of the admissionCheck, one of Pending, Ready, Retry, Rejected</p>
+   <p>admissionCheck的状态，Pending, Ready, Retry, Rejected</p>
 </td>
 </tr>
 <tr><td><code>lastTransitionTime</code> <B>[Required]</B><br/>
 <a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#time-v1-meta"><code>k8s.io/apimachinery/pkg/apis/meta/v1.Time</code></a>
 </td>
 <td>
-   <p>lastTransitionTime is the last time the condition transitioned from one status to another.
-This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.</p>
+   <p>lastTransitionTime 是条件从一种状态转换到另一种状态的最后时间。
+这应该是底层条件发生变化的时间。 如果不知道，则使用 API 字段更改的时间是可接受的。</p>
 </td>
 </tr>
 <tr><td><code>message</code> <B>[Required]</B><br/>
 <code>string</code>
 </td>
 <td>
-   <p>message is a human readable message indicating details about the transition.
-This may be an empty string.</p>
+   <p>message 是人类可读的消息，指示转换的详细信息。
+这可能是空字符串。</p>
 </td>
 </tr>
 <tr><td><code>podSetUpdates</code><br/>
@@ -535,7 +535,7 @@ This may be an empty string.</p>
 - [AdmissionCheck](#kueue-x-k8s-io-v1beta1-AdmissionCheck)
 
 
-<p>AdmissionCheckStatus defines the observed state of AdmissionCheck</p>
+<p>AdmissionCheckStatus 定义 AdmissionCheck 的观测状态</p>
 
 
 <table class="table">
@@ -547,8 +547,7 @@ This may be an empty string.</p>
 <a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#condition-v1-meta"><code>[]k8s.io/apimachinery/pkg/apis/meta/v1.Condition</code></a>
 </td>
 <td>
-   <p>conditions hold the latest available observations of the AdmissionCheck
-current state.</p>
+   <p>conditions 保存 AdmissionCheck 当前状态的最新可用观测信息。</p>
 </td>
 </tr>
 </tbody>
@@ -562,7 +561,8 @@ current state.</p>
 - [AdmissionChecksStrategy](#kueue-x-k8s-io-v1beta1-AdmissionChecksStrategy)
 
 
-<p>AdmissionCheckStrategyRule defines rules for a single AdmissionCheck</p>
+<p>AdmissionCheckStrategyRule defines rules for a single AdmissionCheck
+AdmissionCheckStrategyRule 定义单个 AdmissionCheck 的规则</p>
 
 
 <table class="table">
@@ -574,7 +574,8 @@ current state.</p>
 <a href="#kueue-x-k8s-io-v1beta1-AdmissionCheckReference"><code>AdmissionCheckReference</code></a>
 </td>
 <td>
-   <p>name is an AdmissionCheck's name.</p>
+   <p>name is an AdmissionCheck's name.
+name 是 AdmissionCheck 的名称。</p>
 </td>
 </tr>
 <tr><td><code>onFlavors</code><br/>
@@ -582,7 +583,9 @@ current state.</p>
 </td>
 <td>
    <p>onFlavors is a list of ResourceFlavors' names that this AdmissionCheck should run for.
-If empty, the AdmissionCheck will run for all workloads submitted to the ClusterQueue.</p>
+onFlavors 是此 AdmissionCheck 应运行的 ResourceFlavors 名称列表。
+If empty, the AdmissionCheck will run for all workloads submitted to the ClusterQueue.
+如果为空，则 AdmissionCheck 将对提交到 ClusterQueue 的所有工作负载运行。</p>
 </td>
 </tr>
 </tbody>
@@ -596,7 +599,8 @@ If empty, the AdmissionCheck will run for all workloads submitted to the Cluster
 - [ClusterQueueSpec](#kueue-x-k8s-io-v1beta1-ClusterQueueSpec)
 
 
-<p>AdmissionChecksStrategy defines a strategy for a AdmissionCheck.</p>
+<p>AdmissionChecksStrategy defines a strategy for a AdmissionCheck.
+AdmissionChecksStrategy 定义 AdmissionCheck 的策略。</p>
 
 
 <table class="table">
@@ -608,7 +612,8 @@ If empty, the AdmissionCheck will run for all workloads submitted to the Cluster
 <a href="#kueue-x-k8s-io-v1beta1-AdmissionCheckStrategyRule"><code>[]AdmissionCheckStrategyRule</code></a>
 </td>
 <td>
-   <p>admissionChecks is a list of strategies for AdmissionChecks</p>
+   <p>admissionChecks is a list of strategies for AdmissionChecks
+admissionChecks 是 AdmissionChecks 的策略列表</p>
 </td>
 </tr>
 </tbody>
@@ -632,16 +637,15 @@ If empty, the AdmissionCheck will run for all workloads submitted to the Cluster
 <a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#resourcelist-v1-core"><code>k8s.io/api/core/v1.ResourceList</code></a>
 </td>
 <td>
-   <p>ConsumedResources represents the aggregated usage of resources over time,
-with decaying function applied.
-The value is populated if usage consumption functionality is enabled in Kueue config.</p>
+   <p>ConsumedResources 表示资源随时间的聚合使用量，应用了衰减函数。
+如果在 Kueue 配置中启用了使用量消耗功能，则会填充值。</p>
 </td>
 </tr>
 <tr><td><code>lastUpdate</code> <B>[Required]</B><br/>
 <a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#time-v1-meta"><code>k8s.io/apimachinery/pkg/apis/meta/v1.Time</code></a>
 </td>
 <td>
-   <p>LastUpdate is the time when share and consumed resources were updated.</p>
+   <p>LastUpdate 是份额和已消耗资源被更新的时间。</p>
 </td>
 </tr>
 </tbody>
@@ -677,8 +681,8 @@ The value is populated if usage consumption functionality is enabled in Kueue co
 <a href="#kueue-x-k8s-io-v1beta1-AdmissionMode"><code>AdmissionMode</code></a>
 </td>
 <td>
-   <p>AdmissionMode indicates which mode for AdmissionFairSharing should be used
-in the AdmissionScope. Possible values are:</p>
+   <p>AdmissionMode 表示 AdmissionScope 中 AdmissionFairSharing 应使用的模式。
+可能的值有：</p>
 <ul>
 <li>UsageBasedAdmissionFairSharing</li>
 <li>NoAdmissionFairSharing</li>
@@ -696,9 +700,7 @@ in the AdmissionScope. Possible values are:</p>
 - [ClusterQueuePreemption](#kueue-x-k8s-io-v1beta1-ClusterQueuePreemption)
 
 
-<p>BorrowWithinCohort contains configuration which allows to preempt workloads
-within cohort while borrowing. It only works with Classical Preemption,
-<strong>not</strong> with Fair Sharing.</p>
+<p>BorrowWithinCohort 包含允许在借用时抢占 cohort 内工作负载的配置。仅适用于经典抢占，不适用于公平共享。</p>
 
 
 <table class="table">
@@ -710,14 +712,11 @@ within cohort while borrowing. It only works with Classical Preemption,
 <a href="#kueue-x-k8s-io-v1beta1-BorrowWithinCohortPolicy"><code>BorrowWithinCohortPolicy</code></a>
 </td>
 <td>
-   <p>policy determines the policy for preemption to reclaim quota within cohort while borrowing.
-Possible values are:</p>
+   <p>policy 决定借用时在 cohort 内回收配额的抢占策略。
+可选值：</p>
 <ul>
-<li><code>Never</code> (default): do not allow for preemption, in other
-ClusterQueues within the cohort, for a borrowing workload.</li>
-<li><code>LowerPriority</code>: allow preemption, in other ClusterQueues
-within the cohort, for a borrowing workload, but only if
-the preempted workloads are of lower priority.</li>
+<li><code>Never</code>（默认）：不允许借用工作负载在 cohort 内其他 ClusterQueue 抢占。</li>
+<li><code>LowerPriority</code>：允许借用工作负载在 cohort 内其他 ClusterQueue 抢占，但仅限于被抢占工作负载优先级较低时。</li>
 </ul>
 </td>
 </tr>
@@ -725,11 +724,8 @@ the preempted workloads are of lower priority.</li>
 <code>int32</code>
 </td>
 <td>
-   <p>maxPriorityThreshold allows to restrict the set of workloads which
-might be preempted by a borrowing workload, to only workloads with
-priority less than or equal to the specified threshold priority.
-When the threshold is not specified, then any workload satisfying the
-policy can be preempted by the borrowing workload.</p>
+   <p>maxPriorityThreshold 允许将可被借用工作负载抢占的工作负载范围限制为优先级小于等于指定阈值的工作负载。
+如果未指定阈值，则任何满足策略的工作负载都可以被借用工作负载抢占。</p>
 </td>
 </tr>
 </tbody>
@@ -743,6 +739,9 @@ policy can be preempted by the borrowing workload.</p>
 
 - [BorrowWithinCohort](#kueue-x-k8s-io-v1beta1-BorrowWithinCohort)
 
+
+<p>BorrowWithinCohortPolicy defines the policy for borrowing within cohort.
+BorrowWithinCohortPolicy 定义 cohort 内借用时的策略。</p>
 
 
 
@@ -768,7 +767,8 @@ policy can be preempted by the borrowing workload.</p>
 
 
 <p>ClusterQueuePendingWorkload contains the information identifying a pending workload
-in the cluster queue.</p>
+in the cluster queue.
+ClusterQueuePendingWorkload 包含标识 cluster queue 中待处理工作负载的信息。</p>
 
 
 <table class="table">
@@ -780,14 +780,14 @@ in the cluster queue.</p>
 <code>string</code>
 </td>
 <td>
-   <p>Name indicates the name of the pending workload.</p>
+   <p>Name 表示待处理工作负载的名称。</p>
 </td>
 </tr>
 <tr><td><code>namespace</code> <B>[Required]</B><br/>
 <code>string</code>
 </td>
 <td>
-   <p>Namespace indicates the name of the pending workload.</p>
+   <p>Namespace 表示待处理工作负载的命名空间。</p>
 </td>
 </tr>
 </tbody>
@@ -811,14 +811,14 @@ in the cluster queue.</p>
 <a href="#kueue-x-k8s-io-v1beta1-ClusterQueuePendingWorkload"><code>[]ClusterQueuePendingWorkload</code></a>
 </td>
 <td>
-   <p>Head contains the list of top pending workloads.</p>
+   <p>Head 包含最前面的待处理工作负载列表。</p>
 </td>
 </tr>
 <tr><td><code>lastChangeTime</code> <B>[Required]</B><br/>
 <a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#time-v1-meta"><code>k8s.io/apimachinery/pkg/apis/meta/v1.Time</code></a>
 </td>
 <td>
-   <p>LastChangeTime indicates the time of the last change of the structure.</p>
+   <p>LastChangeTime 表示结构最后一次变更的时间。</p>
 </td>
 </tr>
 </tbody>
@@ -832,25 +832,15 @@ in the cluster queue.</p>
 - [ClusterQueueSpec](#kueue-x-k8s-io-v1beta1-ClusterQueueSpec)
 
 
-<p>ClusterQueuePreemption contains policies to preempt Workloads from this
-ClusterQueue or the ClusterQueue's cohort.</p>
-<p>Preemption may be configured to work in the following scenarios:</p>
+<p>ClusterQueuePreemption 包含从本 ClusterQueue 或其 cohort 抢占工作负载的策略。</p>
+<p>抢占可配置在以下场景下工作：</p>
 <ul>
-<li>When a Workload fits within the nominal quota of the ClusterQueue, but
-the quota is currently borrowed by other ClusterQueues in the cohort.
-We preempt workloads in other ClusterQueues to allow this ClusterQueue to
-reclaim its nominal quota. Configured using reclaimWithinCohort.</li>
-<li>When a Workload doesn't fit within the nominal quota of the ClusterQueue
-and there are admitted Workloads in the ClusterQueue with lower priority.
-Configured using withinClusterQueue.</li>
-<li>When a Workload may fit while both borrowing and preempting
-low priority workloads in the Cohort. Configured using borrowWithinCohort.</li>
-<li>When FairSharing is enabled, to maintain fair distribution of
-unused resources. See FairSharing documentation.</li>
+<li>当工作负载适合 ClusterQueue 的 nominal quota，但该配额当前被 cohort 中其他 ClusterQueue 借用时。我们会抢占其他 ClusterQueue 的工作负载，以允许本 ClusterQueue 回收其 nominal quota。通过 reclaimWithinCohort 配置。</li>
+<li>当工作负载不适合 ClusterQueue 的 nominal quota，且 ClusterQueue 中有更低优先级的已接收工作负载时。通过 withinClusterQueue 配置。</li>
+<li>当工作负载可以通过借用和抢占 cohort 中低优先级工作负载来适配时。通过 borrowWithinCohort 配置。</li>
+<li>启用 FairSharing 时，为保持未用资源的公平分配。详见 FairSharing 文档。</li>
 </ul>
-<p>The preemption algorithm tries to find a minimal set of Workloads to
-preempt to accomomdate the pending Workload, preempting Workloads with
-lower priority first.</p>
+<p>抢占算法会尝试找到最小集合的工作负载进行抢占，以容纳待处理工作负载，优先抢占优先级较低的工作负载。</p>
 
 
 <table class="table">
@@ -862,21 +852,11 @@ lower priority first.</p>
 <a href="#kueue-x-k8s-io-v1beta1-PreemptionPolicy"><code>PreemptionPolicy</code></a>
 </td>
 <td>
-   <p>reclaimWithinCohort determines whether a pending Workload can preempt
-Workloads from other ClusterQueues in the cohort that are using more than
-their nominal quota. The possible values are:</p>
+   <p>reclaimWithinCohort 决定待处理工作负载是否可以抢占 cohort 中超出 nominal quota 的其他 ClusterQueue 的工作负载。可选值：</p>
 <ul>
-<li><code>Never</code> (default): do not preempt Workloads in the cohort.</li>
-<li><code>LowerPriority</code>: <strong>Classic Preemption</strong> if the pending Workload
-fits within the nominal quota of its ClusterQueue, only preempt
-Workloads in the cohort that have lower priority than the pending
-Workload. <strong>Fair Sharing</strong> only preempt Workloads in the cohort that
-have lower priority than the pending Workload and that satisfy the
-Fair Sharing preemptionStategies.</li>
-<li><code>Any</code>: <strong>Classic Preemption</strong> if the pending Workload fits within
-the nominal quota of its ClusterQueue, preempt any Workload in the
-cohort, irrespective of priority. <strong>Fair Sharing</strong> preempt Workloads
-in the cohort that satisfy the Fair Sharing preemptionStrategies.</li>
+<li><code>Never</code>（默认）：不抢占 cohort 中的工作负载。</li>
+<li><code>LowerPriority</code>：<strong>经典抢占</strong>：如果待处理工作负载适合其 ClusterQueue 的 nominal quota，仅抢占 cohort 中优先级较低的工作负载。<strong>公平共享</strong>：仅抢占 cohort 中优先级较低且满足公平共享抢占策略的工作负载。</li>
+<li><code>Any</code>：<strong>经典抢占</strong>：如果待处理工作负载适合其 ClusterQueue 的 nominal quota，可抢占 cohort 中任何工作负载，无论优先级。<strong>公平共享</strong>：抢占 cohort 中满足公平共享抢占策略的工作负载。</li>
 </ul>
 </td>
 </tr>
@@ -890,16 +870,11 @@ in the cohort that satisfy the Fair Sharing preemptionStrategies.</li>
 <a href="#kueue-x-k8s-io-v1beta1-PreemptionPolicy"><code>PreemptionPolicy</code></a>
 </td>
 <td>
-   <p>withinClusterQueue determines whether a pending Workload that doesn't fit
-within the nominal quota for its ClusterQueue, can preempt active Workloads in
-the ClusterQueue. The possible values are:</p>
+   <p>withinClusterQueue 决定不适合其 ClusterQueue nominal quota 的待处理工作负载是否可以抢占 ClusterQueue 中的活动工作负载。可选值：</p>
 <ul>
-<li><code>Never</code> (default): do not preempt Workloads in the ClusterQueue.</li>
-<li><code>LowerPriority</code>: only preempt Workloads in the ClusterQueue that have
-lower priority than the pending Workload.</li>
-<li><code>LowerOrNewerEqualPriority</code>: only preempt Workloads in the ClusterQueue that
-either have a lower priority than the pending workload or equal priority
-and are newer than the pending workload.</li>
+<li><code>Never</code>（默认）：不抢占 ClusterQueue 中的工作负载。</li>
+<li><code>LowerPriority</code>：仅抢占 ClusterQueue 中优先级低于待处理工作负载的工作负载。</li>
+<li><code>LowerOrNewerEqualPriority</code>：仅抢占 ClusterQueue 中优先级低于待处理工作负载，或优先级相同但比待处理工作负载新的工作负载。</li>
 </ul>
 </td>
 </tr>
@@ -917,8 +892,8 @@ and are newer than the pending workload.</li>
 - [LocalQueueSpec](#kueue-x-k8s-io-v1beta1-LocalQueueSpec)
 
 
-<p>ClusterQueueReference is the name of the ClusterQueue.
-It must be a DNS (RFC 1123) and has the maximum length of 253 characters.</p>
+<p>ClusterQueueReference 是 ClusterQueue 的名称。
+必须为 DNS（RFC 1123）格式，最大长度为 253 个字符。</p>
 
 
 
@@ -931,7 +906,7 @@ It must be a DNS (RFC 1123) and has the maximum length of 253 characters.</p>
 - [ClusterQueue](#kueue-x-k8s-io-v1beta1-ClusterQueue)
 
 
-<p>ClusterQueueSpec defines the desired state of ClusterQueue</p>
+<p>ClusterQueueSpec 定义 ClusterQueue 的期望状态</p>
 
 
 <table class="table">
@@ -943,43 +918,32 @@ It must be a DNS (RFC 1123) and has the maximum length of 253 characters.</p>
 <a href="#kueue-x-k8s-io-v1beta1-ResourceGroup"><code>[]ResourceGroup</code></a>
 </td>
 <td>
-   <p>resourceGroups describes groups of resources.
-Each resource group defines the list of resources and a list of flavors
-that provide quotas for these resources.
-Each resource and each flavor can only form part of one resource group.
-resourceGroups can be up to 16.</p>
+   <p>resourceGroups 描述资源组。
+每个资源组定义资源列表和为这些资源提供配额的 flavor 列表。
+每个资源和每个 flavor 只能属于一个资源组。
+resourceGroups 最多可有 16 个。</p>
 </td>
 </tr>
 <tr><td><code>cohort</code> <B>[Required]</B><br/>
 <a href="#kueue-x-k8s-io-v1beta1-CohortReference"><code>CohortReference</code></a>
 </td>
 <td>
-   <p>cohort that this ClusterQueue belongs to. CQs that belong to the
-same cohort can borrow unused resources from each other.</p>
-<p>A CQ can be a member of a single borrowing cohort. A workload submitted
-to a queue referencing this CQ can borrow quota from any CQ in the cohort.
-Only quota for the [resource, flavor] pairs listed in the CQ can be
-borrowed.
-If empty, this ClusterQueue cannot borrow from any other ClusterQueue and
-vice versa.</p>
-<p>A cohort is a name that links CQs together, but it doesn't reference any
-object.</p>
+   <p>cohort 表示该 ClusterQueue 所属的 cohort。属于同一 cohort 的 CQ 可以相互借用未使用的资源。</p>
+<p>CQ 只能属于一个借用 cohort。提交到引用该 CQ 的队列的工作负载可以从 cohort 中的任何 CQ 借用配额。
+只有 CQ 中列出的 [resource, flavor] 对的配额可以被借用。
+如果为空，则该 ClusterQueue 不能从其他 ClusterQueue 借用，也不能被其他 ClusterQueue 借用。</p>
+<p>cohort 是将 CQ 关联在一起的名称，但不引用任何对象。</p>
 </td>
 </tr>
 <tr><td><code>queueingStrategy</code> <B>[Required]</B><br/>
 <a href="#kueue-x-k8s-io-v1beta1-QueueingStrategy"><code>QueueingStrategy</code></a>
 </td>
 <td>
-   <p>QueueingStrategy indicates the queueing strategy of the workloads
-across the queues in this ClusterQueue.
-Current Supported Strategies:</p>
+   <p>QueueingStrategy 表示该 ClusterQueue 下队列中工作负载的排队策略。
+当前支持的策略：</p>
 <ul>
-<li>StrictFIFO: workloads are ordered strictly by creation time.
-Older workloads that can't be admitted will block admitting newer
-workloads even if they fit available quota.</li>
-<li>BestEffortFIFO: workloads are ordered by creation time,
-however older workloads that can't be admitted will not block
-admitting newer workloads that fit existing quota.</li>
+<li>StrictFIFO：工作负载严格按创建时间排序。无法接收的旧工作负载会阻塞新工作负载的接收，即使新工作负载适合现有配额。</li>
+<li>BestEffortFIFO：工作负载按创建时间排序，但无法接收的旧工作负载不会阻塞适合现有配额的新工作负载的接收。</li>
 </ul>
 </td>
 </tr>
@@ -987,19 +951,15 @@ admitting newer workloads that fit existing quota.</li>
 <a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#labelselector-v1-meta"><code>k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector</code></a>
 </td>
 <td>
-   <p>namespaceSelector defines which namespaces are allowed to submit workloads to
-this clusterQueue. Beyond this basic support for policy, a policy agent like
-Gatekeeper should be used to enforce more advanced policies.
-Defaults to null which is a nothing selector (no namespaces eligible).
-If set to an empty selector <code>{}</code>, then all namespaces are eligible.</p>
+   <p>namespaceSelector 定义哪些命名空间可以向该 clusterQueue 提交工作负载。除了基本策略支持外，应使用策略代理（如 Gatekeeper）来实施更高级的策略。
+默认为 null，即无选择器（无命名空间有资格）。如果设置为空选择器 <code>{}</code>，则所有命名空间都有资格。</p>
 </td>
 </tr>
 <tr><td><code>flavorFungibility</code> <B>[Required]</B><br/>
 <a href="#kueue-x-k8s-io-v1beta1-FlavorFungibility"><code>FlavorFungibility</code></a>
 </td>
 <td>
-   <p>flavorFungibility defines whether a workload should try the next flavor
-before borrowing or preempting in the flavor being evaluated.</p>
+   <p>flavorFungibility 定义在评估 flavor 时，工作负载是否应在借用或抢占前尝试下一个 flavor。</p>
 </td>
 </tr>
 <tr><td><code>preemption</code> <B>[Required]</B><br/>
@@ -1012,29 +972,26 @@ before borrowing or preempting in the flavor being evaluated.</p>
 <a href="#kueue-x-k8s-io-v1beta1-AdmissionCheckReference"><code>[]AdmissionCheckReference</code></a>
 </td>
 <td>
-   <p>admissionChecks lists the AdmissionChecks required by this ClusterQueue.
-Cannot be used along with AdmissionCheckStrategy.</p>
+   <p>admissionChecks 列出该 ClusterQueue 所需的 AdmissionChecks。不能与 AdmissionCheckStrategy 同时使用。</p>
 </td>
 </tr>
 <tr><td><code>admissionChecksStrategy</code><br/>
 <a href="#kueue-x-k8s-io-v1beta1-AdmissionChecksStrategy"><code>AdmissionChecksStrategy</code></a>
 </td>
 <td>
-   <p>admissionCheckStrategy defines a list of strategies to determine which ResourceFlavors require AdmissionChecks.
-This property cannot be used in conjunction with the 'admissionChecks' property.</p>
+   <p>admissionCheckStrategy 定义确定哪些 ResourceFlavors 需要 AdmissionChecks 的策略列表。该属性不能与 'admissionChecks' 属性同时使用。</p>
 </td>
 </tr>
 <tr><td><code>stopPolicy</code><br/>
 <a href="#kueue-x-k8s-io-v1beta1-StopPolicy"><code>StopPolicy</code></a>
 </td>
 <td>
-   <p>stopPolicy - if set to a value different from None, the ClusterQueue is considered Inactive, no new reservation being
-made.</p>
-<p>Depending on its value, its associated workloads will:</p>
+   <p>stopPolicy - 如果设置为非 None，则该 ClusterQueue 被视为非活动状态，不会进行新的配额预留。</p>
+<p>根据其值，相关工作负载将：</p>
 <ul>
-<li>None - Workloads are admitted</li>
-<li>HoldAndDrain - Admitted workloads are evicted and Reserving workloads will cancel the reservation.</li>
-<li>Hold - Admitted workloads will run to completion and Reserving workloads will cancel the reservation.</li>
+<li>None - 工作负载被接收</li>
+<li>HoldAndDrain - 已接收的工作负载被驱逐，预留中的工作负载将取消预留。</li>
+<li>Hold - 已接收的工作负载将运行至完成，预留中的工作负载将取消预留。</li>
 </ul>
 </td>
 </tr>
@@ -1042,16 +999,14 @@ made.</p>
 <a href="#kueue-x-k8s-io-v1beta1-FairSharing"><code>FairSharing</code></a>
 </td>
 <td>
-   <p>fairSharing defines the properties of the ClusterQueue when
-participating in FairSharing.  The values are only relevant
-if FairSharing is enabled in the Kueue configuration.</p>
+   <p>fairSharing 定义该 ClusterQueue 参与公平共享时的属性。仅在 Kueue 配置中启用公平共享时才相关。</p>
 </td>
 </tr>
 <tr><td><code>admissionScope</code><br/>
 <a href="#kueue-x-k8s-io-v1beta1-AdmissionScope"><code>AdmissionScope</code></a>
 </td>
 <td>
-   <p>admissionScope indicates whether ClusterQueue uses the Admission Fair Sharing</p>
+   <p>admissionScope 表示 ClusterQueue 是否使用公平共享资源配额</p>
 </td>
 </tr>
 </tbody>
@@ -1065,7 +1020,7 @@ if FairSharing is enabled in the Kueue configuration.</p>
 - [ClusterQueue](#kueue-x-k8s-io-v1beta1-ClusterQueue)
 
 
-<p>ClusterQueueStatus defines the observed state of ClusterQueue</p>
+<p>ClusterQueueStatus 定义 ClusterQueue 的观测状态</p>
 
 
 <table class="table">
@@ -1077,68 +1032,58 @@ if FairSharing is enabled in the Kueue configuration.</p>
 <a href="#kueue-x-k8s-io-v1beta1-FlavorUsage"><code>[]FlavorUsage</code></a>
 </td>
 <td>
-   <p>flavorsReservation are the reserved quotas, by flavor, currently in use by the
-workloads assigned to this ClusterQueue.</p>
+   <p>flavorsReservation 是当前被分配到此 ClusterQueue 的工作负载所使用的按 flavor 划分的预留配额。</p>
 </td>
 </tr>
 <tr><td><code>flavorsUsage</code><br/>
 <a href="#kueue-x-k8s-io-v1beta1-FlavorUsage"><code>[]FlavorUsage</code></a>
 </td>
 <td>
-   <p>flavorsUsage are the used quotas, by flavor, currently in use by the
-workloads admitted in this ClusterQueue.</p>
+   <p>flavorsUsage 是当前被此 ClusterQueue 接收的工作负载所使用的按 flavor 划分的已用配额。</p>
 </td>
 </tr>
 <tr><td><code>pendingWorkloads</code><br/>
 <code>int32</code>
 </td>
 <td>
-   <p>pendingWorkloads is the number of workloads currently waiting to be
-admitted to this clusterQueue.</p>
+   <p>pendingWorkloads 是当前等待被此 clusterQueue 接收的工作负载数量。</p>
 </td>
 </tr>
 <tr><td><code>reservingWorkloads</code><br/>
 <code>int32</code>
 </td>
 <td>
-   <p>reservingWorkloads is the number of workloads currently reserving quota in this
-clusterQueue.</p>
+   <p>reservingWorkloads 是当前在此 clusterQueue 中预留配额的工作负载数量。</p>
 </td>
 </tr>
 <tr><td><code>admittedWorkloads</code><br/>
 <code>int32</code>
 </td>
 <td>
-   <p>admittedWorkloads is the number of workloads currently admitted to this
-clusterQueue and haven't finished yet.</p>
+   <p>admittedWorkloads 是当前已被此 clusterQueue 接收且尚未完成的工作负载数量。</p>
 </td>
 </tr>
 <tr><td><code>conditions</code><br/>
 <a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#condition-v1-meta"><code>[]k8s.io/apimachinery/pkg/apis/meta/v1.Condition</code></a>
 </td>
 <td>
-   <p>conditions hold the latest available observations of the ClusterQueue
-current state.</p>
+   <p>conditions 保存 ClusterQueue 当前状态的最新可用观测信息。</p>
 </td>
 </tr>
 <tr><td><code>pendingWorkloadsStatus</code><br/>
 <a href="#kueue-x-k8s-io-v1beta1-ClusterQueuePendingWorkloadsStatus"><code>ClusterQueuePendingWorkloadsStatus</code></a>
 </td>
 <td>
-   <p>PendingWorkloadsStatus contains the information exposed about the current
-status of the pending workloads in the cluster queue.
-Deprecated: This field will be removed on v1beta2, use VisibilityOnDemand
-(https://kueue.sigs.k8s.io/docs/tasks/manage/monitor_pending_workloads/pending_workloads_on_demand/)
-instead.</p>
+   <p>PendingWorkloadsStatus 包含关于 cluster queue 中当前待处理工作负载状态的信息。
+已弃用：此字段将在 v1beta2 移除，请改用 VisibilityOnDemand。</p>
 </td>
 </tr>
 <tr><td><code>fairSharing</code><br/>
 <a href="#kueue-x-k8s-io-v1beta1-FairSharingStatus"><code>FairSharingStatus</code></a>
 </td>
 <td>
-   <p>fairSharing contains the current state for this ClusterQueue
-when participating in Fair Sharing.
-This is recorded only when Fair Sharing is enabled in the Kueue configuration.</p>
+   <p>fairSharing 包含此 ClusterQueue 参与公平共享时的当前状态。
+仅在 Kueue 配置中启用公平共享时记录。</p>
 </td>
 </tr>
 </tbody>
@@ -1155,9 +1100,8 @@ This is recorded only when Fair Sharing is enabled in the Kueue configuration.</
 - [CohortSpec](#kueue-x-k8s-io-v1beta1-CohortSpec)
 
 
-<p>CohortReference is the name of the Cohort.</p>
-<p>Validation of a cohort name is equivalent to that of object names:
-subdomain in DNS (RFC 1123).</p>
+<p>CohortReference 是 Cohort 的名称。</p>
+<p>Cohort 名称的校验等同于对象名称的校验：DNS（RFC 1123）中的子域名。</p>
 
 
 
@@ -1170,7 +1114,7 @@ subdomain in DNS (RFC 1123).</p>
 - [Cohort](#kueue-x-k8s-io-v1beta1-Cohort)
 
 
-<p>CohortSpec defines the desired state of Cohort</p>
+<p>CohortSpec 定义了 Cohort 的期望状态</p>
 
 
 <table class="table">
@@ -1182,45 +1126,30 @@ subdomain in DNS (RFC 1123).</p>
 <a href="#kueue-x-k8s-io-v1beta1-CohortReference"><code>CohortReference</code></a>
 </td>
 <td>
-   <p>ParentName references the name of the Cohort's parent, if
-any. It satisfies one of three cases:</p>
+   <p>ParentName 引用该 Cohort 父级的名称（如果有）。它满足以下三种情况之一：</p>
 <ol>
-<li>Unset. This Cohort is the root of its Cohort tree.</li>
-<li>References a non-existent Cohort. We use default Cohort (no borrowing/lending limits).</li>
-<li>References an existent Cohort.</li>
+<li>未设置。本 Cohort 是其 Cohort 树的根。</li>
+<li>引用了一个不存在的 Cohort。我们使用默认 Cohort（无借用/出借限制）。</li>
+<li>引用了一个存在的 Cohort。</li>
 </ol>
-<p>If a cycle is created, we disable all members of the
-Cohort, including ClusterQueues, until the cycle is
-removed.  We prevent further admission while the cycle
-exists.</p>
+<p>如果创建了循环，我们会禁用该 Cohort 的所有成员，包括 ClusterQueues，直到循环被移除。在循环存在期间，阻止进一步的准入。</p>
 </td>
 </tr>
 <tr><td><code>resourceGroups</code> <B>[Required]</B><br/>
 <a href="#kueue-x-k8s-io-v1beta1-ResourceGroup"><code>[]ResourceGroup</code></a>
 </td>
 <td>
-   <p>ResourceGroups describes groupings of Resources and
-Flavors.  Each ResourceGroup defines a list of Resources
-and a list of Flavors which provide quotas for these
-Resources. Each Resource and each Flavor may only form part
-of one ResourceGroup.  There may be up to 16 ResourceGroups
-within a Cohort.</p>
-<p>BorrowingLimit limits how much members of this Cohort
-subtree can borrow from the parent subtree.</p>
-<p>LendingLimit limits how much members of this Cohort subtree
-can lend to the parent subtree.</p>
-<p>Borrowing and Lending limits must only be set when the
-Cohort has a parent.  Otherwise, the Cohort create/update
-will be rejected by the webhook.</p>
+   <p>ResourceGroups 描述了资源和风味的分组。每个 ResourceGroup 定义了一组资源和一组为这些资源提供配额的风味。每个资源和每个风味只能属于一个 ResourceGroup。一个 Cohort 最多可以有 16 个 ResourceGroup。</p>
+<p>BorrowingLimit 限制该 Cohort 子树成员可以从父子树借用的资源量。</p>
+<p>LendingLimit 限制该 Cohort 子树成员可以借给父子树的资源量。</p>
+<p>只有当 Cohort 有父级时，才能设置借用和出借限制。否则，webhook 会拒绝 Cohort 的创建/更新。</p>
 </td>
 </tr>
 <tr><td><code>fairSharing</code><br/>
 <a href="#kueue-x-k8s-io-v1beta1-FairSharing"><code>FairSharing</code></a>
 </td>
 <td>
-   <p>fairSharing defines the properties of the Cohort when
-participating in FairSharing. The values are only relevant
-if FairSharing is enabled in the Kueue configuration.</p>
+   <p>fairSharing 定义了 Cohort 参与公平共享时的属性。仅当 Kueue 配置中启用公平共享时，这些值才有意义。</p>
 </td>
 </tr>
 </tbody>
@@ -1234,7 +1163,7 @@ if FairSharing is enabled in the Kueue configuration.</p>
 - [Cohort](#kueue-x-k8s-io-v1beta1-Cohort)
 
 
-<p>CohortStatus defines the observed state of Cohort.</p>
+<p>CohortStatus 定义了 Cohort 的观测状态。</p>
 
 
 <table class="table">
@@ -1246,9 +1175,8 @@ if FairSharing is enabled in the Kueue configuration.</p>
 <a href="#kueue-x-k8s-io-v1beta1-FairSharingStatus"><code>FairSharingStatus</code></a>
 </td>
 <td>
-   <p>fairSharing contains the current state for this Cohort
-when participating in Fair Sharing.
-The is recorded only when Fair Sharing is enabled in the Kueue configuration.</p>
+   <p>fairSharing 包含该 Cohort 参与公平共享时的当前状态。
+仅当 Kueue 配置中启用公平共享时才会记录。</p>
 </td>
 </tr>
 </tbody>
@@ -1263,7 +1191,7 @@ The is recorded only when Fair Sharing is enabled in the Kueue configuration.</p
 - [PodSetAssignment](#kueue-x-k8s-io-v1beta1-PodSetAssignment)
 
 
-<p>DelayedTopologyRequestState indicates the state of the delayed TopologyRequest.</p>
+<p>DelayedTopologyRequestState 表示延迟拓扑请求的状态。</p>
 
 
 
@@ -1280,11 +1208,8 @@ The is recorded only when Fair Sharing is enabled in the Kueue configuration.</p
 - [LocalQueueSpec](#kueue-x-k8s-io-v1beta1-LocalQueueSpec)
 
 
-<p>FairSharing contains the properties of the ClusterQueue or Cohort,
-when participating in FairSharing.</p>
-<p>Fair Sharing is compatible with Hierarchical Cohorts (any Cohort
-which has a parent) as of v0.11. Using these features together in
-V0.9 and V0.10 is unsupported, and results in undefined behavior.</p>
+<p>FairSharing 包含 ClusterQueue 或 Cohort 参与公平共享时的属性。</p>
+<p>公平共享自 v0.11 起兼容分层 Cohort（任何有父级的 Cohort）。在 V0.9 和 V0.10 中同时使用这些特性是不支持的，会导致未定义行为。</p>
 
 
 <table class="table">
@@ -1296,16 +1221,10 @@ V0.9 and V0.10 is unsupported, and results in undefined behavior.</p>
 <a href="https://pkg.go.dev/k8s.io/apimachinery/pkg/api/resource#Quantity"><code>k8s.io/apimachinery/pkg/api/resource.Quantity</code></a>
 </td>
 <td>
-   <p>weight gives a comparative advantage to this ClusterQueue
-or Cohort when competing for unused resources in the
-Cohort.  The share is based on the dominant resource usage
-above nominal quotas for each resource, divided by the
-weight.  Admission prioritizes scheduling workloads from
-ClusterQueues and Cohorts with the lowest share and
-preempting workloads from the ClusterQueues and Cohorts
-with the highest share.  A zero weight implies infinite
-share value, meaning that this Node will always be at
-disadvantage against other ClusterQueues and Cohorts.</p>
+   <p>weight 为该 ClusterQueue 或 Cohort 在 Cohort 中争夺未使用资源时提供比较优势。
+份额基于每种资源超出名义配额的主导资源使用量，除以权重。
+调度优先考虑来自份额最低的 ClusterQueue 和 Cohort 的工作负载，并抢占份额最高的。
+权重为零意味着份额值为无穷大，这意味着该节点在与其他 ClusterQueue 和 Cohort 竞争时总是处于劣势。</p>
 </td>
 </tr>
 </tbody>
@@ -1323,7 +1242,7 @@ disadvantage against other ClusterQueues and Cohorts.</p>
 - [LocalQueueStatus](#kueue-x-k8s-io-v1beta1-LocalQueueStatus)
 
 
-<p>FairSharingStatus contains the information about the current status of Fair Sharing.</p>
+<p>FairSharingStatus 包含有关当前公平共享状态的信息。</p>
 
 
 <table class="table">
@@ -1335,20 +1254,15 @@ disadvantage against other ClusterQueues and Cohorts.</p>
 <code>int64</code>
 </td>
 <td>
-   <p>WeightedShare represents the maximum of the ratios of usage
-above nominal quota to the lendable resources in the
-Cohort, among all the resources provided by the Node, and
-divided by the weight.  If zero, it means that the usage of
-the Node is below the nominal quota.  If the Node has a
-weight of zero and is borrowing, this will return
-9223372036854775807, the maximum possible share value.</p>
+   <p>WeightedShare 表示节点所提供的所有资源中，超出名义配额的使用量与 Cohort 可借用资源的比值的最大值，再除以权重。
+如果为零，表示节点的使用量低于名义配额。如果节点权重为零且正在借用，则返回 9223372036854775807，即最大可能的份额值。</p>
 </td>
 </tr>
 <tr><td><code>admissionFairSharingStatus</code><br/>
 <a href="#kueue-x-k8s-io-v1beta1-AdmissionFairSharingStatus"><code>AdmissionFairSharingStatus</code></a>
 </td>
 <td>
-   <p>admissionFairSharingStatus represents information relevant to the Admission Fair Sharing</p>
+   <p>admissionFairSharingStatus 表示与 Admission Fair Sharing 相关的信息</p>
 </td>
 </tr>
 </tbody>
@@ -1362,8 +1276,7 @@ weight of zero and is borrowing, this will return
 - [ClusterQueueSpec](#kueue-x-k8s-io-v1beta1-ClusterQueueSpec)
 
 
-<p>FlavorFungibility determines whether a workload should try the next flavor
-before borrowing or preempting in current flavor.</p>
+<p>FlavorFungibility 决定工作负载在当前 flavor 借用或抢占前是否应尝试下一个 flavor。</p>
 
 
 <table class="table">
@@ -1375,13 +1288,10 @@ before borrowing or preempting in current flavor.</p>
 <a href="#kueue-x-k8s-io-v1beta1-FlavorFungibilityPolicy"><code>FlavorFungibilityPolicy</code></a>
 </td>
 <td>
-   <p>whenCanBorrow determines whether a workload should try the next flavor
-before borrowing in current flavor. The possible values are:</p>
+   <p>whenCanBorrow 决定工作负载在当前 flavor 借用前是否应尝试下一个 flavor。可选值：</p>
 <ul>
-<li><code>Borrow</code> (default): allocate in current flavor if borrowing
-is possible.</li>
-<li><code>TryNextFlavor</code>: try next flavor even if the current
-flavor has enough resources to borrow.</li>
+<li><code>Borrow</code>（默认）：如果可以借用，则在当前 flavor 分配。</li>
+<li><code>TryNextFlavor</code>：即使当前 flavor 有足够资源可借用，也尝试下一个 flavor。</li>
 </ul>
 </td>
 </tr>
@@ -1389,12 +1299,10 @@ flavor has enough resources to borrow.</li>
 <a href="#kueue-x-k8s-io-v1beta1-FlavorFungibilityPolicy"><code>FlavorFungibilityPolicy</code></a>
 </td>
 <td>
-   <p>whenCanPreempt determines whether a workload should try the next flavor
-before borrowing in current flavor. The possible values are:</p>
+   <p>whenCanPreempt 决定工作负载在当前 flavor 抢占前是否应尝试下一个 flavor。可选值：</p>
 <ul>
-<li><code>Preempt</code>: allocate in current flavor if it's possible to preempt some workloads.</li>
-<li><code>TryNextFlavor</code> (default): try next flavor even if there are enough
-candidates for preemption in the current flavor.</li>
+<li><code>Preempt</code>：如果可以抢占一些工作负载，则在当前 flavor 分配。</li>
+<li><code>TryNextFlavor</code>（默认）：即使当前 flavor 有足够可抢占的候选，也尝试下一个 flavor。</li>
 </ul>
 </td>
 </tr>
@@ -1409,6 +1317,9 @@ candidates for preemption in the current flavor.</li>
 
 - [FlavorFungibility](#kueue-x-k8s-io-v1beta1-FlavorFungibility)
 
+
+<p>FlavorFungibilityPolicy defines the policy for a flavor.
+FlavorFungibilityPolicy 定义 flavor 的策略。</p>
 
 
 
@@ -1433,7 +1344,8 @@ candidates for preemption in the current flavor.</li>
 <td>
    <p>name of this flavor. The name should match the .metadata.name of a
 ResourceFlavor. If a matching ResourceFlavor does not exist, the
-ClusterQueue will have an Active condition set to False.</p>
+ClusterQueue will have an Active condition set to False.
+此 flavor 的名称。名称应与 ResourceFlavor 的 .metadata.name 匹配。如果不存在匹配的 ResourceFlavor，则 ClusterQueue 的 Active 状态将为 False。</p>
 </td>
 </tr>
 <tr><td><code>resources</code> <B>[Required]</B><br/>
@@ -1465,14 +1377,14 @@ There could be up to 16 resources.</p>
 <a href="#kueue-x-k8s-io-v1beta1-ResourceFlavorReference"><code>ResourceFlavorReference</code></a>
 </td>
 <td>
-   <p>name of the flavor.</p>
+   <p>flavor 的名称。</p>
 </td>
 </tr>
 <tr><td><code>resources</code> <B>[Required]</B><br/>
 <a href="#kueue-x-k8s-io-v1beta1-ResourceUsage"><code>[]ResourceUsage</code></a>
 </td>
 <td>
-   <p>resources lists the quota usage for the resources in this flavor.</p>
+   <p>resources 列出此 flavor 中资源的配额使用情况。</p>
 </td>
 </tr>
 </tbody>
@@ -1496,16 +1408,15 @@ There could be up to 16 resources.</p>
 <code>string</code>
 </td>
 <td>
-   <p>Location of the KubeConfig.</p>
-<p>If LocationType is Secret then Location is the name of the secret inside the namespace in
-which the kueue controller manager is running. The config should be stored in the &quot;kubeconfig&quot; key.</p>
+   <p>KubeConfig 的位置。</p>
+<p>如果 LocationType 为 Secret，则 Location 是 kueue 控制器管理器所在命名空间中的 Secret 名称。配置应存储在 &quot;kubeconfig&quot; 键中。</p>
 </td>
 </tr>
 <tr><td><code>locationType</code> <B>[Required]</B><br/>
 <a href="#kueue-x-k8s-io-v1beta1-LocationType"><code>LocationType</code></a>
 </td>
 <td>
-   <p>Type of the KubeConfig location.</p>
+   <p>KubeConfig 位置的类型。</p>
 </td>
 </tr>
 </tbody>
@@ -1529,14 +1440,16 @@ which the kueue controller manager is running. The config should be stored in th
 <a href="#kueue-x-k8s-io-v1beta1-ResourceFlavorReference"><code>ResourceFlavorReference</code></a>
 </td>
 <td>
-   <p>name of the flavor.</p>
+   <p>name of the flavor.
+flavor 的名称。</p>
 </td>
 </tr>
 <tr><td><code>resources</code><br/>
 <a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#resourcename-v1-core"><code>[]k8s.io/api/core/v1.ResourceName</code></a>
 </td>
 <td>
-   <p>resources used in the flavor.</p>
+   <p>resources used in the flavor.
+flavor 中使用的资源。</p>
 </td>
 </tr>
 <tr><td><code>nodeLabels</code><br/>
@@ -1544,7 +1457,8 @@ which the kueue controller manager is running. The config should be stored in th
 </td>
 <td>
    <p>nodeLabels are labels that associate the ResourceFlavor with Nodes that
-have the same labels.</p>
+have the same labels.
+nodeLabels 是将 ResourceFlavor 与具有相同标签的节点关联的标签。</p>
 </td>
 </tr>
 <tr><td><code>nodeTaints</code><br/>
@@ -1552,7 +1466,8 @@ have the same labels.</p>
 </td>
 <td>
    <p>nodeTaints are taints that the nodes associated with this ResourceFlavor
-have.</p>
+have.
+nodeTaints 是与此 ResourceFlavor 关联的节点所具有的污点。</p>
 </td>
 </tr>
 <tr><td><code>topology</code><br/>
@@ -1562,6 +1477,8 @@ have.</p>
    <p>topology is the topology that associated with this ResourceFlavor.</p>
 <p>This is an alpha field and requires enabling the TopologyAwareScheduling
 feature gate.</p>
+<p>topology 是与此 ResourceFlavor 关联的拓扑。
+这是一个 alpha 字段，需要启用 TopologyAwareScheduling 特性门控。</p>
 </td>
 </tr>
 </tbody>
@@ -1585,14 +1502,16 @@ feature gate.</p>
 <a href="#kueue-x-k8s-io-v1beta1-ResourceFlavorReference"><code>ResourceFlavorReference</code></a>
 </td>
 <td>
-   <p>name of the flavor.</p>
+   <p>name of the flavor.
+flavor 的名称。</p>
 </td>
 </tr>
 <tr><td><code>resources</code> <B>[Required]</B><br/>
 <a href="#kueue-x-k8s-io-v1beta1-LocalQueueResourceUsage"><code>[]LocalQueueResourceUsage</code></a>
 </td>
 <td>
-   <p>resources lists the quota usage for the resources in this flavor.</p>
+   <p>resources lists the quota usage for the resources in this flavor.
+resources 列出了此 flavor 中资源的配额使用情况。</p>
 </td>
 </tr>
 </tbody>
@@ -1608,7 +1527,8 @@ feature gate.</p>
 
 
 <p>LocalQueueName is the name of the LocalQueue.
-It must be a DNS (RFC 1123) and has the maximum length of 253 characters.</p>
+它必须是 DNS（RFC 1123）格式，最大长度为 253 个字符。</p>
+<p>它必须是 DNS（RFC 1123）格式，最大长度为 253 个字符。</p>
 
 
 
@@ -1631,14 +1551,16 @@ It must be a DNS (RFC 1123) and has the maximum length of 253 characters.</p>
 <a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#resourcename-v1-core"><code>k8s.io/api/core/v1.ResourceName</code></a>
 </td>
 <td>
-   <p>name of the resource.</p>
+   <p>name of the resource.
+资源的名称。</p>
 </td>
 </tr>
 <tr><td><code>total</code> <B>[Required]</B><br/>
 <a href="https://pkg.go.dev/k8s.io/apimachinery/pkg/api/resource#Quantity"><code>k8s.io/apimachinery/pkg/api/resource.Quantity</code></a>
 </td>
 <td>
-   <p>total is the total quantity of used quota.</p>
+   <p>total is the total quantity of used quota.
+total 是已用配额的总量。</p>
 </td>
 </tr>
 </tbody>
@@ -1652,7 +1574,7 @@ It must be a DNS (RFC 1123) and has the maximum length of 253 characters.</p>
 - [LocalQueue](#kueue-x-k8s-io-v1beta1-LocalQueue)
 
 
-<p>LocalQueueSpec defines the desired state of LocalQueue</p>
+<p>LocalQueueSpec 定义了 LocalQueue 的期望状态</p>
 
 
 <table class="table">
@@ -1664,20 +1586,19 @@ It must be a DNS (RFC 1123) and has the maximum length of 253 characters.</p>
 <a href="#kueue-x-k8s-io-v1beta1-ClusterQueueReference"><code>ClusterQueueReference</code></a>
 </td>
 <td>
-   <p>clusterQueue is a reference to a clusterQueue that backs this localQueue.</p>
+   <p>clusterQueue 是指向支持此 localQueue 的 clusterQueue 的引用。</p>
 </td>
 </tr>
 <tr><td><code>stopPolicy</code><br/>
 <a href="#kueue-x-k8s-io-v1beta1-StopPolicy"><code>StopPolicy</code></a>
 </td>
 <td>
-   <p>stopPolicy - if set to a value different from None, the LocalQueue is considered Inactive,
-no new reservation being made.</p>
-<p>Depending on its value, its associated workloads will:</p>
+   <p>stopPolicy - 如果设置为非 None 的值，则 LocalQueue 被视为非活动状态，不会进行新的预留。
+根据其值，相关的工作负载将：</p>
 <ul>
-<li>None - Workloads are admitted</li>
-<li>HoldAndDrain - Admitted workloads are evicted and Reserving workloads will cancel the reservation.</li>
-<li>Hold - Admitted workloads will run to completion and Reserving workloads will cancel the reservation.</li>
+<li>None - 工作负载被接纳</li>
+<li>HoldAndDrain - 已接纳的工作负载会被驱逐，预留中的工作负载会取消预留</li>
+<li>Hold - 已接纳的工作负载会运行至完成，预留中的工作负载会取消预留</li>
 </ul>
 </td>
 </tr>
@@ -1685,9 +1606,7 @@ no new reservation being made.</p>
 <a href="#kueue-x-k8s-io-v1beta1-FairSharing"><code>FairSharing</code></a>
 </td>
 <td>
-   <p>fairSharing defines the properties of the LocalQueue when
-participating in AdmissionFairSharing.  The values are only relevant
-if AdmissionFairSharing is enabled in the Kueue configuration.</p>
+   <p>fairSharing 定义了 LocalQueue 在参与 AdmissionFairSharing 时的属性。仅当 Kueue 配置中启用 AdmissionFairSharing 时，这些值才有意义。</p>
 </td>
 </tr>
 </tbody>
@@ -1701,7 +1620,8 @@ if AdmissionFairSharing is enabled in the Kueue configuration.</p>
 - [LocalQueue](#kueue-x-k8s-io-v1beta1-LocalQueue)
 
 
-<p>LocalQueueStatus defines the observed state of LocalQueue</p>
+<p>LocalQueueStatus defines the observed state of LocalQueue
+LocalQueueStatus 定义了 LocalQueue 的观测状态</p>
 
 
 <table class="table">
@@ -1713,7 +1633,8 @@ if AdmissionFairSharing is enabled in the Kueue configuration.</p>
 <code>int32</code>
 </td>
 <td>
-   <p>PendingWorkloads is the number of Workloads in the LocalQueue not yet admitted to a ClusterQueue</p>
+   <p>PendingWorkloads is the number of Workloads in the LocalQueue not yet admitted to a ClusterQueue
+PendingWorkloads 是 LocalQueue 中尚未被接纳到 ClusterQueue 的工作负载数量</p>
 </td>
 </tr>
 <tr><td><code>reservingWorkloads</code><br/>
@@ -1721,7 +1642,8 @@ if AdmissionFairSharing is enabled in the Kueue configuration.</p>
 </td>
 <td>
    <p>reservingWorkloads is the number of workloads in this LocalQueue
-reserving quota in a ClusterQueue and that haven't finished yet.</p>
+reserving quota in a ClusterQueue and that haven't finished yet.
+reservingWorkloads 是此 LocalQueue 中正在 ClusterQueue 预留配额且尚未完成的工作负载数量。</p>
 </td>
 </tr>
 <tr><td><code>admittedWorkloads</code><br/>
@@ -1729,7 +1651,8 @@ reserving quota in a ClusterQueue and that haven't finished yet.</p>
 </td>
 <td>
    <p>admittedWorkloads is the number of workloads in this LocalQueue
-admitted to a ClusterQueue and that haven't finished yet.</p>
+admitted to a ClusterQueue and that haven't finished yet.
+admittedWorkloads 是此 LocalQueue 中已被接纳到 ClusterQueue 且尚未完成的工作负载数量。</p>
 </td>
 </tr>
 <tr><td><code>conditions</code><br/>
@@ -1737,7 +1660,8 @@ admitted to a ClusterQueue and that haven't finished yet.</p>
 </td>
 <td>
    <p>Conditions hold the latest available observations of the LocalQueue
-current state.</p>
+current state.
+Conditions 保存了 LocalQueue 当前状态的最新可用观测信息。</p>
 </td>
 </tr>
 <tr><td><code>flavorsReservation</code><br/>
@@ -1745,7 +1669,8 @@ current state.</p>
 </td>
 <td>
    <p>flavorsReservation are the reserved quotas, by flavor currently in use by the
-workloads assigned to this LocalQueue.</p>
+workloads assigned to this LocalQueue.
+flavorsReservation 是分配给此 LocalQueue 的工作负载当前使用的 flavor 的预留配额。</p>
 </td>
 </tr>
 <tr><td><code>flavorUsage</code><br/>
@@ -1753,21 +1678,24 @@ workloads assigned to this LocalQueue.</p>
 </td>
 <td>
    <p>flavorsUsage are the used quotas, by flavor currently in use by the
-workloads assigned to this LocalQueue.</p>
+workloads assigned to this LocalQueue.
+flavorsUsage 是分配给此 LocalQueue 的工作负载当前使用的 flavor 的已用配额。</p>
 </td>
 </tr>
 <tr><td><code>flavors</code><br/>
 <a href="#kueue-x-k8s-io-v1beta1-LocalQueueFlavorStatus"><code>[]LocalQueueFlavorStatus</code></a>
 </td>
 <td>
-   <p>flavors lists all currently available ResourceFlavors in specified ClusterQueue.</p>
+   <p>flavors lists all currently available ResourceFlavors in specified ClusterQueue.
+flavors 列出了指定 ClusterQueue 中当前可用的所有 ResourceFlavor。</p>
 </td>
 </tr>
 <tr><td><code>fairSharing</code><br/>
 <a href="#kueue-x-k8s-io-v1beta1-FairSharingStatus"><code>FairSharingStatus</code></a>
 </td>
 <td>
-   <p>FairSharing contains the information about the current status of fair sharing.</p>
+   <p>FairSharing contains the information about the current status of fair sharing.
+FairSharing 包含有关当前公平共享状态的信息。</p>
 </td>
 </tr>
 </tbody>
@@ -1803,7 +1731,7 @@ workloads assigned to this LocalQueue.</p>
 <a href="#kueue-x-k8s-io-v1beta1-KubeConfig"><code>KubeConfig</code></a>
 </td>
 <td>
-   <p>Information how to connect to the cluster.</p>
+   <p>连接集群的信息。</p>
 </td>
 </tr>
 </tbody>
@@ -1840,7 +1768,7 @@ workloads assigned to this LocalQueue.</p>
 - [MultiKueueConfig](#kueue-x-k8s-io-v1beta1-MultiKueueConfig)
 
 
-<p>MultiKueueConfigSpec defines the desired state of MultiKueueConfig</p>
+<p>MultiKueueConfigSpec 定义了 MultiKueueConfig 的期望状态。</p>
 
 
 <table class="table">
@@ -1852,7 +1780,7 @@ workloads assigned to this LocalQueue.</p>
 <code>[]string</code>
 </td>
 <td>
-   <p>List of MultiKueueClusters names where the workloads from the ClusterQueue should be distributed.</p>
+   <p>ClusterQueue 中的工作负载应分发到的 MultiKueueCluster 名称列表。</p>
 </td>
 </tr>
 </tbody>
@@ -1867,7 +1795,7 @@ workloads assigned to this LocalQueue.</p>
 - [ProvisioningRequestConfigSpec](#kueue-x-k8s-io-v1beta1-ProvisioningRequestConfigSpec)
 
 
-<p>Parameter is limited to 255 characters.</p>
+<p>Parameter 限制为 255 个字符。</p>
 
 
 
@@ -1890,49 +1818,45 @@ workloads assigned to this LocalQueue.</p>
 <a href="#kueue-x-k8s-io-v1beta1-PodSetReference"><code>PodSetReference</code></a>
 </td>
 <td>
-   <p>name is the PodSet name.</p>
+   <p>name 是 PodSet 的名称。</p>
 </td>
 </tr>
 <tr><td><code>template</code> <B>[Required]</B><br/>
 <a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#podtemplatespec-v1-core"><code>k8s.io/api/core/v1.PodTemplateSpec</code></a>
 </td>
 <td>
-   <p>template is the Pod template.</p>
-<p>The only allowed fields in template.metadata are labels and annotations.</p>
-<p>If requests are omitted for a container or initContainer,
-they default to the limits if they are explicitly specified for the
-container or initContainer.</p>
-<p>During admission, the rules in nodeSelector and
-nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution that match
-the keys in the nodeLabels from the ResourceFlavors considered for this
-Workload are used to filter the ResourceFlavors that can be assigned to
-this podSet.</p>
+   <p>template 是 Pod 模板。</p>
+<p>template.metadata 中只允许标签和注解。</p>
+<p>如果容器或 initContainer 的请求被省略，
+它们默认为容器或 initContainer 的限制。</p>
+<p>在准入时，用于过滤可以分配给此 podSet 的 ResourceFlavors 的规则
+是 nodeSelector 和 nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution
+中与 ResourceFlavors 考虑的 nodeLabels 匹配的键。</p>
 </td>
 </tr>
 <tr><td><code>count</code> <B>[Required]</B><br/>
 <code>int32</code>
 </td>
 <td>
-   <p>count is the number of pods for the spec.</p>
+   <p>count 是规范中的 Pod 数量。</p>
 </td>
 </tr>
 <tr><td><code>minCount</code><br/>
 <code>int32</code>
 </td>
 <td>
-   <p>minCount is the minimum number of pods for the spec acceptable
-if the workload supports partial admission.</p>
-<p>If not provided, partial admission for the current PodSet is not
-enabled.</p>
-<p>Only one podSet within the workload can use this.</p>
-<p>This is an alpha field and requires enabling PartialAdmission feature gate.</p>
+   <p>minCount 是规范中接受的 Pod 最小数量
+如果工作负载支持部分接纳。</p>
+<p>如果未提供，则当前 PodSet 的部分接纳未启用。</p>
+<p>工作负载中只能有一个 PodSet 使用此字段。</p>
+<p>这是一个 alpha 字段，需要启用 PartialAdmission 功能门。</p>
 </td>
 </tr>
 <tr><td><code>topologyRequest</code><br/>
 <a href="#kueue-x-k8s-io-v1beta1-PodSetTopologyRequest"><code>PodSetTopologyRequest</code></a>
 </td>
 <td>
-   <p>topologyRequest defines the topology request for the PodSet.</p>
+   <p>topologyRequest 定义了 PodSet 的拓扑请求。</p>
 </td>
 </tr>
 </tbody>
@@ -1956,50 +1880,46 @@ enabled.</p>
 <a href="#kueue-x-k8s-io-v1beta1-PodSetReference"><code>PodSetReference</code></a>
 </td>
 <td>
-   <p>Name is the name of the podSet. It should match one of the names in .spec.podSets.</p>
+   <p>Name 是 podSet 的名称。它应该与 .spec.podSets 中的名称之一匹配。</p>
 </td>
 </tr>
 <tr><td><code>flavors</code> <B>[Required]</B><br/>
 <a href="#kueue-x-k8s-io-v1beta1-ResourceFlavorReference"><code>map[ResourceName]ResourceFlavorReference</code></a>
 </td>
 <td>
-   <p>Flavors are the flavors assigned to the workload for each resource.</p>
+   <p>Flavors 为工作负载分配了每个资源的口味。</p>
 </td>
 </tr>
 <tr><td><code>resourceUsage</code> <B>[Required]</B><br/>
 <a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#resourcelist-v1-core"><code>k8s.io/api/core/v1.ResourceList</code></a>
 </td>
 <td>
-   <p>resourceUsage keeps track of the total resources all the pods in the podset need to run.</p>
-<p>Beside what is provided in podSet's specs, this calculation takes into account
-the LimitRange defaults and RuntimeClass overheads at the moment of admission.
-This field will not change in case of quota reclaim.</p>
+   <p>resourceUsage 跟踪工作负载中所有 Pod 所需的资源总量。</p>
+<p>除了 podSet 规范中提供的内容外，此计算还考虑了准入时的 LimitRange 默认值和 RuntimeClass 开销。
+配额回收时此字段不会改变。</p>
 </td>
 </tr>
 <tr><td><code>count</code><br/>
 <code>int32</code>
 </td>
 <td>
-   <p>count is the number of pods taken into account at admission time.
-This field will not change in case of quota reclaim.
-Value could be missing for Workloads created before this field was added,
-in that case spec.podSets[*].count value will be used.</p>
+   <p>count 是准入时考虑的 Pod 数量。
+配额回收时此字段不会改变。
+如果此字段在添加此字段之前创建的 Workload，则可能缺少值，
+在这种情况下，spec.podSets[*].count 值将用于。</p>
 </td>
 </tr>
 <tr><td><code>topologyAssignment</code><br/>
 <a href="#kueue-x-k8s-io-v1beta1-TopologyAssignment"><code>TopologyAssignment</code></a>
 </td>
 <td>
-   <p>topologyAssignment indicates the topology assignment divided into
-topology domains corresponding to the lowest level of the topology.
-The assignment specifies the number of Pods to be scheduled per topology
-domain and specifies the node selectors for each topology domain, in the
-following way: the node selector keys are specified by the levels field
-(same for all domains), and the corresponding node selector value is
-specified by the domains.values subfield. If the TopologySpec.Levels field contains
-&quot;kubernetes.io/hostname&quot; label, topologyAssignment will contain data only for
-this label, and omit higher levels in the topology</p>
-<p>Example:</p>
+   <p>topologyAssignment 表示拓扑分配，分为拓扑域，对应拓扑的最低级别。
+分配指定每个拓扑域中要调度的 Pod 数量，并指定每个拓扑域的节点选择器，
+如下所示：节点选择器键由 levels 字段指定（所有域都相同），
+对应的节点选择器值由 domains.values 子字段指定。如果 TopologySpec.Levels 字段包含
+&quot;kubernetes.io/hostname&quot; 标签，则 topologyAssignment 仅包含此标签的数据，
+并省略拓扑中的更高级别</p>
+<p>示例：</p>
 <p>topologyAssignment:
 levels:</p>
 <ul>
@@ -2011,20 +1931,20 @@ count: 4</li>
 <li>values: [block-1, rack-2]
 count: 2</li>
 </ul>
-<p>Here:</p>
+<p>这里：</p>
 <ul>
-<li>4 Pods are to be scheduled on nodes matching the node selector:
+<li>4 个 Pod 要调度到匹配节点选择器的节点：
 cloud.provider.com/topology-block: block-1
 cloud.provider.com/topology-rack: rack-1</li>
-<li>2 Pods are to be scheduled on nodes matching the node selector:
+<li>2 个 Pod 要调度到匹配节点选择器的节点：
 cloud.provider.com/topology-block: block-1
 cloud.provider.com/topology-rack: rack-2</li>
 </ul>
-<p>Example:
-Below there is an equivalent of the above example assuming, Topology
-object defines kubernetes.io/hostname as the lowest level in topology.
-Hence we omit higher level of topologies, since the hostname label
-is sufficient to explicitly identify a proper node.</p>
+<p>示例：
+下面是一个等效于上述示例的示例，假设 Topology
+对象将 kubernetes.io/hostname 定义为拓扑的最低级别。
+因此，我们省略了拓扑中的更高级别，因为主机名标签
+足以明确识别一个合适的节点。</p>
 <p>topologyAssignment:
 levels:</p>
 <ul>
@@ -2041,12 +1961,10 @@ count: 2</li>
 <a href="#kueue-x-k8s-io-v1beta1-DelayedTopologyRequestState"><code>DelayedTopologyRequestState</code></a>
 </td>
 <td>
-   <p>delayedTopologyRequest indicates the topology assignment is delayed.
-Topology assignment might be delayed in case there is ProvisioningRequest
-AdmissionCheck used.
-Kueue schedules the second pass of scheduling for each workload with at
-least one PodSet which has delayedTopologyRequest=true and without
-topologyAssignment.</p>
+   <p>delayedTopologyRequest 表示拓扑请求被延迟。
+如果使用了 ProvisioningRequest AdmissionCheck，则拓扑分配可能被延迟。
+Kueue 对每个 workload 调度第二个调度周期，其中至少有一个 PodSet
+具有 delayedTopologyRequest=true 且没有 topologyAssignment。</p>
 </td>
 </tr>
 </tbody>
@@ -2069,7 +1987,7 @@ topologyAssignment.</p>
 - [ReclaimablePod](#kueue-x-k8s-io-v1beta1-ReclaimablePod)
 
 
-<p>PodSetReference is the name of a PodSet.</p>
+<p>PodSetReference 是 PodSet 的名称。</p>
 
 
 
@@ -2092,17 +2010,16 @@ topologyAssignment.</p>
 <a href="#kueue-x-k8s-io-v1beta1-PodSetReference"><code>PodSetReference</code></a>
 </td>
 <td>
-   <p>name is the name of the podSet. It should match one of the names in .spec.podSets.</p>
+   <p>name 是 podSet 的名称。它应该与 .spec.podSets 中的名称之一匹配。</p>
 </td>
 </tr>
 <tr><td><code>resources</code><br/>
 <a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#resourcelist-v1-core"><code>k8s.io/api/core/v1.ResourceList</code></a>
 </td>
 <td>
-   <p>resources is the total resources all the pods in the podset need to run.</p>
-<p>Beside what is provided in podSet's specs, this value also takes into account
-the LimitRange defaults and RuntimeClass overheads at the moment of consideration
-and the application of resource.excludeResourcePrefixes and resource.transformations.</p>
+   <p>resources 是 podSet 中所有 Pod 所需的资源总量。</p>
+<p>除了 podSet 规范中提供的内容外，此值还考虑了准入时的 LimitRange 默认值和 RuntimeClass 开销，
+以及 resource.excludeResourcePrefixes 和 resource.transformations 的应用。</p>
 </td>
 </tr>
 </tbody>
@@ -2116,7 +2033,7 @@ and the application of resource.excludeResourcePrefixes and resource.transformat
 - [PodSet](#kueue-x-k8s-io-v1beta1-PodSet)
 
 
-<p>PodSetTopologyRequest defines the topology request for a PodSet.</p>
+<p>PodSetTopologyRequest 定义了 PodSet 的拓扑请求。</p>
 
 
 <table class="table">
@@ -2128,73 +2045,67 @@ and the application of resource.excludeResourcePrefixes and resource.transformat
 <code>string</code>
 </td>
 <td>
-   <p>required indicates the topology level required by the PodSet, as
-indicated by the <code>kueue.x-k8s.io/podset-required-topology</code> PodSet
-annotation.</p>
+   <p>required 表示 PodSet 所需的拓扑级别，由 <code>kueue.x-k8s.io/podset-required-topology</code> PodSet
+注解指示。</p>
 </td>
 </tr>
 <tr><td><code>preferred</code><br/>
 <code>string</code>
 </td>
 <td>
-   <p>preferred indicates the topology level preferred by the PodSet, as
-indicated by the <code>kueue.x-k8s.io/podset-preferred-topology</code> PodSet
-annotation.</p>
+   <p>preferred 表示 PodSet 偏好的拓扑级别，由 <code>kueue.x-k8s.io/podset-preferred-topology</code> PodSet
+注解指示。</p>
 </td>
 </tr>
 <tr><td><code>unconstrained</code><br/>
 <code>bool</code>
 </td>
 <td>
-   <p>unconstrained indicates that Kueue has the freedom to schedule the PodSet within
-the entire available capacity, without constraints on the compactness of the placement.
-This is indicated by the <code>kueue.x-k8s.io/podset-unconstrained-topology</code> PodSet annotation.</p>
+   <p>unconstrained 表示 Kueue 在完全可用容量内调度 PodSet 时没有约束，
+没有对放置紧凑性的约束。这由 <code>kueue.x-k8s.io/podset-unconstrained-topology</code> PodSet
+注解指示。</p>
 </td>
 </tr>
 <tr><td><code>podIndexLabel</code> <B>[Required]</B><br/>
 <code>string</code>
 </td>
 <td>
-   <p>PodIndexLabel indicates the name of the label indexing the pods.
-For example, in the context of</p>
-<ul>
-<li>kubernetes job this is: kubernetes.io/job-completion-index</li>
-<li>JobSet: kubernetes.io/job-completion-index (inherited from Job)</li>
-<li>Kubeflow: training.kubeflow.org/replica-index</li>
-</ul>
+   <p>PodIndexLabel 表示 Pod 的索引标签名称。
+例如，在 kubernetes job 中是：kubernetes.io/job-completion-index
+JobSet 中是：kubernetes.io/job-completion-index（从 Job 继承）</p>
 </td>
 </tr>
 <tr><td><code>subGroupIndexLabel</code> <B>[Required]</B><br/>
 <code>string</code>
 </td>
 <td>
-   <p>SubGroupIndexLabel indicates the name of the label indexing the instances of replicated Jobs (groups)
-within a PodSet. For example, in the context of JobSet this is jobset.sigs.k8s.io/job-index.</p>
+   <p>SubGroupIndexLabel 表示 PodSet 中复制的 Job（组）实例的索引标签名称。
+例如，在 JobSet 中是 jobset.sigs.k8s.io/job-index。</p>
 </td>
 </tr>
 <tr><td><code>subGroupCount</code> <B>[Required]</B><br/>
 <code>int32</code>
 </td>
 <td>
-   <p>SubGroupIndexLabel indicates the count of replicated Jobs (groups) within a PodSet.
-For example, in the context of JobSet this value is read from jobset.sigs.k8s.io/replicatedjob-replicas.</p>
+   <p>SubGroupIndexLabel 表示 PodSet 中复制的 Job（组）数量。
+例如，在 JobSet 中，此值从 jobset.sigs.k8s.io/replicatedjob-replicas 读取。</p>
 </td>
 </tr>
 <tr><td><code>podSetSliceRequiredTopology</code><br/>
 <code>string</code>
 </td>
 <td>
-   <p>PodSetSliceRequiredTopology indicates the topology level required by the PodSet slice, as
-indicated by the <code>kueue.x-k8s.io/podset-slice-required-topology</code> annotation.</p>
+   <p>PodSetSliceRequiredTopology 表示 PodSet 切片的拓扑级别要求，由 <code>kueue.x-k8s.io/podset-slice-required-topology</code>
+注解指示。</p>
 </td>
 </tr>
 <tr><td><code>podSetSliceSize</code><br/>
 <code>int32</code>
 </td>
 <td>
-   <p>PodSetSliceSize indicates the size of a subgroup of pods in a PodSet for which
-Kueue finds a requested topology domain on a level defined
-in <code>kueue.x-k8s.io/podset-slice-required-topology</code> annotation.</p>
+   <p>PodSetSliceSize 表示 PodSet 中一个子组（subgroup）的 Pod 数量，
+其中 Kueue 在 <code>kueue.x-k8s.io/podset-slice-required-topology</code> 注解中定义的拓扑域级别上找到
+请求的拓扑域。</p>
 </td>
 </tr>
 </tbody>
@@ -2208,10 +2119,9 @@ in <code>kueue.x-k8s.io/podset-slice-required-topology</code> annotation.</p>
 - [AdmissionCheckState](#kueue-x-k8s-io-v1beta1-AdmissionCheckState)
 
 
-<p>PodSetUpdate contains a list of pod set modifications suggested by AdmissionChecks.
-The modifications should be additive only - modifications of already existing keys
-or having the same key provided by multiple AdmissionChecks is not allowed and will
-result in failure during workload admission.</p>
+<p>PodSetUpdate 包含 AdmissionChecks 建议的 PodSet 修改。
+修改应仅限于添加 - 修改现有键或由多个 AdmissionChecks 提供相同键的修改是不允许的，
+并且在工作负载接纳期间会导致失败。</p>
 
 
 <table class="table">
@@ -2223,7 +2133,7 @@ result in failure during workload admission.</p>
 <a href="#kueue-x-k8s-io-v1beta1-PodSetReference"><code>PodSetReference</code></a>
 </td>
 <td>
-   <p>Name of the PodSet to modify. Should match to one of the Workload's PodSets.</p>
+   <p>要修改的 PodSet 的名称。应与 Workload 的 PodSets 之一匹配。</p>
 </td>
 </tr>
 <tr><td><code>labels</code><br/>
@@ -2262,6 +2172,9 @@ result in failure during workload admission.</p>
 - [ClusterQueuePreemption](#kueue-x-k8s-io-v1beta1-ClusterQueuePreemption)
 
 
+<p>PreemptionPolicy defines the preemption policy.
+PreemptionPolicy 定义抢占策略。</p>
+
 
 
 
@@ -2285,7 +2198,7 @@ result in failure during workload admission.</p>
 - [ProvisioningRequestConfig](#kueue-x-k8s-io-v1beta1-ProvisioningRequestConfig)
 
 
-<p>ProvisioningRequestConfigSpec defines the desired state of ProvisioningRequestConfig</p>
+<p>ProvisioningRequestConfigSpec 定义了 ProvisioningRequestConfig 的期望状态</p>
 
 
 <table class="table">
@@ -2297,56 +2210,51 @@ result in failure during workload admission.</p>
 <code>string</code>
 </td>
 <td>
-   <p>ProvisioningClassName describes the different modes of provisioning the resources.
-Check autoscaling.x-k8s.io ProvisioningRequestSpec.ProvisioningClassName for details.</p>
+   <p>ProvisioningClassName 描述了资源调度的不同模式。
+详情请参考 autoscaling.x-k8s.io ProvisioningRequestSpec.ProvisioningClassName。</p>
 </td>
 </tr>
 <tr><td><code>parameters</code><br/>
 <a href="#kueue-x-k8s-io-v1beta1-Parameter"><code>map[string]Parameter</code></a>
 </td>
 <td>
-   <p>Parameters contains all other parameters classes may require.</p>
+   <p>Parameters 包含类可能需要的所有其他参数。</p>
 </td>
 </tr>
 <tr><td><code>managedResources</code><br/>
 <a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#resourcename-v1-core"><code>[]k8s.io/api/core/v1.ResourceName</code></a>
 </td>
 <td>
-   <p>managedResources contains the list of resources managed by the autoscaling.</p>
-<p>If empty, all resources are considered managed.</p>
-<p>If not empty, the ProvisioningRequest will contain only the podsets that are
-requesting at least one of them.</p>
-<p>If none of the workloads podsets is requesting at least a managed resource,
-the workload is considered ready.</p>
+   <p>managedResources 包含由自动扩缩容管理的资源列表。</p>
+<p>如果为空，则认为所有资源都被管理。</p>
+<p>如果不为空，ProvisioningRequest 只会包含请求了其中至少一个资源的 podset。</p>
+<p>如果所有 workload 的 podset 都没有请求任何被管理的资源，则认为该 workload 已就绪。</p>
 </td>
 </tr>
 <tr><td><code>retryStrategy</code><br/>
 <a href="#kueue-x-k8s-io-v1beta1-ProvisioningRequestRetryStrategy"><code>ProvisioningRequestRetryStrategy</code></a>
 </td>
 <td>
-   <p>retryStrategy defines strategy for retrying ProvisioningRequest.
-If null, then the default configuration is applied with the following parameter values:
+   <p>retryStrategy 定义了重试 ProvisioningRequest 的策略。
+如果为 null，则应用默认配置，参数如下：
 backoffLimitCount:  3
-backoffBaseSeconds: 60 - 1 min
-backoffMaxSeconds:  1800 - 30 mins</p>
-<p>To switch off retry mechanism
-set retryStrategy.backoffLimitCount to 0.</p>
+backoffBaseSeconds: 60 - 1 分钟
+backoffMaxSeconds:  1800 - 30 分钟</p>
+<p>若要关闭重试机制，将 retryStrategy.backoffLimitCount 设为 0。</p>
 </td>
 </tr>
 <tr><td><code>podSetUpdates</code><br/>
 <a href="#kueue-x-k8s-io-v1beta1-ProvisioningRequestPodSetUpdates"><code>ProvisioningRequestPodSetUpdates</code></a>
 </td>
 <td>
-   <p>podSetUpdates specifies the update of the workload's PodSetUpdates which
-are used to target the provisioned nodes.</p>
+   <p>podSetUpdates 指定 workload 的 PodSetUpdates 更新，用于定位已调度节点。</p>
 </td>
 </tr>
 <tr><td><code>podSetMergePolicy</code><br/>
 <a href="#kueue-x-k8s-io-v1beta1-ProvisioningRequestConfigPodSetMergePolicy"><code>ProvisioningRequestConfigPodSetMergePolicy</code></a>
 </td>
 <td>
-   <p>podSetMergePolicy specifies the policy for merging PodSets before being passed
-to the cluster autoscaler.</p>
+   <p>podSetMergePolicy 指定在传递给集群自动扩缩容器前合并 PodSet 的策略。</p>
 </td>
 </tr>
 </tbody>
@@ -2370,7 +2278,7 @@ to the cluster autoscaler.</p>
 <a href="#kueue-x-k8s-io-v1beta1-ProvisioningRequestPodSetUpdatesNodeSelector"><code>[]ProvisioningRequestPodSetUpdatesNodeSelector</code></a>
 </td>
 <td>
-   <p>nodeSelector specifies the list of updates for the NodeSelector.</p>
+   <p>nodeSelector 指定 NodeSelector 的更新列表。</p>
 </td>
 </tr>
 </tbody>
@@ -2394,16 +2302,15 @@ to the cluster autoscaler.</p>
 <code>string</code>
 </td>
 <td>
-   <p>key specifies the key for the NodeSelector.</p>
+   <p>key 指定 NodeSelector 的键。</p>
 </td>
 </tr>
 <tr><td><code>valueFromProvisioningClassDetail</code> <B>[Required]</B><br/>
 <code>string</code>
 </td>
 <td>
-   <p>valueFromProvisioningClassDetail specifies the key of the
-ProvisioningRequest.status.provisioningClassDetails from which the value
-is used for the update.</p>
+   <p>valueFromProvisioningClassDetail 指定 ProvisioningRequest.status.provisioningClassDetails 的键，
+其值用于更新。</p>
 </td>
 </tr>
 </tbody>
@@ -2427,35 +2334,33 @@ is used for the update.</p>
 <code>int32</code>
 </td>
 <td>
-   <p>BackoffLimitCount defines the maximum number of re-queuing retries.
-Once the number is reached, the workload is deactivated (<code>.spec.activate</code>=<code>false</code>).</p>
-<p>Every backoff duration is about &quot;b*2^(n-1)+Rand&quot; where:</p>
+   <p>BackoffLimitCount 定义了最大重试次数。
+达到该次数后，workload 会被停用（<code>.spec.activate</code>=<code>false</code>）。</p>
+<p>每次退避时间大约为 &quot;b*2^(n-1)+Rand&quot;，其中：</p>
 <ul>
-<li>&quot;b&quot; represents the base set by &quot;BackoffBaseSeconds&quot; parameter,</li>
-<li>&quot;n&quot; represents the &quot;workloadStatus.requeueState.count&quot;,</li>
-<li>&quot;Rand&quot; represents the random jitter.
-During this time, the workload is taken as an inadmissible and
-other workloads will have a chance to be admitted.
-By default, the consecutive requeue delays are around: (60s, 120s, 240s, ...).</li>
+<li>&quot;b&quot; 由 &quot;BackoffBaseSeconds&quot; 参数设定，</li>
+<li>&quot;n&quot; 为 &quot;workloadStatus.requeueState.count&quot;，</li>
+<li>&quot;Rand&quot; 为随机抖动。
+在此期间，workload 被视为不可接受，其他 workload 有机会被调度。
+默认连续重排队延迟约为：(60s, 120s, 240s, ...)。</li>
 </ul>
-<p>Defaults to 3.</p>
+<p>默认值为 3。</p>
 </td>
 </tr>
 <tr><td><code>backoffBaseSeconds</code><br/>
 <code>int32</code>
 </td>
 <td>
-   <p>BackoffBaseSeconds defines the base for the exponential backoff for
-re-queuing an evicted workload.</p>
-<p>Defaults to 60.</p>
+   <p>BackoffBaseSeconds 定义了被驱逐 workload 重新排队的指数退避基数。</p>
+<p>默认值为 60。</p>
 </td>
 </tr>
 <tr><td><code>backoffMaxSeconds</code><br/>
 <code>int32</code>
 </td>
 <td>
-   <p>BackoffMaxSeconds defines the maximum backoff time to re-queue an evicted workload.</p>
-<p>Defaults to 1800.</p>
+   <p>BackoffMaxSeconds 定义了被驱逐 workload 重新排队的最大退避时间。</p>
+<p>默认值为 1800。</p>
 </td>
 </tr>
 </tbody>
@@ -2491,14 +2396,14 @@ re-queuing an evicted workload.</p>
 <a href="#kueue-x-k8s-io-v1beta1-PodSetReference"><code>PodSetReference</code></a>
 </td>
 <td>
-   <p>name is the PodSet name.</p>
+   <p>name 是 PodSet 的名称。</p>
 </td>
 </tr>
 <tr><td><code>count</code> <B>[Required]</B><br/>
 <code>int32</code>
 </td>
 <td>
-   <p>count is the number of pods for which the requested resources are no longer needed.</p>
+   <p>count 是请求资源不再需要的 Pod 数量。</p>
 </td>
 </tr>
 </tbody>
@@ -2522,18 +2427,18 @@ re-queuing an evicted workload.</p>
 <code>int32</code>
 </td>
 <td>
-   <p>count records the number of times a workload has been re-queued
-When a deactivated (<code>.spec.activate</code>=<code>false</code>) workload is reactivated (<code>.spec.activate</code>=<code>true</code>),
-this count would be reset to null.</p>
+   <p>count 记录工作负载被重队列的次数
+当 deactivated (<code>.spec.activate</code>=<code>false</code>) 工作负载被 reactivated (<code>.spec.activate</code>=<code>true</code>) 时，
+此计数将重置为 null。</p>
 </td>
 </tr>
 <tr><td><code>requeueAt</code><br/>
 <a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#time-v1-meta"><code>k8s.io/apimachinery/pkg/apis/meta/v1.Time</code></a>
 </td>
 <td>
-   <p>requeueAt records the time when a workload will be re-queued.
-When a deactivated (<code>.spec.activate</code>=<code>false</code>) workload is reactivated (<code>.spec.activate</code>=<code>true</code>),
-this time would be reset to null.</p>
+   <p>requeueAt 记录工作负载将被重队列的时间。
+当 deactivated (<code>.spec.activate</code>=<code>false</code>) 工作负载被 reactivated (<code>.spec.activate</code>=<code>true</code>) 时，
+此时间将重置为 null。</p>
 </td>
 </tr>
 </tbody>
@@ -2558,7 +2463,7 @@ this time would be reset to null.</p>
 - [PodSetAssignment](#kueue-x-k8s-io-v1beta1-PodSetAssignment)
 
 
-<p>ResourceFlavorReference is the name of the ResourceFlavor.</p>
+<p>ResourceFlavorReference 是 ResourceFlavor 的名称。</p>
 
 
 
@@ -2571,7 +2476,8 @@ this time would be reset to null.</p>
 - [ResourceFlavor](#kueue-x-k8s-io-v1beta1-ResourceFlavor)
 
 
-<p>ResourceFlavorSpec defines the desired state of the ResourceFlavor</p>
+<p>ResourceFlavorSpec defines the desired state of the ResourceFlavor
+ResourceFlavorSpec 定义了 ResourceFlavor 的期望状态</p>
 
 
 <table class="table">
@@ -2585,13 +2491,9 @@ this time would be reset to null.</p>
 <td>
    <p>nodeLabels are labels that associate the ResourceFlavor with Nodes that
 have the same labels.
-When a Workload is admitted, its podsets can only get assigned
-ResourceFlavors whose nodeLabels match the nodeSelector and nodeAffinity
-fields.
-Once a ResourceFlavor is assigned to a podSet, the ResourceFlavor's
-nodeLabels should be injected into the pods of the Workload by the
-controller that integrates with the Workload object.</p>
-<p>nodeLabels can be up to 8 elements.</p>
+当 Workload 被接纳时，其 podsets 只能分配到 nodeLabels 匹配 nodeSelector 和 nodeAffinity 字段的 ResourceFlavors。
+一旦 ResourceFlavor 被分配给 podSet，集成 Workload 对象的控制器应将 ResourceFlavor 的 nodeLabels 注入到 Workload 的 pods 中。</p>
+<p>nodeLabels 最多可以有 8 个元素。</p>
 </td>
 </tr>
 <tr><td><code>nodeTaints</code><br/>
@@ -2600,15 +2502,12 @@ controller that integrates with the Workload object.</p>
 <td>
    <p>nodeTaints are taints that the nodes associated with this ResourceFlavor
 have.
-Workloads' podsets must have tolerations for these nodeTaints in order to
-get assigned this ResourceFlavor during admission.
-When this ResourceFlavor has also set the matching tolerations (in .spec.tolerations),
-then the nodeTaints are not considered during admission.
-Only the 'NoSchedule' and 'NoExecute' taint effects are evaluated,
-while 'PreferNoSchedule' is ignored.</p>
-<p>An example of a nodeTaint is
+Workloads 的 podsets 必须对这些 nodeTaints 有容忍（tolerations），才能在接纳时分配到该 ResourceFlavor。
+当此 ResourceFlavor 也设置了匹配的容忍（在 .spec.tolerations 中），则在接纳时不会考虑 nodeTaints。
+只评估 'NoSchedule' 和 'NoExecute' 污点效果，忽略 'PreferNoSchedule'。</p>
+<p>nodeTaints 示例：
 cloud.provider.com/preemptible=&quot;true&quot;:NoSchedule</p>
-<p>nodeTaints can be up to 8 elements.</p>
+<p>nodeTaints 最多可以有 8 个元素。</p>
 </td>
 </tr>
 <tr><td><code>tolerations</code><br/>
@@ -2617,9 +2516,9 @@ cloud.provider.com/preemptible=&quot;true&quot;:NoSchedule</p>
 <td>
    <p>tolerations are extra tolerations that will be added to the pods admitted in
 the quota associated with this resource flavor.</p>
-<p>An example of a toleration is
+<p>容忍（toleration）示例：
 cloud.provider.com/preemptible=&quot;true&quot;:NoSchedule</p>
-<p>tolerations can be up to 8 elements.</p>
+<p>tolerations 最多可以有 8 个元素。</p>
 </td>
 </tr>
 <tr><td><code>topologyName</code><br/>
@@ -2627,8 +2526,8 @@ cloud.provider.com/preemptible=&quot;true&quot;:NoSchedule</p>
 </td>
 <td>
    <p>topologyName indicates topology for the TAS ResourceFlavor.
-When specified, it enables scraping of the topology information from the
-nodes matching to the Resource Flavor node labels.</p>
+topologyName 表示 TAS ResourceFlavor 的拓扑。
+指定后，会从与 Resource Flavor nodeLabels 匹配的节点中抓取拓扑信息。</p>
 </td>
 </tr>
 </tbody>
@@ -2654,23 +2553,19 @@ nodes matching to the Resource Flavor node labels.</p>
 <a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#resourcename-v1-core"><code>[]k8s.io/api/core/v1.ResourceName</code></a>
 </td>
 <td>
-   <p>coveredResources is the list of resources covered by the flavors in this
-group.
-Examples: cpu, memory, vendor.com/gpu.
-The list cannot be empty and it can contain up to 16 resources.</p>
+   <p>coveredResources 是此组中 flavors 覆盖的资源列表。
+例如：cpu、memory、vendor.com/gpu。
+此列表不能为空，且最多包含 16 个资源。</p>
 </td>
 </tr>
 <tr><td><code>flavors</code> <B>[Required]</B><br/>
 <a href="#kueue-x-k8s-io-v1beta1-FlavorQuotas"><code>[]FlavorQuotas</code></a>
 </td>
 <td>
-   <p>flavors is the list of flavors that provide the resources of this group.
-Typically, different flavors represent different hardware models
-(e.g., gpu models, cpu architectures) or pricing models (on-demand vs spot
-cpus).
-Each flavor MUST list all the resources listed for this group in the same
-order as the .resources field.
-The list cannot be empty and it can contain up to 16 flavors.</p>
+   <p>flavors 是为此组资源提供配额的 flavor 列表。
+通常，不同的 flavor 代表不同的硬件型号（如 gpu 型号、cpu 架构）或定价模式（按需 vs 竞价 cpu）。
+每个 flavor 必须以与 .resources 字段相同的顺序列出此组的所有资源。
+此列表不能为空，且最多包含 16 个 flavor。</p>
 </td>
 </tr>
 </tbody>
@@ -2694,7 +2589,8 @@ The list cannot be empty and it can contain up to 16 flavors.</p>
 <a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#resourcename-v1-core"><code>k8s.io/api/core/v1.ResourceName</code></a>
 </td>
 <td>
-   <p>name of this resource.</p>
+   <p>name of this resource.
+此资源的名称。</p>
 </td>
 </tr>
 <tr><td><code>nominalQuota</code> <B>[Required]</B><br/>
@@ -2703,15 +2599,12 @@ The list cannot be empty and it can contain up to 16 flavors.</p>
 <td>
    <p>nominalQuota is the quantity of this resource that is available for
 Workloads admitted by this ClusterQueue at a point in time.
-The nominalQuota must be non-negative.
-nominalQuota should represent the resources in the cluster available for
-running jobs (after discounting resources consumed by system components
-and pods not managed by kueue). In an autoscaled cluster, nominalQuota
-should account for resources that can be provided by a component such as
-Kubernetes cluster-autoscaler.</p>
+nominalQuota 必须为非负数。
+nominalQuota 应代表集群中可用于运行作业的资源（扣除系统组件和非 kueue 管理的 pod 所消耗的资源后）。在自动扩缩的集群中，nominalQuota 应考虑如 Kubernetes cluster-autoscaler 等组件可提供的资源。</p>
 <p>If the ClusterQueue belongs to a cohort, the sum of the quotas for each
 (flavor, resource) combination defines the maximum quantity that can be
-allocated by a ClusterQueue in the cohort.</p>
+allocated by a ClusterQueue in the cohort.
+如果 ClusterQueue 属于 cohort，则每个（flavor, resource）组合的配额总和定义了 cohort 中 ClusterQueue 可分配的最大数量。</p>
 </td>
 </tr>
 <tr><td><code>borrowingLimit</code><br/>
@@ -2721,12 +2614,17 @@ allocated by a ClusterQueue in the cohort.</p>
    <p>borrowingLimit is the maximum amount of quota for the [flavor, resource]
 combination that this ClusterQueue is allowed to borrow from the unused
 quota of other ClusterQueues in the same cohort.
+borrowingLimit 是该 ClusterQueue 允许从同一 cohort 中其他 ClusterQueue 未使用配额中借用的 [flavor, resource] 组合的最大配额。
 In total, at a given time, Workloads in a ClusterQueue can consume a
 quantity of quota equal to nominalQuota+borrowingLimit, assuming the other
 ClusterQueues in the cohort have enough unused quota.
+总体上，在某一时刻，ClusterQueue 中的工作负载可以消耗等于 nominalQuota+borrowingLimit 的配额，前提是 cohort 中其他 ClusterQueue 有足够的未使用配额。
 If null, it means that there is no borrowing limit.
+如果为 null，表示没有借用上限。
 If not null, it must be non-negative.
-borrowingLimit must be null if spec.cohort is empty.</p>
+如果不为 null，则必须为非负数。
+borrowingLimit must be null if spec.cohort is empty.
+如果 spec.cohort 为空，则 borrowingLimit 必须为 null。</p>
 </td>
 </tr>
 <tr><td><code>lendingLimit</code><br/>
@@ -2735,13 +2633,19 @@ borrowingLimit must be null if spec.cohort is empty.</p>
 <td>
    <p>lendingLimit is the maximum amount of unused quota for the [flavor, resource]
 combination that this ClusterQueue can lend to other ClusterQueues in the same cohort.
+lendingLimit 是该 ClusterQueue 可以借给同一 cohort 中其他 ClusterQueue 的 [flavor, resource] 组合的最大未使用配额。
 In total, at a given time, ClusterQueue reserves for its exclusive use
 a quantity of quota equals to nominalQuota - lendingLimit.
+总体上，在某一时刻，ClusterQueue 为其专用保留的配额等于 nominalQuota - lendingLimit。
 If null, it means that there is no lending limit, meaning that
 all the nominalQuota can be borrowed by other clusterQueues in the cohort.
+如果为 null，表示没有出借上限，意味着所有 nominalQuota 都可以被 cohort 中其他 ClusterQueue 借用。
 If not null, it must be non-negative.
+如果不为 null，则必须为非负数。
 lendingLimit must be null if spec.cohort is empty.
-This field is in beta stage and is enabled by default.</p>
+如果 spec.cohort 为空，则 lendingLimit 必须为 null。
+This field is in beta stage and is enabled by default.
+此字段为 beta 阶段，默认启用。</p>
 </td>
 </tr>
 </tbody>
@@ -2765,23 +2669,21 @@ This field is in beta stage and is enabled by default.</p>
 <a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#resourcename-v1-core"><code>k8s.io/api/core/v1.ResourceName</code></a>
 </td>
 <td>
-   <p>name of the resource</p>
+   <p>资源的名称</p>
 </td>
 </tr>
 <tr><td><code>total</code> <B>[Required]</B><br/>
 <a href="https://pkg.go.dev/k8s.io/apimachinery/pkg/api/resource#Quantity"><code>k8s.io/apimachinery/pkg/api/resource.Quantity</code></a>
 </td>
 <td>
-   <p>total is the total quantity of used quota, including the amount borrowed
-from the cohort.</p>
+   <p>total 是已用配额的总量，包括从 cohort 借用的数量。</p>
 </td>
 </tr>
 <tr><td><code>borrowed</code> <B>[Required]</B><br/>
 <a href="https://pkg.go.dev/k8s.io/apimachinery/pkg/api/resource#Quantity"><code>k8s.io/apimachinery/pkg/api/resource.Quantity</code></a>
 </td>
 <td>
-   <p>Borrowed is quantity of quota that is borrowed from the cohort. In other
-words, it's the used quota that is over the nominalQuota.</p>
+   <p>Borrowed 是从 cohort 借用的配额数量。换句话说，是超出 nominalQuota 的已用配额。</p>
 </td>
 </tr>
 </tbody>
@@ -2805,7 +2707,7 @@ words, it's the used quota that is over the nominalQuota.</p>
 <a href="#kueue-x-k8s-io-v1beta1-WorkloadSchedulingStatsEviction"><code>[]WorkloadSchedulingStatsEviction</code></a>
 </td>
 <td>
-   <p>evictions tracks eviction statistics by reason and underlyingCause.</p>
+   <p>evictions 跟踪按原因和底层原因的驱逐统计。</p>
 </td>
 </tr>
 </tbody>
@@ -2843,17 +2745,14 @@ words, it's the used quota that is over the nominalQuota.</p>
 <code>[]string</code>
 </td>
 <td>
-   <p>levels is an ordered list of keys denoting the levels of the assigned
-topology (i.e. node label keys), from the highest to the lowest level of
-the topology.</p>
+   <p>levels 是拓扑分配中拓扑级别的有序列表（即节点标签键），从最高到最低。</p>
 </td>
 </tr>
 <tr><td><code>domains</code> <B>[Required]</B><br/>
 <a href="#kueue-x-k8s-io-v1beta1-TopologyDomainAssignment"><code>[]TopologyDomainAssignment</code></a>
 </td>
 <td>
-   <p>domains is a list of topology assignments split by topology domains at
-the lowest level of the topology.</p>
+   <p>domains 是拓扑分配的列表，按拓扑域在拓扑的最低级别划分。</p>
 </td>
 </tr>
 </tbody>
@@ -2877,17 +2776,15 @@ the lowest level of the topology.</p>
 <code>[]string</code>
 </td>
 <td>
-   <p>values is an ordered list of node selector values describing a topology
-domain. The values correspond to the consecutive topology levels, from
-the highest to the lowest.</p>
+   <p>values 是描述拓扑域的节点选择器值的有序列表。
+值对应连续的拓扑级别，从最高到最低。</p>
 </td>
 </tr>
 <tr><td><code>count</code> <B>[Required]</B><br/>
 <code>int32</code>
 </td>
 <td>
-   <p>count indicates the number of Pods to be scheduled in the topology
-domain indicated by the values field.</p>
+   <p>count 表示在 values 字段指示的拓扑域中要调度的 Pod 数量。</p>
 </td>
 </tr>
 </tbody>
@@ -2912,6 +2809,7 @@ domain indicated by the values field.</p>
 </td>
 <td>
    <p>name is the name of the topology.</p>
+<p>name 是拓扑的名称。</p>
 </td>
 </tr>
 <tr><td><code>levels</code> <B>[Required]</B><br/>
@@ -2919,6 +2817,7 @@ domain indicated by the values field.</p>
 </td>
 <td>
    <p>levels define the levels of topology.</p>
+<p>levels 定义了拓扑的层级。</p>
 </td>
 </tr>
 </tbody>
@@ -2935,7 +2834,8 @@ domain indicated by the values field.</p>
 - [TopologyInfo](#kueue-x-k8s-io-v1beta1-TopologyInfo)
 
 
-<p>TopologyReference is the name of the Topology.</p>
+<p>TopologyReference is the name of the Topology.
+TopologyReference 是拓扑的名称。</p>
 
 
 
@@ -2958,22 +2858,22 @@ domain indicated by the values field.</p>
 <code>string</code>
 </td>
 <td>
-   <p>reason specifies the programmatic identifier for the eviction cause.</p>
+   <p>reason 指定驱逐原因的程序化标识符。</p>
 </td>
 </tr>
 <tr><td><code>underlyingCause</code> <B>[Required]</B><br/>
 <code>string</code>
 </td>
 <td>
-   <p>underlyingCause specifies a finer-grained explanation that complements the eviction reason.
-This may be an empty string.</p>
+   <p>underlyingCause 提供更详细的解释，补充驱逐原因。
+这可能是空字符串。</p>
 </td>
 </tr>
 <tr><td><code>count</code> <B>[Required]</B><br/>
 <code>int32</code>
 </td>
 <td>
-   <p>count tracks the number of evictions for this reason and detailed reason.</p>
+   <p>count 跟踪此原因和详细原因的驱逐次数。</p>
 </td>
 </tr>
 </tbody>
@@ -2987,7 +2887,7 @@ This may be an empty string.</p>
 - [Workload](#kueue-x-k8s-io-v1beta1-Workload)
 
 
-<p>WorkloadSpec defines the desired state of Workload</p>
+<p>WorkloadSpec 定义了 Workload 的期望状态</p>
 
 
 <table class="table">
@@ -2999,73 +2899,68 @@ This may be an empty string.</p>
 <a href="#kueue-x-k8s-io-v1beta1-PodSet"><code>[]PodSet</code></a>
 </td>
 <td>
-   <p>podSets is a list of sets of homogeneous pods, each described by a Pod spec
-and a count.
-There must be at least one element and at most 8.
-podSets cannot be changed.</p>
+   <p>podSets 是一组同质 Pod 的集合，每个由 Pod 规范和数量描述。
+必须至少有一个元素，最多 8 个。
+podSets 不可更改。</p>
 </td>
 </tr>
 <tr><td><code>queueName</code> <B>[Required]</B><br/>
 <a href="#kueue-x-k8s-io-v1beta1-LocalQueueName"><code>LocalQueueName</code></a>
 </td>
 <td>
-   <p>queueName is the name of the LocalQueue the Workload is associated with.
-queueName cannot be changed while .status.admission is not null.</p>
+   <p>queueName 是 Workload 关联的 LocalQueue 的名称。
+当 .status.admission 不为 null 时，queueName 不可更改。</p>
 </td>
 </tr>
 <tr><td><code>priorityClassName</code> <B>[Required]</B><br/>
 <code>string</code>
 </td>
 <td>
-   <p>If specified, indicates the workload's priority.
-&quot;system-node-critical&quot; and &quot;system-cluster-critical&quot; are two special
-keywords which indicate the highest priorities with the former being
-the highest priority. Any other name must be defined by creating a
-PriorityClass object with that name. If not specified, the workload
-priority will be default or zero if there is no default.</p>
+   <p>如果指定，表示 workload 的优先级。
+&quot;system-node-critical&quot; 和 &quot;system-cluster-critical&quot; 是两个特殊关键字，分别表示最高和次高优先级。
+其他名称必须通过创建具有该名称的 PriorityClass 对象来定义。
+如果未指定，workload 的优先级将为默认值或零（如果没有默认值）。</p>
 </td>
 </tr>
 <tr><td><code>priority</code> <B>[Required]</B><br/>
 <code>int32</code>
 </td>
 <td>
-   <p>Priority determines the order of access to the resources managed by the
-ClusterQueue where the workload is queued.
-The priority value is populated from PriorityClassName.
-The higher the value, the higher the priority.
-If priorityClassName is specified, priority must not be null.</p>
+   <p>Priority 决定了在 ClusterQueue 中访问资源的顺序。
+优先级值由 PriorityClassName 填充。
+值越高，优先级越高。
+如果指定了 priorityClassName，则 priority 不能为空。</p>
 </td>
 </tr>
 <tr><td><code>priorityClassSource</code> <B>[Required]</B><br/>
 <code>string</code>
 </td>
 <td>
-   <p>priorityClassSource determines whether the priorityClass field refers to a pod PriorityClass or kueue.x-k8s.io/workloadpriorityclass.
-Workload's PriorityClass can accept the name of a pod priorityClass or a workloadPriorityClass.
-When using pod PriorityClass, a priorityClassSource field has the scheduling.k8s.io/priorityclass value.</p>
+   <p>priorityClassSource 决定 priorityClass 字段是指 pod PriorityClass 还是 kueue.x-k8s.io/workloadpriorityclass。
+Workload 的 PriorityClass 可以接受 pod priorityClass 或 workloadPriorityClass 的名称。
+当使用 pod PriorityClass 时，priorityClassSource 字段值为 scheduling.k8s.io/priorityclass。</p>
 </td>
 </tr>
 <tr><td><code>active</code> <B>[Required]</B><br/>
 <code>bool</code>
 </td>
 <td>
-   <p>Active determines if a workload can be admitted into a queue.
-Changing active from true to false will evict any running workloads.
-Possible values are:</p>
+   <p>Active 决定 workload 是否可以被接纳到队列中。
+将 active 从 true 改为 false 会驱逐所有正在运行的 workload。
+可能的值有：</p>
 <ul>
-<li>false: indicates that a workload should never be admitted and evicts running workloads</li>
-<li>true: indicates that a workload can be evaluated for admission into it's respective queue.</li>
+<li>false: 表示 workload 永远不会被接纳，并驱逐正在运行的 workload</li>
+<li>true: 表示 workload 可以被评估是否接纳到其所属队列。</li>
 </ul>
-<p>Defaults to true</p>
+<p>默认为 true</p>
 </td>
 </tr>
 <tr><td><code>maximumExecutionTimeSeconds</code><br/>
 <code>int32</code>
 </td>
 <td>
-   <p>maximumExecutionTimeSeconds if provided, determines the maximum time, in seconds,
-the workload can be admitted before it's automatically deactivated.</p>
-<p>If unspecified, no execution time limit is enforced on the Workload.</p>
+   <p>maximumExecutionTimeSeconds 如果提供，表示 workload 最多可被接纳的时间（秒），超时后会自动被停用。</p>
+<p>如果未指定，则不对 Workload 强制执行执行时间限制。</p>
 </td>
 </tr>
 </tbody>
@@ -3079,7 +2974,7 @@ the workload can be admitted before it's automatically deactivated.</p>
 - [Workload](#kueue-x-k8s-io-v1beta1-Workload)
 
 
-<p>WorkloadStatus defines the observed state of Workload</p>
+<p>WorkloadStatus 定义了 Workload 的观察状态。</p>
 
 
 <table class="table">
@@ -3091,31 +2986,27 @@ the workload can be admitted before it's automatically deactivated.</p>
 <a href="#kueue-x-k8s-io-v1beta1-Admission"><code>Admission</code></a>
 </td>
 <td>
-   <p>admission holds the parameters of the admission of the workload by a
-ClusterQueue. admission can be set back to null, but its fields cannot be
-changed once set.</p>
+   <p>admission 持有工作负载被集群队列接纳的参数。admission 可以设置为 null，
+但一旦设置，其字段不能更改。</p>
 </td>
 </tr>
 <tr><td><code>requeueState</code><br/>
 <a href="#kueue-x-k8s-io-v1beta1-RequeueState"><code>RequeueState</code></a>
 </td>
 <td>
-   <p>requeueState holds the re-queue state
-when a workload meets Eviction with PodsReadyTimeout reason.</p>
+   <p>requeueState 持有工作负载在 PodsReadyTimeout 原因下被驱逐时的重队列状态。</p>
 </td>
 </tr>
 <tr><td><code>conditions</code><br/>
 <a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#condition-v1-meta"><code>[]k8s.io/apimachinery/pkg/apis/meta/v1.Condition</code></a>
 </td>
 <td>
-   <p>conditions hold the latest available observations of the Workload
-current state.</p>
-<p>The type of the condition could be:</p>
+   <p>conditions 持有工作负载的最新可用观察结果。</p>
+<p>条件的类型可以是：</p>
 <ul>
-<li>Admitted: the Workload was admitted through a ClusterQueue.</li>
-<li>Finished: the associated workload finished running (failed or succeeded).</li>
-<li>PodsReady: at least <code>.spec.podSets[*].count</code> Pods are ready or have
-succeeded.</li>
+<li>Admitted: 工作负载通过集群队列被接纳。</li>
+<li>Finished: 关联的工作负载运行完成（失败或成功）。</li>
+<li>PodsReady: 至少 <code>.spec.podSets[*].count</code> Pods 已就绪或成功。</li>
 </ul>
 </td>
 </tr>
@@ -3123,40 +3014,39 @@ succeeded.</li>
 <a href="#kueue-x-k8s-io-v1beta1-ReclaimablePod"><code>[]ReclaimablePod</code></a>
 </td>
 <td>
-   <p>reclaimablePods keeps track of the number pods within a podset for which
-the resource reservation is no longer needed.</p>
+   <p>reclaimablePods 跟踪资源预留不再需要的 Pod 数量。</p>
 </td>
 </tr>
 <tr><td><code>admissionChecks</code><br/>
 <a href="#kueue-x-k8s-io-v1beta1-AdmissionCheckState"><code>[]AdmissionCheckState</code></a>
 </td>
 <td>
-   <p>admissionChecks list all the admission checks required by the workload and the current status</p>
+   <p>admissionChecks 列出工作负载所需的所有接纳检查及其当前状态。</p>
 </td>
 </tr>
 <tr><td><code>resourceRequests</code><br/>
 <a href="#kueue-x-k8s-io-v1beta1-PodSetRequest"><code>[]PodSetRequest</code></a>
 </td>
 <td>
-   <p>resourceRequests provides a detailed view of the resources that were
-requested by a non-admitted workload when it was considered for admission.
-If admission is non-null, resourceRequests will be empty because
-admission.resourceUsage contains the detailed information.</p>
+   <p>resourceRequests 提供了资源请求的详细视图，
+这些资源在非接纳工作负载被考虑接纳时请求。
+如果 admission 不为 null，则 resourceRequests 将为空，
+因为 admission.resourceUsage 包含详细信息。</p>
 </td>
 </tr>
 <tr><td><code>accumulatedPastExexcutionTimeSeconds</code><br/>
 <code>int32</code>
 </td>
 <td>
-   <p>accumulatedPastExexcutionTimeSeconds holds the total time, in seconds, the workload spent
-in Admitted state, in the previous <code>Admit</code> - <code>Evict</code> cycles.</p>
+   <p>accumulatedPastExexcutionTimeSeconds 持有工作负载在 Admitted 状态中花费的总时间（秒），
+在之前的 <code>Admit</code> - <code>Evict</code> 周期中。</p>
 </td>
 </tr>
 <tr><td><code>schedulingStats</code><br/>
 <a href="#kueue-x-k8s-io-v1beta1-SchedulingStats"><code>SchedulingStats</code></a>
 </td>
 <td>
-   <p>schedulingStats tracks scheduling statistics</p>
+   <p>schedulingStats 跟踪调度统计信息</p>
 </td>
 </tr>
 </tbody>

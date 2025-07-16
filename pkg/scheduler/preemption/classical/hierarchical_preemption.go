@@ -1,19 +1,3 @@
-/*
-Copyright The Kubernetes Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package classical
 
 import (
@@ -29,17 +13,15 @@ import (
 type preemptionVariant int
 
 const (
-	// Cannot be preempted
+	// 不能被抢占
 	Never preemptionVariant = iota
-	// Candidate within the same CQ as the preemptor
+	// 与抢占者在同一个 CQ 的候选项
 	WithinCQ
-	// Preemptor has preferential access to the resources needing preemption
-	// over the candidate, because of its CQ position in the cohort topology.
+	// 抢占者因其在 cohort 拓扑中的 CQ 位置，对需要抢占资源有优先访问权
 	HiearchicalReclaim
-	// Can only be preempted if preemptor CQ (after all preemptions and the
-	// admission of the incoming workload) would not be borrowing any quota
+	// 只有当抢占者 CQ（在所有抢占和新工作负载准入后）不再借用任何配额时，才可被抢占
 	ReclaimWithoutBorrowing
-	// Can be preemped even if preemptor CQ would be borrowing
+	// 即使抢占者 CQ 仍在借用，也可以被抢占
 	ReclaimWhileBorrowing
 )
 
@@ -73,8 +55,7 @@ func IsBorrowingWithinCohortForbidden(cq *cache.ClusterQueueSnapshot) (bool, *in
 	return false, borrowWithinCohort.MaxPriorityThreshold
 }
 
-// classifyPreemptionVariant evaluates, based on config and priorities, the
-// preemption type for a given candidate
+// classifyPreemptionVariant 根据配置和优先级，评估给定候选项的抢占类型
 func classifyPreemptionVariant(ctx *HierarchicalPreemptionCtx, wl *workload.Info, haveHierarchicalAdvantage bool) preemptionVariant {
 	if !WorkloadUsesResources(wl, ctx.FrsNeedPreemption) {
 		return Never
@@ -183,6 +164,7 @@ func collectCandidatesForHierarchicalReclaim(ctx *HierarchicalPreemptionCtx) ([]
 
 // visit the nodes in the hierarchy and collect the ones that exceed quota
 // avoid subtrees that are within quota and the skipped subtree
+// 遍历层级中的节点，收集超出配额的节点，跳过在配额内和被跳过的子树
 func collectCandidatesInSubtree(ctx *HierarchicalPreemptionCtx, currentCohort *cache.CohortSnapshot, subtreeRoot *cache.CohortSnapshot, skipSubtree *cache.CohortSnapshot, hasHierarchicalAdvantage bool, result *[]*candidateElem) {
 	for _, childCohort := range currentCohort.ChildCohorts() {
 		// we already processed this subtree
@@ -205,7 +187,7 @@ func collectCandidatesInSubtree(ctx *HierarchicalPreemptionCtx, currentCohort *c
 	}
 }
 
-// getNodeHeight calculates the distance to the furthest leaf
+// getNodeHeight 计算到最远叶子的距离
 func getNodeHeight(node *cache.CohortSnapshot) int {
 	maxHeight := min(node.ChildCount(), 1)
 	for _, childCohort := range node.ChildCohorts() {
@@ -214,10 +196,9 @@ func getNodeHeight(node *cache.CohortSnapshot) int {
 	return maxHeight
 }
 
-// FindHeightOfLowestSubtreeThatFits returns height of a lowest subtree in the cohort
-// that fits additional val of resource fr. If no such subtree exists, it returns
-// height the whole cohort hierarchy. Note that height of a trivial subtree
-// with only one node is 0. It also returns if the returned subtree is smaller than the whole cohort tree.
+// FindHeightOfLowestSubtreeThatFits 返回 cohort 中能容纳额外资源 val 的最低子树高度。
+// 如果不存在这样的子树，则返回整个 cohort 层级的高度。
+// 注意，只有一个节点的平凡子树高度为 0。还会返回该子树是否小于整个 cohort 树。
 func FindHeightOfLowestSubtreeThatFits(c *cache.ClusterQueueSnapshot, fr resources.FlavorResource, val int64) (int, bool) {
 	if !c.BorrowingWith(fr, val) || !c.HasParent() {
 		return 0, c.HasParent()
