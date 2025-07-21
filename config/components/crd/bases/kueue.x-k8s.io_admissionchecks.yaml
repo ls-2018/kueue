@@ -17,7 +17,9 @@ spec:
   - name: v1beta1
     schema:
       openAPIV3Schema:
-        description: AdmissionCheck is the Schema for the admissionchecks API
+        description: |-
+          AdmissionCheck is the Schema for the admissionchecks API
+          AdmissionCheck 是 admissionchecks API 的 Schema
         properties:
           apiVersion:
             description: |-
@@ -37,12 +39,14 @@ spec:
           metadata:
             type: object
           spec:
-            description: AdmissionCheckSpec defines the desired state of AdmissionCheck
+            description: |-
+              AdmissionCheckSpec defines the desired state of AdmissionCheck
+              AdmissionCheckSpec 定义了 AdmissionCheck 的期望状态
             properties:
               controllerName:
                 description: |-
                   controllerName identifies the controller that processes the AdmissionCheck,
-                  not necessarily a Kubernetes Pod or Deployment name. Cannot be empty.
+                  controllerName 标识处理 AdmissionCheck 的控制器，不一定是 Kubernetes 的 Pod 或 Deployment 名称。不能为空。
                 type: string
                 x-kubernetes-validations:
                 - message: field is immutable
@@ -50,20 +54,26 @@ spec:
               parameters:
                 description: |-
                   Parameters identifies a configuration with additional parameters for the
-                  check.
+                  Parameters 标识检查的附加参数配置。
                 properties:
                   apiGroup:
-                    description: ApiGroup is the group for the resource being referenced.
+                    description: |-
+                      ApiGroup is the group for the resource being referenced.
+                      ApiGroup 是被引用资源的组。
                     maxLength: 253
                     pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                     type: string
                   kind:
-                    description: Kind is the type of the resource being referenced.
+                    description: |-
+                      Kind is the type of the resource being referenced.
+                      Kind 是被引用资源的类型。
                     maxLength: 63
                     pattern: ^(?i)[a-z]([-a-z0-9]*[a-z0-9])?$
                     type: string
                   name:
-                    description: Name is the name of the resource being referenced.
+                    description: |-
+                      Name is the name of the resource being referenced.
+                      Name 是被引用资源的名称。
                     maxLength: 63
                     pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                     type: string
@@ -76,8 +86,7 @@ spec:
                 default: 15
                 description: |-
                   RetryDelayMinutes specifies how long to keep the workload suspended after
-                  a failed check (after it transitioned to False). When the delay period has passed, the check
-                  state goes to "Unknown". The default is 15 min.
+                  RetryDelayMinutes 指定检查失败（转为 False）后，工作负载保持挂起的时长（分钟）。当延迟期结束后，检查状态变为 "Unknown"。默认 15 分钟。
                   Deprecated: retryDelayMinutes has already been deprecated since v0.8 and will be removed in v1beta2.
                 format: int64
                 type: integer
@@ -85,11 +94,14 @@ spec:
             - controllerName
             type: object
           status:
-            description: AdmissionCheckStatus defines the observed state of AdmissionCheck
+            description: |-
+              AdmissionCheckStatus defines the observed state of AdmissionCheck
+              AdmissionCheckStatus 定义了 AdmissionCheck 的当前状态
             properties:
               conditions:
                 description: |-
                   conditions hold the latest available observations of the AdmissionCheck
+                  conditions 保存 AdmissionCheck 的最新可用状态。
                   current state.
                 items:
                   description: Condition contains details for one aspect of the current

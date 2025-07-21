@@ -1,19 +1,3 @@
-/*
-Copyright The Kubernetes Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package core
 
 import (
@@ -156,34 +140,6 @@ func (r *CohortReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	return ctrl.Result{}, err
 }
 
-func (r *CohortReconciler) updateCohortStatusIfChanged(ctx context.Context, cohort *kueue.Cohort) error {
-	log := ctrl.LoggerFrom(ctx)
-
-	oldStatus := cohort.Status.DeepCopy()
-
-	stats, err := r.cache.CohortStats(cohort)
-	if err != nil {
-		log.Error(err, "Failed getting cohort usage from cache")
-		return err
-	}
-
-	if r.fairSharingEnabled {
-		metrics.ReportCohortWeightedShare(cohort.Name, stats.WeightedShare)
-		if cohort.Status.FairSharing == nil {
-			cohort.Status.FairSharing = &v1beta1.FairSharingStatus{}
-		}
-		cohort.Status.FairSharing.WeightedShare = stats.WeightedShare
-	} else {
-		cohort.Status.FairSharing = nil
-	}
-
-	if !equality.Semantic.DeepEqual(cohort.Status, oldStatus) {
-		return r.client.Status().Update(ctx, cohort)
-	}
-
-	return nil
-}
-
 func (r *CohortReconciler) NotifyClusterQueueUpdate(oldCQ, newCQ *v1beta1.ClusterQueue) {
 	// if clusterQueue is nil, it's a delete event.
 	if newCQ == nil {
@@ -221,4 +177,32 @@ func (h *cohortCqHandler) Generic(ctx context.Context, e event.GenericEvent, q w
 	for _, ancestor := range ancestors {
 		q.Add(reconcile.Request{NamespacedName: types.NamespacedName{Name: string(ancestor)}})
 	}
+}
+
+func (r *CohortReconciler) updateCohortStatusIfChanged(ctx context.Context, cohort *kueue.Cohort) error {
+	log := ctrl.LoggerFrom(ctx)
+
+	oldStatus := cohort.Status.DeepCopy()
+
+	stats, err := r.cache.CohortStats(cohort)
+	if err != nil {
+		log.Error(err, "Failed getting cohort usage from cache")
+		return err
+	}
+
+	if r.fairSharingEnabled {
+		metrics.ReportCohortWeightedShare(cohort.Name, stats.WeightedShare)
+		if cohort.Status.FairSharing == nil {
+			cohort.Status.FairSharing = &v1beta1.FairSharingStatus{}
+		}
+		cohort.Status.FairSharing.WeightedShare = stats.WeightedShare
+	} else {
+		cohort.Status.FairSharing = nil
+	}
+
+	if !equality.Semantic.DeepEqual(cohort.Status, oldStatus) {
+		return r.client.Status().Update(ctx, cohort)
+	}
+
+	return nil
 }

@@ -12,7 +12,9 @@ WORKDIR /workspace
 COPY . .
 
 # Build
-RUN make importer-build GO_BUILD_ENV='CGO_ENABLED=${CGO_ENABLED} GOOS=linux GOARCH=${TARGETARCH}'
+RUN --mount=type=cache,target=/root/.cache/go-build,id=go-build-cache \
+    --mount=type=cache,target=/root/.gopath,id=go-build-cache \
+    make importer-build GO_BUILD_ENV='CGO_ENABLED=${CGO_ENABLED} GOOS=linux GOARCH=${TARGETARCH}'
 
 FROM --platform=${BUILDPLATFORM} ${BASE_IMAGE}
 WORKDIR /

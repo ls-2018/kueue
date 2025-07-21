@@ -1,19 +1,3 @@
-/*
-Copyright The Kubernetes Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package workload
 
 import (
@@ -68,7 +52,7 @@ func SyncAdmittedCondition(w *kueue.Workload, now time.Time) bool {
 	// Accumulate the admitted time if needed
 	if isAdmitted && newCondition.Status == metav1.ConditionFalse {
 		oldCondition := apimeta.FindStatusCondition(w.Status.Conditions, kueue.WorkloadAdmitted)
-		// in practice the oldCondition cannot be nil, however we should try to avoid nil ptr deref.
+		// in practice the oldCondition cannot be nil, however we should try to avoid nil over_ptr deref.
 		if oldCondition != nil {
 			d := int32(now.Sub(oldCondition.LastTransitionTime.Time).Seconds())
 			if w.Status.AccumulatedPastExexcutionTimeSeconds != nil {

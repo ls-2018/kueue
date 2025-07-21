@@ -1,5 +1,5 @@
 # Build stage
-FROM node:24-slim AS builder
+FROM registry.cn-hangzhou.aliyuncs.com/acejilam/node:24-slim AS builder
 
 # Set working directory
 WORKDIR /app
@@ -17,7 +17,7 @@ COPY . .
 RUN npm run build
 
 # Runtime stage
-FROM node:24-slim AS runtime
+FROM registry.cn-hangzhou.aliyuncs.com/acejilam/node:24-slim AS runtime
 
 WORKDIR /app
 

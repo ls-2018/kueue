@@ -1,19 +1,3 @@
-/*
-Copyright The Kubernetes Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package pod
 
 import (
@@ -29,9 +13,9 @@ import (
 	"k8s.io/utils/ptr"
 
 	kueuealpha "sigs.k8s.io/kueue/apis/kueue/v1alpha1"
-	"sigs.k8s.io/kueue/pkg/constants"
-	controllerconsts "sigs.k8s.io/kueue/pkg/controller/constants"
-	podconstants "sigs.k8s.io/kueue/pkg/controller/jobs/pod/constants"
+	podconstants "sigs.k8s.io/kueue/pkg/controller/jobs/pod/over_constants"
+	controllerconsts "sigs.k8s.io/kueue/pkg/controller/over_constants"
+	"sigs.k8s.io/kueue/pkg/over_constants"
 	"sigs.k8s.io/kueue/pkg/util/testing"
 )
 
@@ -41,26 +25,6 @@ type PodWrapper struct {
 }
 
 // MakePod creates a wrapper for a pod with a single container.
-func MakePod(name, ns string) *PodWrapper {
-	return &PodWrapper{corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:        name,
-			Namespace:   ns,
-			Annotations: make(map[string]string, 1),
-		},
-		Spec: corev1.PodSpec{
-			RestartPolicy: corev1.RestartPolicyNever,
-			Containers: []corev1.Container{
-				{
-					Name:      "c",
-					Image:     "pause",
-					Resources: corev1.ResourceRequirements{Requests: corev1.ResourceList{}, Limits: corev1.ResourceList{}},
-				},
-			},
-			SchedulingGates: make([]corev1.PodSchedulingGate, 0),
-		},
-	}}
-}
 
 // Obj returns the inner Pod.
 func (p *PodWrapper) Obj() *corev1.Pod {
@@ -164,7 +128,7 @@ func (p *PodWrapper) Annotation(key, content string) *PodWrapper {
 }
 
 func (p *PodWrapper) ManagedByKueueLabel() *PodWrapper {
-	return p.Label(constants.ManagedByKueueLabelKey, constants.ManagedByKueueLabelValue)
+	return p.Label(over_constants.ManagedByKueueLabelKey, over_constants.ManagedByKueueLabelValue)
 }
 
 func (p *PodWrapper) PodGroupServingAnnotation() *PodWrapper {
@@ -207,7 +171,7 @@ func (p *PodWrapper) Finalizer(f string) *PodWrapper {
 
 // KueueFinalizer adds kueue finalizer to the Pod
 func (p *PodWrapper) KueueFinalizer() *PodWrapper {
-	return p.Finalizer(constants.ManagedByKueueLabelKey)
+	return p.Finalizer(over_constants.ManagedByKueueLabelKey)
 }
 
 // NodeSelector adds a node selector to the Pod.

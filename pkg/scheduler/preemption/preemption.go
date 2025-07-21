@@ -1,19 +1,3 @@
-/*
-Copyright The Kubernetes Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package preemption
 
 import (
@@ -38,14 +22,14 @@ import (
 	config "sigs.k8s.io/kueue/apis/config/v1beta1"
 	kueue "sigs.k8s.io/kueue/apis/kueue/v1beta1"
 	"sigs.k8s.io/kueue/pkg/cache"
-	"sigs.k8s.io/kueue/pkg/controller/constants"
+	"sigs.k8s.io/kueue/pkg/controller/over_constants"
 	"sigs.k8s.io/kueue/pkg/metrics"
 	"sigs.k8s.io/kueue/pkg/resources"
 	"sigs.k8s.io/kueue/pkg/scheduler/flavorassigner"
 	"sigs.k8s.io/kueue/pkg/scheduler/preemption/classical"
 	"sigs.k8s.io/kueue/pkg/scheduler/preemption/fairsharing"
+	"sigs.k8s.io/kueue/pkg/util/over_routine"
 	"sigs.k8s.io/kueue/pkg/util/priority"
-	"sigs.k8s.io/kueue/pkg/util/routine"
 	"sigs.k8s.io/kueue/pkg/workload"
 )
 
@@ -139,16 +123,16 @@ var HumanReadablePreemptionReasons = map[string]string{
 
 func preemptionMessage(preemptor *kueue.Workload, reason string) string {
 	var wUID, jUID string
-	if preemptor == nil || preemptor.UID == "" {
+	if preemptor.UID == "" {
 		wUID = "UNKNOWN"
 	} else {
 		wUID = string(preemptor.UID)
 	}
-	uid, ok := preemptor.Labels[constants.JobUIDLabel]
-	if !ok || uid == "" {
-		jUID = "UNKNOWN"
-	} else {
+	uid := preemptor.Labels[over_constants.JobUIDLabel]
+	if uid != "" {
 		jUID = uid
+	} else {
+		jUID = "UNKNOWN"
 	}
 
 	return fmt.Sprintf("Preempted to accommodate a workload (UID: %s, JobUID: %s) due to %s", wUID, jUID, HumanReadablePreemptionReasons[reason])
@@ -157,7 +141,7 @@ func preemptionMessage(preemptor *kueue.Workload, reason string) string {
 // IssuePreemptions marks the target workloads as evicted.
 func (p *Preemptor) IssuePreemptions(ctx context.Context, preemptor *workload.Info, targets []*Target) (int, error) {
 	log := ctrl.LoggerFrom(ctx)
-	errCh := routine.NewErrorChannel()
+	errCh := over_routine.NewErrorChannel()
 	ctx, cancel := context.WithCancel(ctx)
 	var successfullyPreempted atomic.Int64
 	defer cancel()

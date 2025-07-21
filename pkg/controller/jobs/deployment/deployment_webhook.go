@@ -1,19 +1,3 @@
-/*
-Copyright The Kubernetes Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package deployment
 
 import (
@@ -28,11 +12,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
-	"sigs.k8s.io/kueue/pkg/constants"
-	controllerconstants "sigs.k8s.io/kueue/pkg/controller/constants"
 	"sigs.k8s.io/kueue/pkg/controller/jobframework"
 	"sigs.k8s.io/kueue/pkg/controller/jobframework/webhook"
-	podconstants "sigs.k8s.io/kueue/pkg/controller/jobs/pod/constants"
+	podconstants "sigs.k8s.io/kueue/pkg/controller/jobs/pod/over_constants"
+	controllerconstants "sigs.k8s.io/kueue/pkg/controller/over_constants"
+	"sigs.k8s.io/kueue/pkg/over_constants"
 	"sigs.k8s.io/kueue/pkg/queue"
 )
 
@@ -59,7 +43,7 @@ func SetupWebhook(mgr ctrl.Manager, opts ...jobframework.Option) error {
 		Complete()
 }
 
-// +kubebuilder:webhook:path=/mutate-apps-v1-deployment,mutating=true,failurePolicy=fail,sideEffects=None,groups="apps",resources=deployments,verbs=create;update,versions=v1,name=mdeployment.kb.io,admissionReviewVersions=v1
+// +kubebuilder:webhook:path=/mutate-apps-v1-deployment,mutating=true,failurePolicy=fail,sideEffects=None,groups="apps",resources=deployments,verbs=create;update,versions=v1,name=mdeployment.kb.io,admissionReviewVersions=v1,timeoutSeconds=30
 
 var _ admission.CustomDefaulter = &Webhook{}
 
@@ -82,7 +66,7 @@ func (wh *Webhook) Default(ctx context.Context, obj runtime.Object) error {
 		if deployment.Spec.Template.Labels == nil {
 			deployment.Spec.Template.Labels = make(map[string]string, 1)
 		}
-		deployment.Spec.Template.Labels[constants.ManagedByKueueLabelKey] = constants.ManagedByKueueLabelValue
+		deployment.Spec.Template.Labels[over_constants.ManagedByKueueLabelKey] = over_constants.ManagedByKueueLabelValue
 		queueName := jobframework.QueueNameForObject(deployment.Object())
 		if queueName != "" {
 			deployment.Spec.Template.Labels[controllerconstants.QueueLabel] = string(queueName)
@@ -95,7 +79,7 @@ func (wh *Webhook) Default(ctx context.Context, obj runtime.Object) error {
 	return nil
 }
 
-// +kubebuilder:webhook:path=/validate-apps-v1-deployment,mutating=false,failurePolicy=fail,sideEffects=None,groups="apps",resources=deployments,verbs=create;update,versions=v1,name=vdeployment.kb.io,admissionReviewVersions=v1
+// +kubebuilder:webhook:path=/validate-apps-v1-deployment,mutating=false,failurePolicy=fail,sideEffects=None,groups="apps",resources=deployments,verbs=create;update,versions=v1,name=vdeployment.kb.io,admissionReviewVersions=v1,timeoutSeconds=30
 
 var _ admission.CustomValidator = &Webhook{}
 

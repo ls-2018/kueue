@@ -1,19 +1,3 @@
-/*
-Copyright The Kubernetes Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package core
 
 import (
@@ -49,9 +33,9 @@ import (
 	kueuealpha "sigs.k8s.io/kueue/apis/kueue/v1alpha1"
 	kueue "sigs.k8s.io/kueue/apis/kueue/v1beta1"
 	"sigs.k8s.io/kueue/pkg/cache"
-	"sigs.k8s.io/kueue/pkg/constants"
 	"sigs.k8s.io/kueue/pkg/features"
 	"sigs.k8s.io/kueue/pkg/metrics"
+	"sigs.k8s.io/kueue/pkg/over_constants"
 	"sigs.k8s.io/kueue/pkg/queue"
 	"sigs.k8s.io/kueue/pkg/util/resource"
 	utilslices "sigs.k8s.io/kueue/pkg/util/slices"
@@ -292,7 +276,7 @@ func (r *ClusterQueueReconciler) NotifyResourceFlavorUpdate(oldRF, newRF *kueue.
 		return
 	}
 	r.nonCQObjectUpdateCh <- event.TypedGenericEvent[iter.Seq[kueue.ClusterQueueReference]]{
-		Object: slices.Values(r.cache.ClusterQueuesUsingFlavor(kueue.ResourceFlavorReference(rfName))),
+		Object: slices.Values(r.cache.ClusterQueuesUsingFlavor(kueue.ResourceFlavorReference(rfName))), // ✅
 	}
 }
 
@@ -535,7 +519,7 @@ func (h *nonCQObjectHandler) Generic(_ context.Context, e event.TypedGenericEven
 	for cq := range e.Object {
 		q.AddAfter(reconcile.Request{NamespacedName: types.NamespacedName{
 			Name: string(cq),
-		}}, constants.UpdatesBatchPeriod)
+		}}, over_constants.UpdatesBatchPeriod)
 	}
 }
 
@@ -557,11 +541,11 @@ func (h *cqSnapshotHandler) Generic(_ context.Context, e event.GenericEvent, q w
 	if !isCq {
 		return
 	}
-	remainingTime := constants.UpdatesBatchPeriod
+	remainingTime := over_constants.UpdatesBatchPeriod
 	if cq.Status.PendingWorkloadsStatus != nil {
 		remainingTime = h.queueVisibilityUpdateInterval - time.Since(cq.Status.PendingWorkloadsStatus.LastChangeTime.Time)
-		if remainingTime <= constants.UpdatesBatchPeriod {
-			remainingTime = constants.UpdatesBatchPeriod
+		if remainingTime <= over_constants.UpdatesBatchPeriod {
+			remainingTime = over_constants.UpdatesBatchPeriod
 		}
 	}
 	q.AddAfter(reconcile.Request{

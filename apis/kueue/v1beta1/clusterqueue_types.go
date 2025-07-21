@@ -1,19 +1,3 @@
-/*
-Copyright The Kubernetes Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package v1beta1
 
 import (
@@ -23,6 +7,7 @@ import (
 )
 
 // ClusterQueue Active condition reasons.
+// ClusterQueue 活跃状态的原因。
 const (
 	ClusterQueueActiveReasonTerminating                              = "Terminating"
 	ClusterQueueActiveReasonStopped                                  = "Stopped"
@@ -38,56 +23,54 @@ const (
 )
 
 // ClusterQueueReference is the name of the ClusterQueue.
-// It must be a DNS (RFC 1123) and has the maximum length of 253 characters.
+// ClusterQueueReference 是 ClusterQueue 的名称。
+// 它必须是 DNS（RFC 1123）格式，最大长度为 253 个字符。
 //
 // +kubebuilder:validation:MaxLength=253
 // +kubebuilder:validation:Pattern="^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
 type ClusterQueueReference string
 
 // CohortReference is the name of the Cohort.
+// CohortReference 是 Cohort 的名称。
 //
-// Validation of a cohort name is equivalent to that of object names:
-// subdomain in DNS (RFC 1123).
+// Cohort 名称的校验等同于对象名称的校验：DNS（RFC 1123）中的子域名。
 // +kubebuilder:validation:MaxLength=253
 // +kubebuilder:validation:Pattern="^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
 type CohortReference string
 
 // ClusterQueueSpec defines the desired state of ClusterQueue
+// ClusterQueueSpec 定义了 ClusterQueue 的期望状态
 // +kubebuilder:validation:XValidation:rule="!has(self.cohort) && has(self.resourceGroups) ? self.resourceGroups.all(rg, rg.flavors.all(f, f.resources.all(r, !has(r.borrowingLimit)))) : true", message="borrowingLimit must be nil when cohort is empty"
 type ClusterQueueSpec struct {
 	// resourceGroups describes groups of resources.
-	// Each resource group defines the list of resources and a list of flavors
-	// that provide quotas for these resources.
-	// Each resource and each flavor can only form part of one resource group.
-	// resourceGroups can be up to 16.
+	// resourceGroups 描述资源组。
+	// 每个资源组定义了资源列表和为这些资源提供配额的 flavor 列表。
+	// 每个资源和每个 flavor 只能属于一个资源组。
+	// resourceGroups 最多可有 16 个。
 	// +listType=atomic
 	// +kubebuilder:validation:MaxItems=16
 	ResourceGroups []ResourceGroup `json:"resourceGroups,omitempty"`
 
 	// cohort that this ClusterQueue belongs to. CQs that belong to the
 	// same cohort can borrow unused resources from each other.
+	// cohort 表示该 ClusterQueue 所属的组。属于同一 cohort 的 CQ 可以相互借用未使用的资源。
 	//
-	// A CQ can be a member of a single borrowing cohort. A workload submitted
-	// to a queue referencing this CQ can borrow quota from any CQ in the cohort.
-	// Only quota for the [resource, flavor] pairs listed in the CQ can be
-	// borrowed.
-	// If empty, this ClusterQueue cannot borrow from any other ClusterQueue and
-	// vice versa.
+	// 一个 CQ 只能属于一个借用 cohort。提交到引用此 CQ 的队列的工作负载可以从 cohort 中的任何 CQ 借用配额。
+	// 只有 CQ 中列出的 [resource, flavor] 对的配额可以被借用。
+	// 如果为空，则该 ClusterQueue 不能从其他 ClusterQueue 借用，也不能被借用。
 	//
-	// A cohort is a name that links CQs together, but it doesn't reference any
-	// object.
+	// cohort 是将 CQ 关联在一起的名称，但它不引用任何对象。
 	Cohort CohortReference `json:"cohort,omitempty"`
 
 	// QueueingStrategy indicates the queueing strategy of the workloads
 	// across the queues in this ClusterQueue.
-	// Current Supported Strategies:
+	// QueueingStrategy 表示该 ClusterQueue 中工作负载的排队策略。
+	// 当前支持的策略：
 	//
-	// - StrictFIFO: workloads are ordered strictly by creation time.
-	// Older workloads that can't be admitted will block admitting newer
-	// workloads even if they fit available quota.
-	// - BestEffortFIFO: workloads are ordered by creation time,
-	// however older workloads that can't be admitted will not block
-	// admitting newer workloads that fit existing quota.
+	// - StrictFIFO：工作负载严格按创建时间排序。
+	//   不能被接纳的较旧工作负载会阻塞即使适配现有配额的新工作负载的接纳。
+	// - BestEffortFIFO：工作负载按创建时间排序，
+	//   但不能被接纳的较旧工作负载不会阻塞适配现有配额的新工作负载的接纳。
 	//
 	// +kubebuilder:default=BestEffortFIFO
 	// +kubebuilder:validation:Enum=StrictFIFO;BestEffortFIFO
@@ -96,12 +79,14 @@ type ClusterQueueSpec struct {
 	// namespaceSelector defines which namespaces are allowed to submit workloads to
 	// this clusterQueue. Beyond this basic support for policy, a policy agent like
 	// Gatekeeper should be used to enforce more advanced policies.
-	// Defaults to null which is a nothing selector (no namespaces eligible).
-	// If set to an empty selector `{}`, then all namespaces are eligible.
+	// namespaceSelector 定义哪些命名空间可以向该 clusterQueue 提交工作负载。更高级的策略建议使用 Gatekeeper 等策略代理实现。
+	// 默认为 null，即无命名空间可用。
+	// 如果设置为空选择器 `{}`，则所有命名空间都可用。
 	NamespaceSelector *metav1.LabelSelector `json:"namespaceSelector,omitempty"`
 
 	// flavorFungibility defines whether a workload should try the next flavor
 	// before borrowing or preempting in the flavor being evaluated.
+	// flavorFungibility 定义在借用或抢占当前 flavor 前，工作负载是否应尝试下一个 flavor。
 	// +kubebuilder:default={}
 	FlavorFungibility *FlavorFungibility `json:"flavorFungibility,omitempty"`
 
@@ -109,23 +94,26 @@ type ClusterQueueSpec struct {
 	Preemption *ClusterQueuePreemption `json:"preemption,omitempty"`
 
 	// admissionChecks lists the AdmissionChecks required by this ClusterQueue.
-	// Cannot be used along with AdmissionCheckStrategy.
+	// admissionChecks 列出该 ClusterQueue 所需的 AdmissionChecks。
+	// 不能与 AdmissionCheckStrategy 同时使用。
 	// +optional
 	AdmissionChecks []AdmissionCheckReference `json:"admissionChecks,omitempty"`
 
 	// admissionCheckStrategy defines a list of strategies to determine which ResourceFlavors require AdmissionChecks.
-	// This property cannot be used in conjunction with the 'admissionChecks' property.
+	// admissionCheckStrategy 定义用于确定哪些 ResourceFlavors 需要 AdmissionChecks 的策略列表。
+	// 此属性不能与 'admissionChecks' 属性同时使用。
 	// +optional
 	AdmissionChecksStrategy *AdmissionChecksStrategy `json:"admissionChecksStrategy,omitempty"`
 
 	// stopPolicy - if set to a value different from None, the ClusterQueue is considered Inactive, no new reservation being
 	// made.
+	// stopPolicy - 如果设置为非 None，则该 ClusterQueue 被视为非活跃状态，不会进行新的资源预留。
 	//
-	// Depending on its value, its associated workloads will:
+	// 根据其值，相关工作负载将：
 	//
-	// - None - Workloads are admitted
-	// - HoldAndDrain - Admitted workloads are evicted and Reserving workloads will cancel the reservation.
-	// - Hold - Admitted workloads will run to completion and Reserving workloads will cancel the reservation.
+	// - None - 工作负载被接纳
+	// - HoldAndDrain - 已接纳的工作负载会被驱逐，预留中的工作负载会取消预留。
+	// - Hold - 已接纳的工作负载会运行至完成，预留中的工作负载会取消预留。
 	//
 	// +optional
 	// +kubebuilder:validation:Enum=None;Hold;HoldAndDrain
@@ -135,10 +123,12 @@ type ClusterQueueSpec struct {
 	// fairSharing defines the properties of the ClusterQueue when
 	// participating in FairSharing.  The values are only relevant
 	// if FairSharing is enabled in the Kueue configuration.
+	// fairSharing 定义该 ClusterQueue 参与公平共享时的属性。仅在 Kueue 配置启用公平共享时有效。
 	// +optional
 	FairSharing *FairSharing `json:"fairSharing,omitempty"`
 
 	// admissionScope indicates whether ClusterQueue uses the Admission Fair Sharing
+	// admissionScope 指示 ClusterQueue 是否使用 Admission Fair Sharing。
 	// +optional
 	AdmissionScope *AdmissionScope `json:"admissionScope,omitempty"`
 }
@@ -200,12 +190,13 @@ type ResourceGroup struct {
 
 type FlavorQuotas struct {
 	// name of this flavor. The name should match the .metadata.name of a
-	// ResourceFlavor. If a matching ResourceFlavor does not exist, the
-	// ClusterQueue will have an Active condition set to False.
+	// 此 flavor 的名称。名称应与 ResourceFlavor 的 .metadata.name 匹配。
+	// 如果不存在匹配的 ResourceFlavor，ClusterQueue 的 Active 条件将被设置为 False。
 	Name ResourceFlavorReference `json:"name"`
 
 	// resources is the list of quotas for this flavor per resource.
-	// There could be up to 16 resources.
+	// resources 是该 flavor 针对每种资源的配额列表。
+	// 最多可有 16 种资源。
 	// +listType=map
 	// +listMapKey=name
 	// +kubebuilder:validation:MinItems=1
@@ -215,56 +206,53 @@ type FlavorQuotas struct {
 
 type ResourceQuota struct {
 	// name of this resource.
+	// 此资源的名称。
 	Name corev1.ResourceName `json:"name"`
 
 	// nominalQuota is the quantity of this resource that is available for
 	// Workloads admitted by this ClusterQueue at a point in time.
-	// The nominalQuota must be non-negative.
-	// nominalQuota should represent the resources in the cluster available for
-	// running jobs (after discounting resources consumed by system components
-	// and pods not managed by kueue). In an autoscaled cluster, nominalQuota
-	// should account for resources that can be provided by a component such as
-	// Kubernetes cluster-autoscaler.
+	// nominalQuota 必须为非负数。
+	// nominalQuota 应代表集群中可用于运行作业的资源（扣除系统组件和非 kueue 管理的 pod 所消耗的资源后）。
+	// 在自动扩缩容集群中，nominalQuota 应考虑如 Kubernetes cluster-autoscaler 等组件可提供的资源。
 	//
-	// If the ClusterQueue belongs to a cohort, the sum of the quotas for each
-	// (flavor, resource) combination defines the maximum quantity that can be
-	// allocated by a ClusterQueue in the cohort.
+	// 如果 ClusterQueue 属于 cohort，则每个（flavor, resource）组合的配额总和定义了 cohort 中 ClusterQueue 可分配的最大数量。
 	NominalQuota resource.Quantity `json:"nominalQuota"`
 
 	// borrowingLimit is the maximum amount of quota for the [flavor, resource]
 	// combination that this ClusterQueue is allowed to borrow from the unused
 	// quota of other ClusterQueues in the same cohort.
-	// In total, at a given time, Workloads in a ClusterQueue can consume a
-	// quantity of quota equal to nominalQuota+borrowingLimit, assuming the other
-	// ClusterQueues in the cohort have enough unused quota.
-	// If null, it means that there is no borrowing limit.
-	// If not null, it must be non-negative.
-	// borrowingLimit must be null if spec.cohort is empty.
+	// borrowingLimit 是该 ClusterQueue 可从同一 cohort 其他 ClusterQueue 未使用配额中借用的最大数量。
+	// 在任意时刻，ClusterQueue 中的工作负载最多可消耗 nominalQuota+borrowingLimit 的配额，前提是 cohort 中其他 ClusterQueue 有足够未用配额。
+	// 如果为 null，表示没有借用上限。
+	// 如果不为 null，必须为非负数。
+	// 如果 spec.cohort 为空，borrowingLimit 必须为 null。
 	// +optional
 	BorrowingLimit *resource.Quantity `json:"borrowingLimit,omitempty"`
 
 	// lendingLimit is the maximum amount of unused quota for the [flavor, resource]
 	// combination that this ClusterQueue can lend to other ClusterQueues in the same cohort.
-	// In total, at a given time, ClusterQueue reserves for its exclusive use
-	// a quantity of quota equals to nominalQuota - lendingLimit.
-	// If null, it means that there is no lending limit, meaning that
-	// all the nominalQuota can be borrowed by other clusterQueues in the cohort.
-	// If not null, it must be non-negative.
-	// lendingLimit must be null if spec.cohort is empty.
-	// This field is in beta stage and is enabled by default.
+	// lendingLimit 是该 ClusterQueue 可借给同一 cohort 其他 ClusterQueue 的未用配额的最大数量。
+	// 在任意时刻，ClusterQueue 为自身专用保留的配额为 nominalQuota - lendingLimit。
+	// 如果为 null，表示没有出借上限，即所有 nominalQuota 都可被 cohort 中其他 ClusterQueue 借用。
+	// 如果不为 null，必须为非负数。
+	// 如果 spec.cohort 为空，lendingLimit 必须为 null。
+	// 此字段为 beta 阶段，默认启用。
 	// +optional
 	LendingLimit *resource.Quantity `json:"lendingLimit,omitempty"`
 }
 
 // ResourceFlavorReference is the name of the ResourceFlavor.
+// ResourceFlavorReference 是 ResourceFlavor 的名称。
 // +kubebuilder:validation:MaxLength=253
 // +kubebuilder:validation:Pattern="^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
 type ResourceFlavorReference string
 
 // ClusterQueueStatus defines the observed state of ClusterQueue
+// ClusterQueueStatus 定义了 ClusterQueue 的当前状态。
 type ClusterQueueStatus struct {
 	// flavorsReservation are the reserved quotas, by flavor, currently in use by the
 	// workloads assigned to this ClusterQueue.
+	// flavorsReservation 是当前分配给该 ClusterQueue 的工作负载的预留配额，按 flavor 分组。
 	// +listType=map
 	// +listMapKey=name
 	// +kubebuilder:validation:MaxItems=16
@@ -273,6 +261,7 @@ type ClusterQueueStatus struct {
 
 	// flavorsUsage are the used quotas, by flavor, currently in use by the
 	// workloads admitted in this ClusterQueue.
+	// flavorsUsage 是当前分配给该 ClusterQueue 的工作负载的已使用配额，按 flavor 分组。
 	// +listType=map
 	// +listMapKey=name
 	// +kubebuilder:validation:MaxItems=16
@@ -281,21 +270,25 @@ type ClusterQueueStatus struct {
 
 	// pendingWorkloads is the number of workloads currently waiting to be
 	// admitted to this clusterQueue.
+	// pendingWorkloads 是当前等待被接纳到该 clusterQueue 的工作负载数量。
 	// +optional
 	PendingWorkloads int32 `json:"pendingWorkloads"`
 
 	// reservingWorkloads is the number of workloads currently reserving quota in this
 	// clusterQueue.
+	// reservingWorkloads 是当前预留配额的工作负载数量。
 	// +optional
 	ReservingWorkloads int32 `json:"reservingWorkloads"`
 
 	// admittedWorkloads is the number of workloads currently admitted to this
 	// clusterQueue and haven't finished yet.
+	// admittedWorkloads 是当前已接纳到该 clusterQueue 且尚未完成的工作负载数量。
 	// +optional
 	AdmittedWorkloads int32 `json:"admittedWorkloads"`
 
 	// conditions hold the latest available observations of the ClusterQueue
 	// current state.
+	// conditions 持有该 ClusterQueue 的最新可用观察结果。
 	// +optional
 	// +listType=map
 	// +listMapKey=type
@@ -305,15 +298,16 @@ type ClusterQueueStatus struct {
 
 	// PendingWorkloadsStatus contains the information exposed about the current
 	// status of the pending workloads in the cluster queue.
-	// Deprecated: This field will be removed on v1beta2, use VisibilityOnDemand
+	// PendingWorkloadsStatus 包含关于集群队列中等待工作负载状态的信息。
+	// 弃用：此字段将在 v1beta2 中移除，请改用 VisibilityOnDemand
 	// (https://kueue.sigs.k8s.io/docs/tasks/manage/monitor_pending_workloads/pending_workloads_on_demand/)
-	// instead.
+	// 替代。
 	// +optional
 	PendingWorkloadsStatus *ClusterQueuePendingWorkloadsStatus `json:"pendingWorkloadsStatus"`
 
 	// fairSharing contains the current state for this ClusterQueue
 	// when participating in Fair Sharing.
-	// This is recorded only when Fair Sharing is enabled in the Kueue configuration.
+	// fairSharing 仅在 Kueue 配置启用公平共享时记录该 ClusterQueue 的当前状态。
 	// +optional
 	FairSharing *FairSharingStatus `json:"fairSharing,omitempty"`
 }
@@ -484,12 +478,10 @@ const (
 // __not__ with Fair Sharing.
 type BorrowWithinCohort struct {
 	// policy determines the policy for preemption to reclaim quota within cohort while borrowing.
-	// Possible values are:
-	// - `Never` (default): do not allow for preemption, in other
-	//    ClusterQueues within the cohort, for a borrowing workload.
-	// - `LowerPriority`: allow preemption, in other ClusterQueues
-	//    within the cohort, for a borrowing workload, but only if
-	//    the preempted workloads are of lower priority.
+	// policy 确定在借用时从 cohort 中抢占工作负载的策略。
+	// 可能的值是：
+	// - `Never` (default): 不允许抢占，在 cohort 中的其他 ClusterQueues 中，对于一个借用工作负载。
+	// - `LowerPriority`: 允许抢占，在 cohort 中的其他 ClusterQueues 中，对于一个借用工作负载，但仅当抢占的工作负载优先级较低时。
 	//
 	// +kubebuilder:default=Never
 	// +kubebuilder:validation:Enum=Never;LowerPriority

@@ -1,19 +1,3 @@
-/*
-Copyright The Kubernetes Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package testing
 
 import (
@@ -28,7 +12,7 @@ import (
 	"k8s.io/utils/ptr"
 
 	kueue "sigs.k8s.io/kueue/apis/kueue/v1beta1"
-	"sigs.k8s.io/kueue/pkg/controller/constants"
+	"sigs.k8s.io/kueue/pkg/controller/over_constants"
 	"sigs.k8s.io/kueue/pkg/util/testing"
 )
 
@@ -36,32 +20,6 @@ import (
 type JobWrapper struct{ batchv1.Job }
 
 // MakeJob creates a wrapper for a suspended job with a single container and parallelism=1.
-func MakeJob(name, ns string) *JobWrapper {
-	return &JobWrapper{batchv1.Job{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:        name,
-			Namespace:   ns,
-			Annotations: make(map[string]string, 1),
-		},
-		Spec: batchv1.JobSpec{
-			Parallelism: ptr.To[int32](1),
-			Suspend:     ptr.To(true),
-			Template: corev1.PodTemplateSpec{
-				Spec: corev1.PodSpec{
-					RestartPolicy: corev1.RestartPolicyNever,
-					Containers: []corev1.Container{
-						{
-							Name:      "c",
-							Image:     "pause",
-							Resources: corev1.ResourceRequirements{Requests: corev1.ResourceList{}, Limits: corev1.ResourceList{}},
-						},
-					},
-					NodeSelector: map[string]string{},
-				},
-			},
-		},
-	}}
-}
 
 // Obj returns the inner Job.
 func (j *JobWrapper) Obj() *batchv1.Job {
@@ -129,12 +87,12 @@ func (j *JobWrapper) PriorityClass(pc string) *JobWrapper {
 
 // WorkloadPriorityClass updates job workloadpriorityclass.
 func (j *JobWrapper) WorkloadPriorityClass(wpc string) *JobWrapper {
-	return j.Label(constants.WorkloadPriorityClassLabel, wpc)
+	return j.Label(over_constants.WorkloadPriorityClassLabel, wpc)
 }
 
 // Queue updates the queue name of the job
 func (j *JobWrapper) Queue(queue kueue.LocalQueueName) *JobWrapper {
-	return j.Label(constants.QueueLabel, string(queue))
+	return j.Label(over_constants.QueueLabel, string(queue))
 }
 
 // Label sets the label key and value
@@ -148,7 +106,7 @@ func (j *JobWrapper) Label(key, value string) *JobWrapper {
 
 // QueueNameAnnotation updates the queue name of the job by annotation (deprecated)
 func (j *JobWrapper) QueueNameAnnotation(queue string) *JobWrapper {
-	return j.SetAnnotation(constants.QueueAnnotation, queue)
+	return j.SetAnnotation(over_constants.QueueAnnotation, queue)
 }
 
 func (j *JobWrapper) SetAnnotation(key, content string) *JobWrapper {
@@ -260,20 +218,6 @@ func (j *JobWrapper) Condition(c batchv1.JobCondition) *JobWrapper {
 func (j *JobWrapper) Generation(g int64) *JobWrapper {
 	j.ObjectMeta.Generation = g
 	return j
-}
-
-func SetContainerDefaults(c *corev1.Container) {
-	if c.TerminationMessagePath == "" {
-		c.TerminationMessagePath = "/dev/termination-log"
-	}
-
-	if c.TerminationMessagePolicy == "" {
-		c.TerminationMessagePolicy = corev1.TerminationMessageReadFile
-	}
-
-	if c.ImagePullPolicy == "" {
-		c.ImagePullPolicy = corev1.PullIfNotPresent
-	}
 }
 
 // ManagedBy adds a managedby.

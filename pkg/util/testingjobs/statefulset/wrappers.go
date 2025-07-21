@@ -1,19 +1,3 @@
-/*
-Copyright The Kubernetes Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package statefulset
 
 import (
@@ -28,10 +12,10 @@ import (
 	"k8s.io/utils/ptr"
 
 	"sigs.k8s.io/kueue/apis/kueue/v1alpha1"
-	"sigs.k8s.io/kueue/pkg/constants"
-	controllerconstants "sigs.k8s.io/kueue/pkg/controller/constants"
 	"sigs.k8s.io/kueue/pkg/controller/jobframework"
-	podconstants "sigs.k8s.io/kueue/pkg/controller/jobs/pod/constants"
+	podconstants "sigs.k8s.io/kueue/pkg/controller/jobs/pod/over_constants"
+	controllerconstants "sigs.k8s.io/kueue/pkg/controller/over_constants"
+	"sigs.k8s.io/kueue/pkg/over_constants"
 	"sigs.k8s.io/kueue/pkg/util/testing"
 )
 
@@ -41,38 +25,6 @@ type StatefulSetWrapper struct {
 }
 
 // MakeStatefulSet creates a wrapper for a StatefulSet with a single container.
-func MakeStatefulSet(name, ns string) *StatefulSetWrapper {
-	podLabels := map[string]string{
-		"app": fmt.Sprintf("%s-pod", name),
-	}
-	return &StatefulSetWrapper{appsv1.StatefulSet{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:        name,
-			Namespace:   ns,
-			Annotations: make(map[string]string, 1),
-		},
-		Spec: appsv1.StatefulSetSpec{
-			Selector: &metav1.LabelSelector{
-				MatchLabels: podLabels,
-			},
-			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: podLabels,
-				},
-				Spec: corev1.PodSpec{
-					Containers: []corev1.Container{
-						{
-							Name:      "c",
-							Image:     "pause",
-							Resources: corev1.ResourceRequirements{Requests: corev1.ResourceList{}},
-						},
-					},
-					NodeSelector: map[string]string{},
-				},
-			},
-		},
-	}}
-}
 
 // Obj returns the inner StatefulSet.
 func (ss *StatefulSetWrapper) Obj() *appsv1.StatefulSet {
@@ -150,7 +102,7 @@ func (ss *StatefulSetWrapper) PodTemplateSpecQueue(q string) *StatefulSetWrapper
 }
 
 func (ss *StatefulSetWrapper) PodTemplateManagedByKueue() *StatefulSetWrapper {
-	return ss.PodTemplateSpecLabel(constants.ManagedByKueueLabelKey, constants.ManagedByKueueLabelValue)
+	return ss.PodTemplateSpecLabel(over_constants.ManagedByKueueLabelKey, over_constants.ManagedByKueueLabelValue)
 }
 
 func (ss *StatefulSetWrapper) Replicas(r int32) *StatefulSetWrapper {

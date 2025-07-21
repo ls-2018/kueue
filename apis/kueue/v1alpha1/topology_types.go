@@ -93,8 +93,7 @@ type TopologySpec struct {
 
 // TopologyLevel defines the desired state of TopologyLevel
 type TopologyLevel struct {
-	// nodeLabel indicates the name of the node label for a specific topology
-	// level.
+	// “nodeLabel”表示特定拓扑级别下节点标签的名称。
 	//
 	// Examples:
 	// - cloud.provider.com/topology-block

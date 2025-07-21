@@ -1,19 +1,3 @@
-/*
-Copyright The Kubernetes Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package cache
 
 import (
@@ -590,17 +574,6 @@ func (c *clusterQueue) deleteLocalQueue(q *kueue.LocalQueue) {
 	delete(c.localQueues, qKey)
 }
 
-func (c *clusterQueue) flavorInUse(flavor kueue.ResourceFlavorReference) bool {
-	for _, rg := range c.ResourceGroups {
-		for _, fName := range rg.Flavors {
-			if flavor == fName {
-				return true
-			}
-		}
-	}
-	return false
-}
-
 func (q *LocalQueue) resetFlavorsAndResources(cqUsage resources.FlavorResourceQuantities, cqAdmittedUsage resources.FlavorResourceQuantities) {
 	// Clean up removed flavors or resources.
 	q.Lock()
@@ -654,4 +627,15 @@ func (c *clusterQueue) flavorsForAdmissionCheck(ac kueue.AdmissionCheckReference
 		}
 	}
 	return flvs
+}
+
+func (c *clusterQueue) flavorInUse(flavor kueue.ResourceFlavorReference) bool {
+	for _, rg := range c.ResourceGroups {
+		for _, fName := range rg.Flavors {
+			if flavor == fName {
+				return true
+			}
+		}
+	}
+	return false
 }

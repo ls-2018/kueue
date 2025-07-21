@@ -1,19 +1,3 @@
-/*
-Copyright The Kubernetes Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package leaderworkerset
 
 import (
@@ -32,9 +16,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 	leaderworkersetv1 "sigs.k8s.io/lws/api/leaderworkerset/v1"
 
-	"sigs.k8s.io/kueue/pkg/controller/constants"
 	"sigs.k8s.io/kueue/pkg/controller/jobframework"
-	podconstants "sigs.k8s.io/kueue/pkg/controller/jobs/pod/constants"
+	podconstants "sigs.k8s.io/kueue/pkg/controller/jobs/pod/over_constants"
+	"sigs.k8s.io/kueue/pkg/controller/over_constants"
 	"sigs.k8s.io/kueue/pkg/queue"
 )
 
@@ -60,7 +44,7 @@ func SetupWebhook(mgr ctrl.Manager, opts ...jobframework.Option) error {
 		Complete()
 }
 
-// +kubebuilder:webhook:path=/mutate-leaderworkerset-x-k8s-io-v1-leaderworkerset,mutating=true,failurePolicy=fail,sideEffects=None,groups="leaderworkerset.x-k8s.io",resources=leaderworkersets,verbs=create;update,versions=v1,name=mleaderworkerset.kb.io,admissionReviewVersions=v1
+// +kubebuilder:webhook:path=/mutate-leaderworkerset-x-k8s-io-v1-leaderworkerset,mutating=true,failurePolicy=fail,sideEffects=None,groups="leaderworkerset.x-k8s.io",resources=leaderworkersets,verbs=create;update,versions=v1,name=mleaderworkerset.kb.io,admissionReviewVersions=v1,timeoutSeconds=30
 
 var _ webhook.CustomDefaulter = &Webhook{}
 
@@ -89,7 +73,7 @@ func (wh *Webhook) podTemplateSpecDefault(lws *LeaderWorkerSet, podTemplateSpec 
 		if podTemplateSpec.Labels == nil {
 			podTemplateSpec.Labels = make(map[string]string, 1)
 		}
-		podTemplateSpec.Labels[constants.WorkloadPriorityClassLabel] = priorityClass
+		podTemplateSpec.Labels[over_constants.WorkloadPriorityClassLabel] = priorityClass
 	}
 
 	if podTemplateSpec.Annotations == nil {
@@ -99,13 +83,13 @@ func (wh *Webhook) podTemplateSpecDefault(lws *LeaderWorkerSet, podTemplateSpec 
 	podTemplateSpec.Annotations[podconstants.GroupServingAnnotationKey] = podconstants.GroupServingAnnotationValue
 }
 
-// +kubebuilder:webhook:path=/validate-leaderworkerset-x-k8s-io-v1-leaderworkerset,mutating=false,failurePolicy=fail,sideEffects=None,groups="leaderworkerset.x-k8s.io",resources=leaderworkersets,verbs=create;update,versions=v1,name=vleaderworkerset.kb.io,admissionReviewVersions=v1
+// +kubebuilder:webhook:path=/validate-leaderworkerset-x-k8s-io-v1-leaderworkerset,mutating=false,failurePolicy=fail,sideEffects=None,groups="leaderworkerset.x-k8s.io",resources=leaderworkersets,verbs=create;update,versions=v1,name=vleaderworkerset.kb.io,admissionReviewVersions=v1,timeoutSeconds=30
 
 var _ webhook.CustomValidator = &Webhook{}
 
 var (
 	labelsPath               = field.NewPath("metadata", "labels")
-	queueNameLabelPath       = labelsPath.Key(constants.QueueLabel)
+	queueNameLabelPath       = labelsPath.Key(over_constants.QueueLabel)
 	specPath                 = field.NewPath("spec")
 	leaderWorkerTemplatePath = specPath.Child("leaderWorkerTemplate")
 	leaderTemplatePath       = leaderWorkerTemplatePath.Child("leaderTemplate")

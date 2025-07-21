@@ -11,7 +11,9 @@ RUN go mod download
 COPY . .
 
 # Build the application
-RUN CGO_ENABLED=0 go build -o /kueueviz
+RUN --mount=type=cache,target=/root/.cache/go-build,id=go-build-cache \
+    --mount=type=cache,target=/root/.gopath,id=go-build-cache \
+    CGO_ENABLED=0 go build -o /kueueviz
 
 # Runtime stage
 FROM --platform=${BUILDPLATFORM} ${BASE_IMAGE}

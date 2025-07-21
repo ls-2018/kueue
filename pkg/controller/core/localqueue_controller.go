@@ -1,19 +1,3 @@
-/*
-Copyright The Kubernetes Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package core
 
 import (
@@ -44,10 +28,10 @@ import (
 	config "sigs.k8s.io/kueue/apis/config/v1beta1"
 	kueue "sigs.k8s.io/kueue/apis/kueue/v1beta1"
 	"sigs.k8s.io/kueue/pkg/cache"
-	"sigs.k8s.io/kueue/pkg/constants"
-	"sigs.k8s.io/kueue/pkg/controller/core/indexer"
+	"sigs.k8s.io/kueue/pkg/controller/core/over_indexer"
 	"sigs.k8s.io/kueue/pkg/features"
 	"sigs.k8s.io/kueue/pkg/metrics"
+	"sigs.k8s.io/kueue/pkg/over_constants"
 	"sigs.k8s.io/kueue/pkg/queue"
 	"sigs.k8s.io/kueue/pkg/util/resource"
 )
@@ -74,12 +58,6 @@ type LocalQueueReconcilerOption func(*LocalQueueReconcilerOptions)
 func WithAdmissionFairSharingConfig(cfg *config.AdmissionFairSharing) LocalQueueReconcilerOption {
 	return func(o *LocalQueueReconcilerOptions) {
 		o.admissionFSConfig = cfg
-	}
-}
-
-func WithClock(c clock.Clock) LocalQueueReconcilerOption {
-	return func(o *LocalQueueReconcilerOptions) {
-		o.clock = c
 	}
 }
 
@@ -356,7 +334,7 @@ func (h *qWorkloadHandler) Generic(_ context.Context, e event.GenericEvent, q wo
 			Namespace: w.Namespace,
 		},
 	}
-	q.AddAfter(req, constants.UpdatesBatchPeriod)
+	q.AddAfter(req, over_constants.UpdatesBatchPeriod)
 }
 
 // qCQHandler signals the controller to reconcile the Queue associated
@@ -406,7 +384,7 @@ func (h *qCQHandler) addLocalQueueToWorkQueue(ctx context.Context, cq *kueue.Clu
 	ctx = ctrl.LoggerInto(ctx, log)
 
 	var queues kueue.LocalQueueList
-	err := h.client.List(ctx, &queues, client.MatchingFields{indexer.QueueClusterQueueKey: cq.Name})
+	err := h.client.List(ctx, &queues, client.MatchingFields{over_indexer.QueueClusterQueueKey: cq.Name})
 	if err != nil {
 		log.Error(err, "Could not list queues that match the clusterQueue")
 		return

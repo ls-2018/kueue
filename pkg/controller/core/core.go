@@ -1,19 +1,3 @@
-/*
-Copyright The Kubernetes Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package core
 
 import (
@@ -23,8 +7,8 @@ import (
 
 	configapi "sigs.k8s.io/kueue/apis/config/v1beta1"
 	"sigs.k8s.io/kueue/pkg/cache"
-	"sigs.k8s.io/kueue/pkg/constants"
 	"sigs.k8s.io/kueue/pkg/features"
+	"sigs.k8s.io/kueue/pkg/over_constants"
 	"sigs.k8s.io/kueue/pkg/queue"
 )
 
@@ -83,7 +67,7 @@ func SetupControllers(mgr ctrl.Manager, qManager *queue.Manager, cc *cache.Cache
 	}
 
 	if err := NewWorkloadReconciler(mgr.GetClient(), qManager, cc,
-		mgr.GetEventRecorderFor(constants.WorkloadControllerName),
+		mgr.GetEventRecorderFor(over_constants.WorkloadControllerName),
 		WithWorkloadUpdateWatchers(qRec, cqRec),
 		WithWaitForPodsReady(waitForPodsReady(cfg.WaitForPodsReady)),
 		WithWorkloadRetention(workloadRetention(cfg.ObjectRetentionPolicies)),

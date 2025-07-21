@@ -21,13 +21,13 @@ controllerManager:
       # This should be set to 'IfNotPresent' for released version
       pullPolicy: Always
     podAnnotations: {}
-    resources:
-      limits:
-        cpu: "2"
-        memory: 512Mi
-      requests:
-        cpu: 500m
-        memory: 512Mi
+    #    resources:
+    #      limits:
+    #        cpu: "2"
+    #        memory: 512Mi
+    #      requests:
+    #        cpu: 500m
+    #        memory: 512Mi
     podSecurityContext:
       runAsNonRoot: true
       seccompProfile:
@@ -40,18 +40,18 @@ controllerManager:
           - ALL
   replicas: 1
   imagePullSecrets: []
-  readinessProbe:
-    initialDelaySeconds: 5
-    periodSeconds: 10
-    timeoutSeconds: 1
-    failureThreshold: 3
-    successThreshold: 1
-  livenessProbe:
-    initialDelaySeconds: 15
-    periodSeconds: 20
-    timeoutSeconds: 1
-    failureThreshold: 3
-    successThreshold: 1
+  #  readinessProbe:
+  #    initialDelaySeconds: 5
+  #    periodSeconds: 10
+  #    timeoutSeconds: 1
+  #    failureThreshold: 3
+  #    successThreshold: 1
+  #  livenessProbe:
+  #    initialDelaySeconds: 15
+  #    periodSeconds: 20
+  #    timeoutSeconds: 1
+  #    failureThreshold: 3
+  #    successThreshold: 1
   # -- ControllerManager's nodeSelector
   nodeSelector: {}
   # -- ControllerManager's tolerations

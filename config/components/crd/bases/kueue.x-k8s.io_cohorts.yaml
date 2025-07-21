@@ -131,15 +131,16 @@ spec:
                           name:
                             description: |-
                               name of this flavor. The name should match the .metadata.name of a
-                              ResourceFlavor. If a matching ResourceFlavor does not exist, the
-                              ClusterQueue will have an Active condition set to False.
+                              此 flavor 的名称。名称应与 ResourceFlavor 的 .metadata.name 匹配。
+                              如果不存在匹配的 ResourceFlavor，ClusterQueue 的 Active 条件将被设置为 False。
                             maxLength: 253
                             pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                             type: string
                           resources:
                             description: |-
                               resources is the list of quotas for this flavor per resource.
-                              There could be up to 16 resources.
+                              resources 是该 flavor 针对每种资源的配额列表。
+                              最多可有 16 种资源。
                             items:
                               properties:
                                 borrowingLimit:
@@ -150,12 +151,11 @@ spec:
                                     borrowingLimit is the maximum amount of quota for the [flavor, resource]
                                     combination that this ClusterQueue is allowed to borrow from the unused
                                     quota of other ClusterQueues in the same cohort.
-                                    In total, at a given time, Workloads in a ClusterQueue can consume a
-                                    quantity of quota equal to nominalQuota+borrowingLimit, assuming the other
-                                    ClusterQueues in the cohort have enough unused quota.
-                                    If null, it means that there is no borrowing limit.
-                                    If not null, it must be non-negative.
-                                    borrowingLimit must be null if spec.cohort is empty.
+                                    borrowingLimit 是该 ClusterQueue 可从同一 cohort 其他 ClusterQueue 未使用配额中借用的最大数量。
+                                    在任意时刻，ClusterQueue 中的工作负载最多可消耗 nominalQuota+borrowingLimit 的配额，前提是 cohort 中其他 ClusterQueue 有足够未用配额。
+                                    如果为 null，表示没有借用上限。
+                                    如果不为 null，必须为非负数。
+                                    如果 spec.cohort 为空，borrowingLimit 必须为 null。
                                   pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                   x-kubernetes-int-or-string: true
                                 lendingLimit:
@@ -165,17 +165,18 @@ spec:
                                   description: |-
                                     lendingLimit is the maximum amount of unused quota for the [flavor, resource]
                                     combination that this ClusterQueue can lend to other ClusterQueues in the same cohort.
-                                    In total, at a given time, ClusterQueue reserves for its exclusive use
-                                    a quantity of quota equals to nominalQuota - lendingLimit.
-                                    If null, it means that there is no lending limit, meaning that
-                                    all the nominalQuota can be borrowed by other clusterQueues in the cohort.
-                                    If not null, it must be non-negative.
-                                    lendingLimit must be null if spec.cohort is empty.
-                                    This field is in beta stage and is enabled by default.
+                                    lendingLimit 是该 ClusterQueue 可借给同一 cohort 其他 ClusterQueue 的未用配额的最大数量。
+                                    在任意时刻，ClusterQueue 为自身专用保留的配额为 nominalQuota - lendingLimit。
+                                    如果为 null，表示没有出借上限，即所有 nominalQuota 都可被 cohort 中其他 ClusterQueue 借用。
+                                    如果不为 null，必须为非负数。
+                                    如果 spec.cohort 为空，lendingLimit 必须为 null。
+                                    此字段为 beta 阶段，默认启用。
                                   pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                   x-kubernetes-int-or-string: true
                                 name:
-                                  description: name of this resource.
+                                  description: |-
+                                    name of this resource.
+                                    此资源的名称。
                                   type: string
                                 nominalQuota:
                                   anyOf:
@@ -184,16 +185,11 @@ spec:
                                   description: |-
                                     nominalQuota is the quantity of this resource that is available for
                                     Workloads admitted by this ClusterQueue at a point in time.
-                                    The nominalQuota must be non-negative.
-                                    nominalQuota should represent the resources in the cluster available for
-                                    running jobs (after discounting resources consumed by system components
-                                    and pods not managed by kueue). In an autoscaled cluster, nominalQuota
-                                    should account for resources that can be provided by a component such as
-                                    Kubernetes cluster-autoscaler.
+                                    nominalQuota 必须为非负数。
+                                    nominalQuota 应代表集群中可用于运行作业的资源（扣除系统组件和非 kueue 管理的 pod 所消耗的资源后）。
+                                    在自动扩缩容集群中，nominalQuota 应考虑如 Kubernetes cluster-autoscaler 等组件可提供的资源。
 
-                                    If the ClusterQueue belongs to a cohort, the sum of the quotas for each
-                                    (flavor, resource) combination defines the maximum quantity that can be
-                                    allocated by a ClusterQueue in the cohort.
+                                    如果 ClusterQueue 属于 cohort，则每个（flavor, resource）组合的配额总和定义了 cohort 中 ClusterQueue 可分配的最大数量。
                                   pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                   x-kubernetes-int-or-string: true
                               required:
