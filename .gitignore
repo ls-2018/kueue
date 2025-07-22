@@ -38,4 +38,5 @@ node_modules
 test/e2e/kueueviz/cypress/screenshots
 test/e2e/kueueviz/cypress/videos
 out/
-.devspace/logs
+.devspace/logs/
+vendor/

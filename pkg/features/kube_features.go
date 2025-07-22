@@ -164,12 +164,10 @@ func init() {
 // when adding or removing one entry.
 var defaultVersionedFeatureGates = map[featuregate.Feature]featuregate.VersionedSpecs{
 	PartialAdmission: {
-		{Version: version.MustParse("0.4"), Default: false, PreRelease: featuregate.Alpha},
 		{Version: version.MustParse("0.5"), Default: true, PreRelease: featuregate.Beta},
 	},
 	QueueVisibility: {
-		{Version: version.MustParse("0.5"), Default: false, PreRelease: featuregate.Alpha},
-		{Version: version.MustParse("0.9"), Default: false, PreRelease: featuregate.Deprecated},
+		{Version: version.MustParse("0.9"), Default: true, PreRelease: featuregate.Deprecated},
 	},
 	FlavorFungibility: {
 		{Version: version.MustParse("0.5"), Default: true, PreRelease: featuregate.Beta},
@@ -178,38 +176,30 @@ var defaultVersionedFeatureGates = map[featuregate.Feature]featuregate.Versioned
 		{Version: version.MustParse("0.5"), Default: true, PreRelease: featuregate.Beta},
 	},
 	VisibilityOnDemand: {
-		{Version: version.MustParse("0.6"), Default: false, PreRelease: featuregate.Alpha},
 		{Version: version.MustParse("0.9"), Default: true, PreRelease: featuregate.Beta},
 	},
 	PrioritySortingWithinCohort: {
 		{Version: version.MustParse("0.6"), Default: true, PreRelease: featuregate.Beta},
 	},
 	MultiKueue: {
-		{Version: version.MustParse("0.6"), Default: false, PreRelease: featuregate.Alpha},
 		{Version: version.MustParse("0.9"), Default: true, PreRelease: featuregate.Beta},
 	},
 	LendingLimit: {
-		{Version: version.MustParse("0.6"), Default: false, PreRelease: featuregate.Alpha},
 		{Version: version.MustParse("0.9"), Default: true, PreRelease: featuregate.Beta},
 	},
 	MultiKueueBatchJobWithManagedBy: {
-		{Version: version.MustParse("0.8"), Default: false, PreRelease: featuregate.Alpha},
+		{Version: version.MustParse("0.8"), Default: true, PreRelease: featuregate.Alpha},
 	},
 	MultiplePreemptions: {
-		{Version: version.MustParse("0.8"), Default: false, PreRelease: featuregate.Alpha},
-		{Version: version.MustParse("0.9"), Default: true, PreRelease: featuregate.Beta},
 		{Version: version.MustParse("0.10"), Default: true, PreRelease: featuregate.GA, LockToDefault: true}, // remove in 0.12
 	},
 	TopologyAwareScheduling: {
-		{Version: version.MustParse("0.9"), Default: false, PreRelease: featuregate.Alpha},
+		{Version: version.MustParse("0.9"), Default: true, PreRelease: featuregate.Alpha},
 	},
 	ConfigurableResourceTransformations: {
-		{Version: version.MustParse("0.9"), Default: false, PreRelease: featuregate.Alpha},
 		{Version: version.MustParse("0.10"), Default: true, PreRelease: featuregate.Beta},
 	},
 	WorkloadResourceRequestsSummary: {
-		{Version: version.MustParse("0.9"), Default: true, PreRelease: featuregate.Alpha},
-		{Version: version.MustParse("0.10"), Default: true, PreRelease: featuregate.Beta},
 		{Version: version.MustParse("0.11"), Default: true, PreRelease: featuregate.GA, LockToDefault: true}, // remove in 0.13
 	},
 	ExposeFlavorsInLocalQueue: {
@@ -219,11 +209,23 @@ var defaultVersionedFeatureGates = map[featuregate.Feature]featuregate.Versioned
 		{Version: version.MustParse("0.10"), Default: true, PreRelease: featuregate.Beta},
 	},
 	LocalQueueMetrics: {
-		{Version: version.MustParse("0.10"), Default: false, PreRelease: featuregate.Alpha},
+		{Version: version.MustParse("0.10"), Default: true, PreRelease: featuregate.Alpha},
 	},
 	LocalQueueDefaulting: {
-		{Version: version.MustParse("0.10"), Default: false, PreRelease: featuregate.Alpha},
 		{Version: version.MustParse("0.12"), Default: true, PreRelease: featuregate.Beta},
+	},
+
+	HierarchicalCohorts: {
+		{Version: version.MustParse("0.11"), Default: true, PreRelease: featuregate.Beta},
+	},
+	AdmissionFairSharing: {
+		{Version: version.MustParse("0.12"), Default: true, PreRelease: featuregate.Alpha},
+	},
+	ObjectRetentionPolicies: {
+		{Version: version.MustParse("0.12"), Default: true, PreRelease: featuregate.Alpha},
+	},
+	TASFailedNodeReplacement: {
+		{Version: version.MustParse("0.12"), Default: false, PreRelease: featuregate.Alpha},
 	},
 	TASProfileMostFreeCapacity: {
 		{Version: version.MustParse("0.11"), Default: false, PreRelease: featuregate.Deprecated},
@@ -232,19 +234,7 @@ var defaultVersionedFeatureGates = map[featuregate.Feature]featuregate.Versioned
 		{Version: version.MustParse("0.11"), Default: false, PreRelease: featuregate.Deprecated},
 	},
 	TASProfileMixed: {
-		{Version: version.MustParse("0.11"), Default: false, PreRelease: featuregate.Deprecated},
-	},
-	HierarchicalCohorts: {
-		{Version: version.MustParse("0.11"), Default: true, PreRelease: featuregate.Beta},
-	},
-	AdmissionFairSharing: {
-		{Version: version.MustParse("0.12"), Default: false, PreRelease: featuregate.Alpha},
-	},
-	ObjectRetentionPolicies: {
-		{Version: version.MustParse("0.12"), Default: false, PreRelease: featuregate.Alpha},
-	},
-	TASFailedNodeReplacement: {
-		{Version: version.MustParse("0.12"), Default: false, PreRelease: featuregate.Alpha},
+		{Version: version.MustParse("0.11"), Default: true, PreRelease: featuregate.Deprecated},
 	},
 }
 

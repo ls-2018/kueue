@@ -8783,7 +8783,7 @@ spec:
                 description: schedulingStats 跟踪调度统计信息
                 properties:
                   evictions:
-                    description: evictions 跟踪按原因和根本原因统计的驱逐。
+                    description: evictions 按原因和根本原因对驱逐事件的数据进行统计。
                     items:
                       properties:
                         count:

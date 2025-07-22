@@ -1,0 +1,59 @@
+apiVersion: kueue.x-k8s.io/v1beta1
+kind: ResourceFlavor
+metadata:
+  name: "default-flavor"
+---
+apiVersion: kueue.x-k8s.io/v1beta1
+kind: ResourceFlavor
+metadata:
+  name: "spot"
+spec:
+  nodeLabels:
+    instance-type: spot
+  tolerations:
+    - key: "spot-taint" ## The key of the node taint.
+      operator: "Exists"
+      effect: "NoSchedule" ## Supported effects are NoSchedule, NoExecute, and PreferNoSchedule.
+
+#      kubectl taint node koord-worker2 spot-taint:NoSchedule
+---
+apiVersion: kueue.x-k8s.io/v1beta1
+kind: ClusterQueue
+metadata:
+  name: "cluster-queue-2"
+spec:
+  namespaceSelector: { } # match all.
+  admissionChecksStrategy:
+    admissionChecks:
+      - name: "sample-prov"           # Name of the AdmissionCheck to be run
+        onFlavors: [ "default-flavor" ] # This AdmissionCheck will only run for Workloads that use default-flavor
+      - name: "sample-prov-2" # This AdmissionCheck will run for all Workloads regardless of a used ResourceFlavor
+---
+apiVersion: kueue.x-k8s.io/v1beta1
+kind: ClusterQueue
+metadata:
+  name: "cluster-queue"
+spec:
+  namespaceSelector: { } # match all.
+  resourceGroups:
+    - coveredResources: [ "cpu", ]
+      flavors:
+        - name: "default-flavor"
+          resources:
+            - name: "cpu"
+              nominalQuota: 9
+    - coveredResources: [ "memory" ]
+      flavors:
+        - name: "spot"
+          resources:
+            - name: "memory"
+              nominalQuota: 36Gi
+---
+apiVersion: kueue.x-k8s.io/v1beta1
+kind: LocalQueue
+metadata:
+  namespace: "default"
+  name: "user-queue"
+spec:
+  clusterQueue: "cluster-queue"
+

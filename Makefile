@@ -468,6 +468,7 @@ kind-ray-project-mini-image-build: ray-project-mini-image-build
 
 .PHONY: load-image
 load-image:
-	kind load docker-image -n koord $(IMAGE_TAG)
-	kind load docker-image -n koord $(IMAGE_TAG_KUEUEVIZ_BACKEND)
-	kind load docker-image -n koord $(IMAGE_TAG_KUEUEVIZ_FRONTEND)
+	kind load docker-image -n koord $(IMAGE_REPO):$(RELEASE_BRANCH)
+	kind load docker-image -n koord $(IMAGE_REGISTRY)/importer:$(RELEASE_BRANCH)
+	kind load docker-image -n koord $(IMAGE_REPO_KUEUEVIZ_BACKEND):$(RELEASE_BRANCH)
+	kind load docker-image -n koord $(IMAGE_REPO_KUEUEVIZ_FRONTEND):$(RELEASE_BRANCH)

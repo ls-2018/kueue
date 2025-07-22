@@ -81,10 +81,8 @@ type ResourceFlavorSpec struct {
 	// +kubebuilder:validation:XValidation:rule="self.all(x, !has(x.effect) || x.effect in ['NoSchedule', 'PreferNoSchedule', 'NoExecute'])", message="supported taint effect values: 'NoSchedule', 'PreferNoSchedule', 'NoExecute'"
 	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
 
-	// topologyName indicates topology for the TAS ResourceFlavor.
-	// When specified, it enables scraping of the topology information from the
-	// nodes matching to the Resource Flavor node labels.
-	//
+	// topologyName 指定了 TAS 资源类型所对应的拓扑结构。
+	// 若指定了该参数，则能够从与资源类型标签相匹配的节点中抓取拓扑信息。
 	// +optional
 	TopologyName *TopologyReference `json:"topologyName,omitempty"`
 }

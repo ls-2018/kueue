@@ -89,7 +89,7 @@ type Cache struct {
 
 	client              client.Client
 	assumedWorkloads    map[string]kueue.ClusterQueueReference
-	resourceFlavors     map[kueue.ResourceFlavorReference]*kueue.ResourceFlavor
+	resourceFlavors     map[kueue.ResourceFlavorReference]*kueue.ResourceFlavor // 集群 flavor 缓存
 	podsReadyTracking   bool
 	admissionChecks     map[kueue.AdmissionCheckReference]AdmissionCheck
 	workloadInfoOptions []workload.InfoOption

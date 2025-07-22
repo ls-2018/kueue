@@ -26,22 +26,21 @@ import (
 	"sigs.k8s.io/kueue/pkg/workload"
 )
 
+// Assignment 结构体用于保存分配结果，包括每个 PodSet 的分配信息、借用情况、上一次状态、资源使用情况等。
 type Assignment struct {
 	PodSets []PodSetAssignment
-	// Borrowing is the height of the smallest cohort tree that fits
-	// the additional Usage. It equals to 0 if no borrowing is required.
+	// Borrowing 表示适应额外使用量所需的最小 cohort 树的高度。如果不需要借用，则为 0。
 	Borrowing int
 	LastState workload.AssignmentClusterQueueState
 
-	// Usage is the accumulated Usage of resources as pod sets get
-	// flavors assigned.
+	// Usage 表示随着 pod sets 被分配 flavor 后的资源累计使用量。
 	Usage workload.Usage
 
-	// representativeMode is the cached representative mode for this assignment.
+	// representativeMode 是该分配的代表性分配模式的缓存。
 	representativeMode *FlavorAssignmentMode
 }
 
-// UpdateForTASResult updates the Assignment with the TAS result
+// UpdateForTASResult 用 TAS 结果更新 Assignment
 func (a *Assignment) UpdateForTASResult(result cache.TASAssignmentsResult) {
 	for psName, psResult := range result {
 		psAssignment := a.podSetAssignmentByName(psName)
@@ -53,7 +52,7 @@ func (a *Assignment) UpdateForTASResult(result cache.TASAssignmentsResult) {
 	a.Usage.TAS = a.ComputeTASNetUsage(nil)
 }
 
-// ComputeTASNetUsage computes the net TAS usage for the assignment
+// ComputeTASNetUsage 计算该分配的净 TAS 使用量
 func (a *Assignment) ComputeTASNetUsage(prevAdmission *kueue.Admission) workload.TASUsage {
 	result := make(workload.TASUsage)
 	for i, psa := range a.PodSets {
@@ -79,7 +78,7 @@ func (a *Assignment) ComputeTASNetUsage(prevAdmission *kueue.Admission) workload
 	return result
 }
 
-// Borrows return whether assignment requires borrowing.
+// Borrows 返回该分配是否需要借用。
 func (a *Assignment) Borrows() int {
 	return a.Borrowing
 }
@@ -91,11 +90,10 @@ func (a *Assignment) podSetAssignmentByName(psName kueue.PodSetReference) *PodSe
 	return nil
 }
 
-// RepresentativeMode calculates the representative mode for the assignment as
-// the worst assignment mode among all the pod sets.
+// RepresentativeMode 计算该分配的代表性分配模式，即所有 pod set 中最差的分配模式。
 func (a *Assignment) RepresentativeMode() FlavorAssignmentMode {
 	if len(a.PodSets) == 0 {
-		// No assignments calculated.
+		// 没有计算分配。
 		return NoFit
 	}
 	if a.representativeMode != nil {
@@ -140,12 +138,11 @@ func (a *Assignment) ToAPI() []kueue.PodSetAssignment {
 	return psFlavors
 }
 
-// TotalRequestsFor - returns the total quota needs of the wl, taking into account the potential
-// scaling needed in case of partial admission.
+// TotalRequestsFor - 返回该 workload 的总配额需求，考虑部分准入时的缩放。
 func (a *Assignment) TotalRequestsFor(wl *workload.Info) resources.FlavorResourceQuantities {
 	usage := make(resources.FlavorResourceQuantities)
 	for i, ps := range wl.TotalRequests {
-		// in case of partial admission scale down the quantity
+		// 如果是部分准入，则缩放数量
 		aps := a.PodSets[i]
 		if aps.Count != ps.Count {
 			ps = *ps.ScaledTo(aps.Count)
@@ -195,13 +192,10 @@ func (s *Status) Equal(o *Status) bool {
 	}))
 }
 
-// PodSetAssignment holds the assigned flavors and status messages for each of
-// the resources that the pod set requests. Each assigned flavor is accompanied
-// with an AssignmentMode.
-// Empty .Flavors can be interpreted as NoFit mode for all the resources.
-// Empty .Status can be interpreted as Fit mode for all the resources.
-// .Flavors and .Status can't be empty at the same time, once PodSetAssignment
-// is fully calculated.
+// PodSetAssignment 保存每个 pod set 的已分配 flavor 及每个资源的状态信息。每个分配的 flavor 都有一个 AssignmentMode。
+// 空的 .Flavors 可解释为所有资源的 NoFit 模式。
+// 空的 .Status 可解释为所有资源的 Fit 模式。
+// 一旦 PodSetAssignment 完全计算，.Flavors 和 .Status 不能同时为空。
 type PodSetAssignment struct {
 	Name     kueue.PodSetReference
 	Flavors  ResourceAssignment
@@ -213,8 +207,7 @@ type PodSetAssignment struct {
 	DelayedTopologyRequest *kueue.DelayedTopologyRequestState
 }
 
-// RepresentativeMode calculates the representative mode for this assignment as
-// the worst assignment mode among all assigned flavors.
+// RepresentativeMode 计算该分配的代表性分配模式，即所有已分配 flavor 中最差的模式。
 func (psa *PodSetAssignment) RepresentativeMode() FlavorAssignmentMode {
 	if psa.Status == nil {
 		return Fit
@@ -268,22 +261,17 @@ func (psa *PodSetAssignment) toAPI() kueue.PodSetAssignment {
 	}
 }
 
-// FlavorAssignmentMode describes whether the flavor can be assigned immediately
-// or what needs to happen, so it can be assigned.
+// FlavorAssignmentMode 描述 flavor 是否可以立即分配，或需要什么条件才能分配。
 type FlavorAssignmentMode int
 
-// The flavor assignment modes below are ordered from lowest to highest
-// preference.
+// 下面的 flavor 分配模式按优先级从低到高排序。
 const (
-	// NoFit means that there is not enough quota to assign this flavor,
-	// or we require preemption but we are already borrowing, and policy
-	// does not allow this.
+	// NoFit 表示没有足够的配额分配该 flavor，或需要抢占但已在借用，且策略不允许。
 	NoFit FlavorAssignmentMode = iota
-	// Preempt indicates that admission is possible given Quotas.
-	// Preemption may be impossible due to policy/limits/priorities.
+	// Preempt 表示根据配额可以准入。
+	// 但由于策略/限制/优先级，抢占可能不可行。
 	Preempt
-	// Fit means that there is enough unused quota to assign to this Flavor
-	// without preeemption, potentially with borrowing.
+	// Fit 表示有足够的未使用配额分配给该 flavor，无需抢占，可能需要借用。
 	Fit
 )
 
@@ -299,15 +287,12 @@ func (m FlavorAssignmentMode) String() string {
 	return "Unknown"
 }
 
-// granularMode is the FlavorAssignmentMode internal to
-// FlavorAssigner, which lets us distinguish priority based preemption,
-// and reclamation within Cohort.
+// granularMode 是 FlavorAssigner 的内部分配模式，用于区分基于优先级的抢占和 cohort 内的回收。
 type granularMode int
 
 const (
 	noFit granularMode = iota
-	// noPreemptionCandidates indicates that admission is possible with
-	// preemption, but simulation found no preemption targets.
+	// noPreemptionCandidates 表示可以通过抢占准入，但模拟未找到抢占目标。
 	noPreemptionCandidates
 	preempt
 	reclaim
@@ -343,11 +328,12 @@ func (mode granularMode) flavorAssignmentMode() FlavorAssignmentMode {
 	}
 }
 
-// isPreemptMode indicates a mode where preemption targets were found.
+// isPreemptMode 表示该模式下找到了抢占目标。
 func (mode granularMode) isPreemptMode() bool {
 	return mode == preempt || mode == reclaim
 }
 
+// FlavorAssignment 结构体保存 flavor 分配的详细信息。
 type FlavorAssignment struct {
 	Name           kueue.ResourceFlavorReference
 	Mode           FlavorAssignmentMode
@@ -367,6 +353,7 @@ type FlavorAssigner struct {
 	oracle            preemptionOracle
 }
 
+// New 创建一个 FlavorAssigner 实例。
 func New(wl *workload.Info, cq *cache.ClusterQueueSnapshot, resourceFlavors map[kueue.ResourceFlavorReference]*kueue.ResourceFlavor, enableFairSharing bool, oracle preemptionOracle) *FlavorAssigner {
 	return &FlavorAssigner{
 		wl:                wl,
@@ -377,26 +364,9 @@ func New(wl *workload.Info, cq *cache.ClusterQueueSnapshot, resourceFlavors map[
 	}
 }
 
+// lastAssignmentOutdated 判断上次分配是否已过时。
 func lastAssignmentOutdated(wl *workload.Info, cq *cache.ClusterQueueSnapshot) bool {
 	return cq.AllocatableResourceGeneration > wl.LastAssignment.ClusterQueueGeneration
-}
-
-// Assign assigns a flavor to each of the resources requested in each pod set.
-// The result for each pod set is accompanied with reasons why the flavor can't
-// be assigned immediately. Each assigned flavor is accompanied with a
-// FlavorAssignmentMode.
-func (a *FlavorAssigner) Assign(log logr.Logger, counts []int32) Assignment {
-	if a.wl.LastAssignment != nil && lastAssignmentOutdated(a.wl, a.cq) {
-		if logV := log.V(6); logV.Enabled() {
-			keysValues := []any{
-				"cq.AllocatableResourceGeneration", a.cq.AllocatableResourceGeneration,
-				"wl.LastAssignment.ClusterQueueGeneration", a.wl.LastAssignment.ClusterQueueGeneration,
-			}
-			logV.Info("Clearing Workload's last assignment because it was outdated", keysValues...)
-		}
-		a.wl.LastAssignment = nil
-	}
-	return a.assignFlavors(log, counts)
 }
 
 func (a *FlavorAssigner) assignFlavors(log logr.Logger, counts []int32) Assignment {
@@ -433,8 +403,7 @@ func (a *FlavorAssigner) assignFlavors(log logr.Logger, counts []int32) Assignme
 		}
 
 		if features.Enabled(features.TopologyAwareScheduling) {
-			// Respect preexisting assignments. The PodSet assignments may be
-			// already set if this is the second pass of scheduler.
+			//当工作负载被分配时，会进行相应的填充操作。   尊重现有的分配设置。 如果这是调度器的第二次运行，则 PodSet 分配可能已经设置好。
 			for resName, fName := range podSet.Flavors {
 				psAssignment.Flavors[resName] = &FlavorAssignment{
 					Name: fName,
@@ -451,8 +420,7 @@ func (a *FlavorAssigner) assignFlavors(log logr.Logger, counts []int32) Assignme
 
 		for resName := range podSet.Requests {
 			if _, found := psAssignment.Flavors[resName]; found {
-				// This resource got assigned the same flavor as its resource group.
-				// No need to compute again.
+				// 此资源被赋予了与其资源组相同的属性。因此无需再次进行计算。
 				continue
 			}
 			flavors, status := a.findFlavorForPodSetResource(log, i, podSet.Requests, resName, assignment.Usage.Quota)
@@ -478,25 +446,24 @@ func (a *FlavorAssigner) assignFlavors(log logr.Logger, counts []int32) Assignme
 		if assignment.RepresentativeMode() == Fit {
 			result := a.cq.FindTopologyAssignmentsForWorkload(tasRequests, false, a.wl.Obj)
 			if failure := result.Failure(); failure != nil {
-				// There is at least one PodSet which does not fit
+				// 至少有一个 PodSet 不满足
 				psAssignment := assignment.podSetAssignmentByName(failure.PodSetName)
 				psAssignment.reason(failure.Reason)
-				// update the mode for all flavors and the representative mode
+				// 更新所有 flavor 和代表性模式的分配模式
 				psAssignment.updateMode(Preempt)
 				assignment.representativeMode = ptr.To(Preempt)
 			} else {
-				// All PodSets fit, we just update the TopologyAssignments
+				// 所有 PodSets 都满足，我们只更新 TopologyAssignments
 				assignment.UpdateForTASResult(result)
 			}
 		}
 		if assignment.RepresentativeMode() == Preempt && !workload.HasNodeToReplace(a.wl.Obj) {
-			// Don't preempt other workloads if looking for a failed node replacement
+			// 如果正在寻找失败节点替换，则不抢占其他 workload
 			result := a.cq.FindTopologyAssignmentsForWorkload(tasRequests, true, nil)
 			if failure := result.Failure(); failure != nil {
-				// There is at least one PodSet which does not fit even if
-				// all workloads are preempted.
+				// 即使所有 workload 都抢占，至少有一个 PodSet 也不满足
 				psAssignment := assignment.podSetAssignmentByName(failure.PodSetName)
-				// update the mode for all flavors and the representative mode
+				// 更新所有 flavor 和代表性模式的分配模式
 				psAssignment.updateMode(NoFit)
 				assignment.representativeMode = ptr.To(NoFit)
 			}
@@ -530,11 +497,9 @@ func (a *Assignment) append(requests resources.Requests, psAssignment *PodSetAss
 	a.LastState.LastTriedFlavorIdx = append(a.LastState.LastTriedFlavorIdx, flavorIdx)
 }
 
-// findFlavorForPodSetResource finds the flavor which can satisfy the podSet request
-// for all resources in the same group as resName.
-// Returns the chosen flavor, along with the information about resources that need to be borrowed.
-// If the flavor cannot be immediately assigned, it returns a status with
-// reasons or failure.
+// findFlavorForPodSetResource 查找能满足 podSet 请求的 flavor，适用于 resName 所在的资源组的所有资源。
+// 返回选择的 flavor 及需要借用的资源信息。
+// 如果 flavor 不能立即分配，则返回包含原因或失败信息的 status。
 func (a *FlavorAssigner) findFlavorForPodSetResource(
 	log logr.Logger,
 	psID int,
@@ -550,15 +515,15 @@ func (a *FlavorAssigner) findFlavorForPodSetResource(
 	}
 
 	status := &Status{}
-	requests = filterRequestedResources(requests, resourceGroup.CoveredResources)
+	requests = filterRequestedResources(requests, resourceGroup.CoveredResources) // 处理在 CoveredResources 中存在的资源
 	ps := &a.wl.Obj.Spec.PodSets[psID]
 	podSpec := &ps.Template.Spec
 
 	var bestAssignment ResourceAssignment
 	bestAssignmentMode := noFit
 
-	// We will only check against the flavors' labels for the resource.
-	selector := flavorSelector(podSpec, resourceGroup.LabelKeys)
+	// 只检查资源的 flavor 标签。
+	selector := flavorSelector(podSpec, resourceGroup.LabelKeys) // rg下flavor的 NodeLabels key
 	attemptedFlavorIdx := -1
 	idx := a.wl.LastAssignment.NextFlavorToTryForPodSetResource(psID, resName)
 	for ; idx < len(resourceGroup.Flavors); idx++ {
@@ -571,6 +536,7 @@ func (a *FlavorAssigner) findFlavorForPodSetResource(
 			continue
 		}
 		if features.Enabled(features.TopologyAwareScheduling) {
+			// 检查podSet的拓扑 与 flavor 的拓扑是否一致
 			if message := checkPodSetAndFlavorMatchForTAS(a.cq, ps, flavor); message != nil {
 				log.Error(nil, *message)
 				status.appendf("%s", *message)
@@ -594,11 +560,11 @@ func (a *FlavorAssigner) findFlavorForPodSetResource(
 		}
 		needsBorrowing := false
 		assignments := make(ResourceAssignment, len(requests))
-		// Calculate representativeMode for this assignment as the worst mode among all requests.
+		// 计算该分配的代表性模式，即所有请求中最差的模式。
 		representativeMode := fit
 		for rName, val := range requests {
 			resQuota := a.cq.QuotaFor(resources.FlavorResource{Flavor: fName, Resource: rName})
-			// Check considering the flavor usage by previous pod sets.
+			// 考虑前面 pod set 的 flavor 使用量。
 			fr := resources.FlavorResource{Flavor: fName, Resource: rName}
 			mode, borrow, s := a.fitsResourceQuota(log, fr, val+assignmentUsage[fr], resQuota)
 			if s != nil {
@@ -609,7 +575,7 @@ func (a *FlavorAssigner) findFlavorForPodSetResource(
 			}
 			needsBorrowing = needsBorrowing || (borrow > 0)
 			if representativeMode == noFit {
-				// The flavor doesn't fit, no need to check other resources.
+				// 该 flavor 不适合，无需检查其他资源。
 				break
 			}
 
@@ -634,7 +600,7 @@ func (a *FlavorAssigner) findFlavorForPodSetResource(
 			bestAssignment = assignments
 			bestAssignmentMode = representativeMode
 			if bestAssignmentMode == fit {
-				// All the resources fit in the cohort, no need to check more flavors.
+				// 所有资源都适合该 cohort，无需检查更多 flavor。
 				return bestAssignment, nil
 			}
 		}
@@ -643,7 +609,7 @@ func (a *FlavorAssigner) findFlavorForPodSetResource(
 	if features.Enabled(features.FlavorFungibility) {
 		for _, assignment := range bestAssignment {
 			if attemptedFlavorIdx == len(resourceGroup.Flavors)-1 {
-				// we have reach the last flavor, try from the first flavor next time
+				// 已到最后一个 flavor，下次从第一个 flavor 开始尝试
 				assignment.TriedFlavorIdx = -1
 			} else {
 				assignment.TriedFlavorIdx = attemptedFlavorIdx
@@ -656,6 +622,7 @@ func (a *FlavorAssigner) findFlavorForPodSetResource(
 	return bestAssignment, status
 }
 
+// shouldTryNextFlavor 判断是否应尝试下一个 flavor。
 func shouldTryNextFlavor(representativeMode granularMode, flavorFungibility kueue.FlavorFungibility, needsBorrowing bool) bool {
 	policyPreempt := flavorFungibility.WhenCanPreempt
 	policyBorrow := flavorFungibility.WhenCanBorrow
@@ -676,58 +643,10 @@ func shouldTryNextFlavor(representativeMode granularMode, flavorFungibility kueu
 	return true
 }
 
-func flavorSelector(spec *corev1.PodSpec, allowedKeys sets.Set[string]) nodeaffinity.RequiredNodeAffinity {
-	// This function generally replicates the implementation of kube-scheduler's NodeAffinity
-	// Filter plugin as of v1.24.
-	var specCopy corev1.PodSpec
-
-	// Remove affinity constraints with irrelevant keys.
-	if len(spec.NodeSelector) != 0 {
-		specCopy.NodeSelector = map[string]string{}
-		for k, v := range spec.NodeSelector {
-			if allowedKeys.Has(k) {
-				specCopy.NodeSelector[k] = v
-			}
-		}
-	}
-
-	affinity := spec.Affinity
-	if affinity != nil && affinity.NodeAffinity != nil && affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution != nil {
-		var termsCopy []corev1.NodeSelectorTerm
-		for _, t := range affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms {
-			var expCopy []corev1.NodeSelectorRequirement
-			for _, e := range t.MatchExpressions {
-				if allowedKeys.Has(e.Key) {
-					expCopy = append(expCopy, e)
-				}
-			}
-			// If a term becomes empty, it means node affinity matches any flavor since those terms are ORed,
-			// and so matching gets reduced to spec.NodeSelector
-			if len(expCopy) == 0 {
-				termsCopy = nil
-				break
-			}
-			termsCopy = append(termsCopy, corev1.NodeSelectorTerm{MatchExpressions: expCopy})
-		}
-		if len(termsCopy) != 0 {
-			specCopy.Affinity = &corev1.Affinity{
-				NodeAffinity: &corev1.NodeAffinity{
-					RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
-						NodeSelectorTerms: termsCopy,
-					},
-				},
-			}
-		}
-	}
-	return nodeaffinity.GetRequiredNodeAffinity(&corev1.Pod{Spec: specCopy})
-}
-
-// fitsResourceQuota returns how this flavor could be assigned to the resource,
-// according to the remaining quota in the ClusterQueue and cohort.
-// If it fits, also returns if borrowing required. Similarly, it returns information
-// if borrowing is required when preempting.
-// If the flavor doesn't satisfy limits immediately (when waiting or preemption
-// could help), it returns a Status with reasons.
+// fitsResourceQuota 返回该 flavor 是否可以分配给资源，
+// 依据 ClusterQueue 和 cohort 中剩余配额。
+// 如果适合，还会返回是否需要借用。同样，在抢占时也会返回是否需要借用的信息。
+// 如果 flavor 不能立即满足限制（等待或抢占可能有帮助），则返回包含原因的 Status。
 func (a *FlavorAssigner) fitsResourceQuota(log logr.Logger, fr resources.FlavorResource, val int64, rQuota cache.ResourceQuota) (granularMode, int, *Status) {
 	var status Status
 
@@ -758,11 +677,13 @@ func (a *FlavorAssigner) fitsResourceQuota(log logr.Logger, fr resources.FlavorR
 	return noFit, borrow, &status
 }
 
+// canPreemptWhileBorrowing 判断在借用时是否可以抢占。
 func (a *FlavorAssigner) canPreemptWhileBorrowing() bool {
 	return (a.cq.Preemption.BorrowWithinCohort != nil && a.cq.Preemption.BorrowWithinCohort.Policy != kueue.BorrowWithinCohortPolicyNever) ||
 		(a.enableFairSharing && a.cq.Preemption.ReclaimWithinCohort != kueue.PreemptionPolicyNever)
 }
 
+// filterRequestedResources 过滤请求资源，仅保留 allowList 中的资源。
 func filterRequestedResources(req resources.Requests, allowList sets.Set[corev1.ResourceName]) resources.Requests {
 	filtered := make(resources.Requests)
 	for n, v := range req {
@@ -771,4 +692,67 @@ func filterRequestedResources(req resources.Requests, allowList sets.Set[corev1.
 		}
 	}
 	return filtered
+}
+
+// Assign 为每个 pod set 请求的每个资源分配 flavor。
+// 每个 pod set 的结果都包含 flavor 不能立即分配的原因。
+// 每个分配的 flavor 都有一个 FlavorAssignmentMode。
+func (a *FlavorAssigner) Assign(log logr.Logger, counts []int32) Assignment {
+	if a.wl.LastAssignment != nil && lastAssignmentOutdated(a.wl, a.cq) {
+		if logV := log.V(6); logV.Enabled() {
+			keysValues := []any{
+				"cq.AllocatableResourceGeneration", a.cq.AllocatableResourceGeneration,
+				"wl.LastAssignment.ClusterQueueGeneration", a.wl.LastAssignment.ClusterQueueGeneration,
+			}
+			logV.Info("Clearing Workload's last assignment because it was outdated", keysValues...)
+		}
+		a.wl.LastAssignment = nil
+	}
+	return a.assignFlavors(log, counts)
+}
+
+// flavorSelector 生成 flavor 的节点亲和性选择器。
+func flavorSelector(spec *corev1.PodSpec, allowedKeys sets.Set[string]) nodeaffinity.RequiredNodeAffinity {
+	// 此函数大致复刻了 kube-scheduler v1.24 的 NodeAffinity Filter 插件实现。
+	var specCopy corev1.PodSpec
+
+	// 移除与无关 key 相关的亲和性约束。
+	if len(spec.NodeSelector) != 0 {
+		specCopy.NodeSelector = map[string]string{} // pod 上写的 NodeSelector 与flavor 的 NodeSelector   取交集 ✅
+		for k, v := range spec.NodeSelector {
+			if allowedKeys.Has(k) { //  // rg下flavor的 NodeLabels key
+				specCopy.NodeSelector[k] = v
+			}
+		}
+	}
+	// 节点亲和性 的NodeSelector 也使用 flavor 的NodeSelector
+	affinity := spec.Affinity
+	if affinity != nil && affinity.NodeAffinity != nil && affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution != nil {
+		var termsCopy []corev1.NodeSelectorTerm
+		for _, t := range affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms {
+			var expCopy []corev1.NodeSelectorRequirement
+			for _, e := range t.MatchExpressions {
+				if allowedKeys.Has(e.Key) {
+					expCopy = append(expCopy, e)
+				}
+			}
+			// 如果 term 变为空，则表示节点亲和性匹配任意 flavor，因为这些 term 是 OR 关系，
+			// 匹配将退化为 spec.NodeSelector
+			if len(expCopy) == 0 {
+				termsCopy = nil
+				break
+			}
+			termsCopy = append(termsCopy, corev1.NodeSelectorTerm{MatchExpressions: expCopy})
+		}
+		if len(termsCopy) != 0 {
+			specCopy.Affinity = &corev1.Affinity{
+				NodeAffinity: &corev1.NodeAffinity{
+					RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
+						NodeSelectorTerms: termsCopy,
+					},
+				},
+			}
+		}
+	}
+	return nodeaffinity.GetRequiredNodeAffinity(&corev1.Pod{Spec: specCopy})
 }

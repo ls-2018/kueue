@@ -122,20 +122,6 @@ func (s *AssignmentClusterQueueState) PendingFlavors() bool {
 	return false
 }
 
-func (s *AssignmentClusterQueueState) NextFlavorToTryForPodSetResource(ps int, res corev1.ResourceName) int {
-	if !features.Enabled(features.FlavorFungibility) {
-		return 0
-	}
-	if s == nil || ps >= len(s.LastTriedFlavorIdx) {
-		return 0
-	}
-	idx, ok := s.LastTriedFlavorIdx[ps][res]
-	if !ok {
-		return 0
-	}
-	return idx + 1
-}
-
 // Info holds a Workload object and some pre-processing.
 type Info struct {
 	Obj *kueue.Workload
@@ -148,21 +134,12 @@ type Info struct {
 }
 
 type PodSetResources struct {
-	// Name is the name of the PodSet.
-	Name kueue.PodSetReference
-	// Requests incorporates the requests from all pods in the podset.
-	Requests resources.Requests
-	// Count indicates how many pods are in the podset.
-	Count int32
-
-	// TopologyRequest specifies the requests for TAS
-	TopologyRequest *TopologyRequest
-
-	// DelayedTopologyRequest indicates the state of the delayed TopologyRequest
+	Name                   kueue.PodSetReference
+	Requests               resources.Requests //总资源   pod * count
+	Count                  int32
+	TopologyRequest        *TopologyRequest
 	DelayedTopologyRequest *kueue.DelayedTopologyRequestState
-
-	// Flavors are populated when the Workload is assigned.
-	Flavors map[corev1.ResourceName]kueue.ResourceFlavorReference
+	Flavors                map[corev1.ResourceName]kueue.ResourceFlavorReference // 当工作负载被分配时，这些区域就会被填满。
 }
 
 func (p *PodSetResources) SinglePodRequests() resources.Requests {
@@ -183,25 +160,6 @@ type TopologyDomainRequests struct {
 
 func (t *TopologyDomainRequests) TotalRequests() resources.Requests {
 	return t.SinglePodRequests.ScaledUp(int64(t.Count))
-}
-
-func (p *PodSetResources) ScaledTo(newCount int32) *PodSetResources {
-	if p.TopologyRequest != nil {
-		return p
-	}
-	ret := &PodSetResources{
-		Name:     p.Name,
-		Requests: maps.Clone(p.Requests),
-		Count:    p.Count,
-		Flavors:  maps.Clone(p.Flavors),
-	}
-
-	if p.Count != 0 && p.Count != newCount {
-		ret.Requests.Divide(int64(ret.Count))
-		ret.Requests.Mul(int64(newCount))
-		ret.Count = newCount
-	}
-	return ret
 }
 
 func (i *Info) Update(wl *kueue.Workload) {
@@ -1028,4 +986,39 @@ func totalRequestsFromAdmission(wl *kueue.Workload) []PodSetResources {
 		res = append(res, setRes)
 	}
 	return res
+}
+
+// ScaledTo 按份数调整资源   副本数调整
+func (p *PodSetResources) ScaledTo(newCount int32) *PodSetResources {
+	if p.TopologyRequest != nil {
+		return p
+	}
+	ret := &PodSetResources{
+		Name:     p.Name,
+		Requests: maps.Clone(p.Requests),
+		Count:    p.Count,
+		Flavors:  maps.Clone(p.Flavors),
+	}
+
+	if p.Count != 0 && p.Count != newCount {
+		ret.Requests.Divide(int64(ret.Count))
+		ret.Requests.Mul(int64(newCount))
+		ret.Count = newCount
+	}
+	return ret
+}
+
+// NextFlavorToTryForPodSetResource 下一个要尝试的用于 PodSet 资源的 flavor
+func (s *AssignmentClusterQueueState) NextFlavorToTryForPodSetResource(ps int, res corev1.ResourceName) int {
+	if !features.Enabled(features.FlavorFungibility) {
+		return 0
+	}
+	if s == nil || ps >= len(s.LastTriedFlavorIdx) {
+		return 0
+	}
+	idx, ok := s.LastTriedFlavorIdx[ps][res]
+	if !ok {
+		return 0
+	}
+	return idx + 1
 }

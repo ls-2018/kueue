@@ -44,7 +44,7 @@ def get_parser():
 
 def generate_job_crd(job_name, image, command, args):
     """
-    Generate an equivalent job CRD to sample-job.yaml
+    Generate an equivalent job CRD to sample-2、job.yaml
     """
     metadata = client.V1ObjectMeta(
         name=job_name, labels={"kueue.x-k8s.io/queue-name": "user-queue"}

@@ -300,38 +300,6 @@ func (c *clusterQueue) UpdateWithFlavors(log logr.Logger, flavors map[kueue.Reso
 	c.updateQueueStatus(log)
 }
 
-func (c *clusterQueue) updateLabelKeys(flavors map[kueue.ResourceFlavorReference]*kueue.ResourceFlavor) {
-	c.missingFlavors = nil
-	c.tasFlavors = nil
-	for i := range c.ResourceGroups {
-		rg := &c.ResourceGroups[i]
-		if len(rg.Flavors) == 0 {
-			rg.LabelKeys = nil
-			continue
-		}
-		keys := sets.New[string]()
-		for _, fName := range rg.Flavors {
-			if flv, exist := flavors[fName]; exist {
-				for k := range flv.Spec.NodeLabels {
-					keys.Insert(k)
-				}
-				if flv.Spec.TopologyName != nil {
-					if c.tasFlavors == nil {
-						c.tasFlavors = make(map[kueue.ResourceFlavorReference]kueue.TopologyReference, 1)
-					}
-					c.tasFlavors[fName] = *flv.Spec.TopologyName
-				}
-			} else {
-				c.missingFlavors = append(c.missingFlavors, fName)
-			}
-		}
-
-		if keys.Len() > 0 {
-			rg.LabelKeys = keys
-		}
-	}
-}
-
 // updateWithAdmissionChecks updates a ClusterQueue based on the passed AdmissionChecks set.
 func (c *clusterQueue) updateWithAdmissionChecks(log logr.Logger, checks map[kueue.AdmissionCheckReference]AdmissionCheck) {
 	checksPerController := make(map[string][]kueue.AdmissionCheckReference, len(c.AdmissionChecks))
@@ -600,17 +568,6 @@ func (c *clusterQueue) fairWeight() *resource.Quantity {
 	return &c.FairWeight
 }
 
-func (c *clusterQueue) isTASOnly() bool {
-	for _, rg := range c.ResourceGroups {
-		for _, fName := range rg.Flavors {
-			if _, found := c.tasFlavors[fName]; !found {
-				return false
-			}
-		}
-	}
-	return true
-}
-
 func (c *clusterQueue) flavorsWithProvReqAdmissionCheck() sets.Set[kueue.ResourceFlavorReference] {
 	flvs := sets.New[kueue.ResourceFlavorReference]()
 	for _, ac := range c.provisioningAdmissionChecks {
@@ -638,4 +595,46 @@ func (c *clusterQueue) flavorInUse(flavor kueue.ResourceFlavorReference) bool {
 		}
 	}
 	return false
+}
+
+func (c *clusterQueue) updateLabelKeys(flavors map[kueue.ResourceFlavorReference]*kueue.ResourceFlavor) {
+	c.missingFlavors = nil
+	c.tasFlavors = nil
+	for i := range c.ResourceGroups {
+		rg := &c.ResourceGroups[i]
+		if len(rg.Flavors) == 0 {
+			rg.LabelKeys = nil
+			continue
+		}
+		keys := sets.New[string]()
+		for _, fName := range rg.Flavors {
+			if flv, exist := flavors[fName]; exist { // cq.rg.flavor 存在
+				for k := range flv.Spec.NodeLabels {
+					keys.Insert(k)
+				}
+				if flv.Spec.TopologyName != nil {
+					if c.tasFlavors == nil {
+						c.tasFlavors = make(map[kueue.ResourceFlavorReference]kueue.TopologyReference, 1)
+					}
+					c.tasFlavors[fName] = *flv.Spec.TopologyName
+				}
+			} else {
+				c.missingFlavors = append(c.missingFlavors, fName)
+			}
+		}
+
+		if keys.Len() > 0 {
+			rg.LabelKeys = keys
+		}
+	}
+}
+func (c *clusterQueue) isTASOnly() bool {
+	for _, rg := range c.ResourceGroups {
+		for _, fName := range rg.Flavors {
+			if _, found := c.tasFlavors[fName]; !found {
+				return false
+			}
+		}
+	}
+	return true
 }

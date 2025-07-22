@@ -109,6 +109,7 @@ func main() {
 		setupLog.Error(err, "Unable to load the configuration")
 		os.Exit(1)
 	}
+	options.LeaderElection = false
 
 	if err := over_config.ValidateFeatureGates(featureGates, cfg.FeatureGates); err != nil {
 		setupLog.Error(err, "conflicting feature gates detected")

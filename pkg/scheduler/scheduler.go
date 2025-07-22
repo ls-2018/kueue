@@ -401,13 +401,6 @@ type partialAssignment struct {
 	preemptionTargets []*preemption.Target      // 部分调度对应的抢占目标列表
 }
 
-func (s *Scheduler) getAssignments(log logr.Logger, wl *workload.Info, snap *cache.Snapshot) (flavorassigner.Assignment, []*preemption.Target) {
-	assignment, targets := s.getInitialAssignments(log, wl, snap)
-	cq := snap.ClusterQueue(wl.ClusterQueue)
-	updateAssignmentForTAS(cq, wl, &assignment, targets)
-	return assignment, targets
-}
-
 func (s *Scheduler) getInitialAssignments(log logr.Logger, wl *workload.Info, snap *cache.Snapshot) (flavorassigner.Assignment, []*preemption.Target) {
 	cq := snap.ClusterQueue(wl.ClusterQueue)                                                                                       // 获取当前工作负载对应的 ClusterQueue 快照
 	flvAssigner := flavorassigner.New(wl, cq, snap.ResourceFlavors, s.fairSharing.Enable, preemption.NewOracle(s.preemptor, snap)) // 创建资源分配器
@@ -469,9 +462,6 @@ func updateAssignmentForTAS(cq *cache.ClusterQueueSnapshot, wl *workload.Info, a
 	}
 }
 
-// admit sets the admitting clusterQueue and flavors into the workload of
-// the entry, and asynchronously updates the object in the apiserver after
-// assuming it in the cache.
 // admit 将调度的 clusterQueue 和资源类型写入 entry 的工作负载，并在缓存中假定后，异步更新 apiserver 中的对象。
 func (s *Scheduler) admit(ctx context.Context, e *entry, cq *cache.ClusterQueueSnapshot) error {
 	log := ctrl.LoggerFrom(ctx)     // 获取日志对象
@@ -661,4 +651,10 @@ func (s *Scheduler) requeueAndUpdate(ctx context.Context, e entry) {
 		}
 		s.recorder.Eventf(e.Obj, corev1.EventTypeWarning, "Pending", api.TruncateEventMessage(e.inadmissibleMsg)) // 发送 Pending 事件
 	}
+}
+func (s *Scheduler) getAssignments(log logr.Logger, wl *workload.Info, snap *cache.Snapshot) (flavorassigner.Assignment, []*preemption.Target) {
+	assignment, targets := s.getInitialAssignments(log, wl, snap)
+	cq := snap.ClusterQueue(wl.ClusterQueue)
+	updateAssignmentForTAS(cq, wl, &assignment, targets)
+	return assignment, targets
 }

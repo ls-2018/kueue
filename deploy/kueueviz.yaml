@@ -1,0 +1,196 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/component: dashboard
+    app.kubernetes.io/name: kueue
+  name: kueue-kueueviz-backend-read-access
+  namespace: system
+rules:
+- apiGroups:
+  - kueue.x-k8s.io
+  resources:
+  - workloads
+  - clusterqueues
+  - localqueues
+  - resourceflavors
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  - events
+  - nodes
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - kueue.x-k8s.io
+  resources:
+  - workloadpriorityclass
+  verbs:
+  - get
+  - list
+  - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    app.kubernetes.io/component: dashboard
+    app.kubernetes.io/name: kueue
+  name: kueue-kueueviz-backend-read-access-binding
+  namespace: system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kueue-kueueviz-backend-read-access
+subjects:
+- kind: ServiceAccount
+  name: default
+  namespace: kueue-system
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/component: dashboard
+    app.kubernetes.io/name: kueue
+  name: kueue-kueueviz-backend
+  namespace: kueue-system
+spec:
+  ports:
+  - port: 8080
+    targetPort: 8080
+  selector:
+    app: kueueviz-backend
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/component: dashboard
+    app.kubernetes.io/name: kueue
+  name: kueue-kueueviz-frontend
+  namespace: kueue-system
+spec:
+  ports:
+  - port: 8080
+    targetPort: 8080
+  selector:
+    app: kueueviz-frontend
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/component: dashboard
+    app.kubernetes.io/name: kueue
+  name: kueue-kueueviz-backend
+  namespace: kueue-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kueueviz-backend
+  template:
+    metadata:
+      labels:
+        app: kueueviz-backend
+    spec:
+      containers:
+      - image: us-central1-docker.pkg.dev/k8s-staging-images/kueue/kueueviz-backend:release-0.12
+        imagePullPolicy: IfNotPresent
+        name: backend
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/component: dashboard
+    app.kubernetes.io/name: kueue
+  name: kueue-kueueviz-frontend
+  namespace: kueue-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kueueviz-frontend
+  template:
+    metadata:
+      labels:
+        app: kueueviz-frontend
+    spec:
+      containers:
+      - env:
+        - name: REACT_APP_WEBSOCKET_URL
+          value: ws://kueueviz-frontend:31256
+        image: us-central1-docker.pkg.dev/k8s-staging-images/kueue/kueueviz-frontend:release-0.12
+        imagePullPolicy: IfNotPresent
+        name: frontend
+        ports:
+        - containerPort: 8080
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+  labels:
+    app.kubernetes.io/component: dashboard
+    app.kubernetes.io/name: kueue
+  name: kueue-kueueviz-backend-ingress
+  namespace: kueue-system
+spec:
+  rules:
+  - host: backend.kueueviz.local
+    http:
+      paths:
+      - backend:
+          service:
+            name: kueue-kueueviz-backend
+            port:
+              number: 8080
+        path: /
+        pathType: Prefix
+  tls:
+  - hosts:
+    - backend.kueueviz.local
+    secretName: kueueviz-tls-secret
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+  labels:
+    app.kubernetes.io/component: dashboard
+    app.kubernetes.io/name: kueue
+  name: kueue-kueueviz-frontend-ingress
+  namespace: kueue-system
+spec:
+  rules:
+  - host: frontend.kueueviz.local
+    http:
+      paths:
+      - backend:
+          service:
+            name: kueue-kueueviz-frontend
+            port:
+              number: 8080
+        path: /
+        pathType: Prefix
+  tls:
+  - hosts:
+    - frontend.kueueviz.local
+    secretName: kueueviz-tls-secret
