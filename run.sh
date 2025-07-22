@@ -2,6 +2,7 @@ kind delete cluster -n koord
 kind create cluster --config ./kind.yaml -n koord --kubeconfig ~/.kube/kind-koord --image registry.cn-hangzhou.aliyuncs.com/acejilam/node:v1.30.3
 
 kubectl taint node koord-worker2 spot-taint:NoSchedule
+kubectl taint node koord-worker3 spot-taint:NoSchedule
 
 docker pull registry.cn-hangzhou.aliyuncs.com/ls-2018/mygo:v1.24.1
 kind load docker-image -n koord registry.cn-hangzhou.aliyuncs.com/ls-2018/mygo:v1.24.1

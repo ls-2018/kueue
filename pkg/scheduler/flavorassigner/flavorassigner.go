@@ -523,7 +523,7 @@ func (a *FlavorAssigner) findFlavorForPodSetResource(
 	bestAssignmentMode := noFit
 
 	// 只检查资源的 flavor 标签。
-	selector := flavorSelector(podSpec, resourceGroup.LabelKeys) // rg下flavor的 NodeLabels key
+	selector := flavorSelector(podSpec, resourceGroup.LabelKeys) // rg下所有 flavor的 NodeLabels key
 	attemptedFlavorIdx := -1
 	idx := a.wl.LastAssignment.NextFlavorToTryForPodSetResource(psID, resName)
 	for ; idx < len(resourceGroup.Flavors); idx++ {
@@ -543,6 +543,7 @@ func (a *FlavorAssigner) findFlavorForPodSetResource(
 				continue
 			}
 		}
+		// pod 的容忍度、flavor 的容忍度   是否可以忽略   污点
 		taint, untolerated := corev1helpers.FindMatchingUntoleratedTaint(flavor.Spec.NodeTaints, append(podSpec.Tolerations, flavor.Spec.Tolerations...), func(t *corev1.Taint) bool {
 			return t.Effect == corev1.TaintEffectNoSchedule || t.Effect == corev1.TaintEffectNoExecute
 		})
@@ -550,6 +551,7 @@ func (a *FlavorAssigner) findFlavorForPodSetResource(
 			status.appendf("untolerated taint %s in flavor %s", taint, fName)
 			continue
 		}
+		//    flavor1 k1=v1 ,flavor2 k2=v2       selector k1     flavor2
 		if match, err := selector.Match(&corev1.Node{ObjectMeta: metav1.ObjectMeta{Labels: flavor.Spec.NodeLabels}}); !match || err != nil {
 			if err != nil {
 				status.err = err
@@ -573,7 +575,7 @@ func (a *FlavorAssigner) findFlavorForPodSetResource(
 			if mode < representativeMode {
 				representativeMode = mode
 			}
-			needsBorrowing = needsBorrowing || (borrow > 0)
+			needsBorrowing = needsBorrowing || (borrow > 0) // 借用
 			if representativeMode == noFit {
 				// 该 flavor 不适合，无需检查其他资源。
 				break

@@ -11,3 +11,8 @@ nodes:
   - role: worker
     labels:
       instance-type: spot
+      zone: a
+  - role: worker
+    labels:
+      instance-type: spot
+      zone: b
