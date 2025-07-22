@@ -553,6 +553,7 @@ func (a *FlavorAssigner) findFlavorForPodSetResource(
 		}
 		//    flavor1 k1=v1 ,flavor2 k2=v2       selector k1     flavor2
 		if match, err := selector.Match(&corev1.Node{ObjectMeta: metav1.ObjectMeta{Labels: flavor.Spec.NodeLabels}}); !match || err != nil {
+			//之所有有这个选项，是因为可以借其他flavor 的资源使用；  所有他也要满足其他flavor 的 nodelabel
 			if err != nil {
 				status.err = err
 				return nil, status
