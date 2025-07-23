@@ -36,12 +36,14 @@ func (t *tasCache) Get(name kueue.ResourceFlavorReference) *TASFlavorCache {
 }
 
 // Clone returns a shallow copy of the map
+// Clone 返回该 map 的浅拷贝。
 func (t *tasCache) Clone() map[kueue.ResourceFlavorReference]*TASFlavorCache {
 	t.RLock()
 	defer t.RUnlock()
 	return maps.Clone(t.flavorCache)
 }
 
+// AddFlavor 添加资源 flavor。
 func (t *tasCache) AddFlavor(flavor *kueue.ResourceFlavor) {
 	t.Lock()
 	defer t.Unlock()
@@ -59,6 +61,7 @@ func (t *tasCache) AddFlavor(flavor *kueue.ResourceFlavor) {
 	}
 }
 
+// AddTopology 添加拓扑。
 func (t *tasCache) AddTopology(topology *kueuealpha.Topology) {
 	t.Lock()
 	defer t.Unlock()
@@ -76,6 +79,7 @@ func (t *tasCache) AddTopology(topology *kueuealpha.Topology) {
 	}
 }
 
+// DeleteFlavor 删除资源 flavor。
 func (t *tasCache) DeleteFlavor(name kueue.ResourceFlavorReference) {
 	t.Lock()
 	defer t.Unlock()
@@ -83,6 +87,7 @@ func (t *tasCache) DeleteFlavor(name kueue.ResourceFlavorReference) {
 	delete(t.flavorCache, name)
 }
 
+// DeleteTopology 删除拓扑。
 func (t *tasCache) DeleteTopology(name kueue.TopologyReference) {
 	t.Lock()
 	defer t.Unlock()

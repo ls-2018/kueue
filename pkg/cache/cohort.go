@@ -10,14 +10,12 @@ import (
 	"sigs.k8s.io/kueue/pkg/hierarchy"
 )
 
-// cohort is a set of ClusterQueues that can borrow resources from each other.
+// cohort 是一组可以相互借用资源的 ClusterQueue。
 type cohort struct {
 	Name kueue.CohortReference
 	hierarchy.Cohort[*clusterQueue, *cohort]
-
-	resourceNode resourceNode
-
-	FairWeight resource.Quantity
+	resourceNode ResourceNode
+	FairWeight   resource.Quantity
 }
 
 func newCohort(name kueue.CohortReference) *cohort {
@@ -52,7 +50,7 @@ func (c *cohort) getRootUnsafe() *cohort {
 
 // implement flatResourceNode/hierarchicalResourceNode interfaces
 
-func (c *cohort) getResourceNode() resourceNode {
+func (c *cohort) getResourceNode() ResourceNode {
 	return c.resourceNode
 }
 

@@ -9,11 +9,9 @@ import (
 )
 
 type CohortSnapshot struct {
-	Name kueue.CohortReference
-
-	ResourceNode resourceNode
+	Name         kueue.CohortReference
+	ResourceNode ResourceNode
 	hierarchy.Cohort[*ClusterQueueSnapshot, *CohortSnapshot]
-
 	FairWeight resource.Quantity
 }
 
@@ -23,6 +21,7 @@ func (c *CohortSnapshot) GetName() kueue.CohortReference {
 
 // Root returns the root of the Cohort Tree. It expects that no cycles
 // exist in the Cohort graph.
+// Root 返回 Cohort 树的根节点，假设 Cohort 图中不存在环。
 func (c *CohortSnapshot) Root() *CohortSnapshot {
 	if !c.HasParent() {
 		return c
@@ -33,6 +32,7 @@ func (c *CohortSnapshot) Root() *CohortSnapshot {
 // SubtreeClusterQueues returns all of the ClusterQueues in the
 // subtree starting at the given Cohort. It expects that no cycles
 // exist in the Cohort graph.
+// SubtreeClusterQueues 返回以当前 Cohort 为根的子树中的所有 ClusterQueue，假设 Cohort 图中不存在环。
 func (c *CohortSnapshot) SubtreeClusterQueues() []*ClusterQueueSnapshot {
 	return c.subtreeClusterQueuesHelper(make([]*ClusterQueueSnapshot, 0, c.subtreeClusterQueueCount()))
 }
@@ -60,7 +60,7 @@ func (c *CohortSnapshot) DominantResourceShare() int {
 
 // implement flatResourceNode/hierarchicalResourceNode interfaces
 
-func (c *CohortSnapshot) getResourceNode() resourceNode {
+func (c *CohortSnapshot) getResourceNode() ResourceNode {
 	return c.ResourceNode
 }
 

@@ -9,6 +9,9 @@ import (
 	"sigs.k8s.io/kueue/pkg/resources"
 )
 
+// LocalQueue 结构体用于描述本地队列。
+// GetAdmittedUsage 获取已接收的资源使用量。
+// updateAdmittedUsage 更新已接收的资源使用量。
 type LocalQueue struct {
 	sync.RWMutex
 	key                queue.LocalQueueReference

@@ -379,7 +379,7 @@ func (a *FlavorAssigner) assignFlavors(log logr.Logger, counts []int32) Assignme
 			requests[i] = *a.wl.TotalRequests[i].ScaledTo(counts[i])
 		}
 	}
-	assignment := Assignment{
+	assignment := Assignment{ // 转让的资源
 		PodSets: make([]PodSetAssignment, 0, len(requests)),
 		Usage: workload.Usage{
 			Quota: make(resources.FlavorResourceQuantities),
@@ -565,7 +565,7 @@ func (a *FlavorAssigner) findFlavorForPodSetResource(
 		assignments := make(ResourceAssignment, len(requests))
 		// 计算该分配的代表性模式，即所有请求中最差的模式。
 		representativeMode := fit
-		for rName, val := range requests {
+		for rName, val := range requests { // 判断这个flavor 是否满足资源需求
 			resQuota := a.cq.QuotaFor(resources.FlavorResource{Flavor: fName, Resource: rName})
 			// 考虑前面 pod set 的 flavor 使用量。
 			fr := resources.FlavorResource{Flavor: fName, Resource: rName}

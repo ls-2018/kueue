@@ -1,3 +1,11 @@
+apiVersion: kueue.x-k8s.io/v1alpha1
+kind: Topology
+metadata:
+  name: "zone-tp"
+spec:
+  levels:
+    - nodeLabel: zone
+---
 apiVersion: kueue.x-k8s.io/v1beta1
 kind: ResourceFlavor
 metadata:
@@ -15,15 +23,14 @@ spec:
       operator: "Exists"
       effect: "NoSchedule" ## Supported effects are NoSchedule, NoExecute, and PreferNoSchedule.
   nodeTaints:
-  topologyName: zone
-
-#      kubectl taint node koord-worker2 spot-taint:NoSchedule
+  topologyName: zone-tp
 ---
 apiVersion: kueue.x-k8s.io/v1beta1
 kind: ClusterQueue
 metadata:
   name: "cluster-queue-2"
 spec:
+  cohort: ai-for-humanity-foundation
   namespaceSelector: { } # match all.
   admissionChecksStrategy:
     admissionChecks:
@@ -36,22 +43,41 @@ kind: ClusterQueue
 metadata:
   name: "cluster-queue"
 spec:
+  cohort: ai-for-humanity-foundation
   namespaceSelector: { } # match all.
+  preemption:
+    borrowWithinCohort:
+      policy: LowerPriority
+    withinClusterQueue: LowerPriority
+    reclaimWithinCohort: Any # Any、Never if the pending Workload fits within the nominal quota of its ClusterQueue, preempt any Workload in the cohort, irrespective of priority.
+  flavorFungibility:
+    whenCanBorrow: Borrow  # this is the default but I'm making it explicit here
+    whenCanPreempt: Preempt  # ensures that accelerators aren't hit with compute workloads
   resourceGroups:
-    - coveredResources: [ "cpu", "memory"]
+    - coveredResources: [ "cpu", "memory" ]
       flavors:
         - name: "default-flavor"
           resources:
             - name: "cpu"
               nominalQuota: 6
+              borrowingLimit: 1    # 超出1
+              lendingLimit: 1      # 至多借出1
             - name: "memory"
-              nominalQuota: "6Gi"
-    - coveredResources: [ "memory" ]
+              nominalQuota: 6Gi
+              borrowingLimit: 1Gi    # 超出1
+              lendingLimit: 1Gi     # 至多借出1
+        - name: "spot"
+          resources:
+            - name: "cpu"
+              nominalQuota: 6
+            - name: "memory"
+              nominalQuota: 6Gi
+    - coveredResources: [ "gpu" ]
       flavors:
         - name: "spot"
           resources:
-            - name: "memory"
-              nominalQuota: "6Gi"
+            - name: "gpu"
+              nominalQuota: 1Gi
 ---
 apiVersion: kueue.x-k8s.io/v1beta1
 kind: LocalQueue

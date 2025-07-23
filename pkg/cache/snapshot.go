@@ -25,6 +25,7 @@ type Snapshot struct {
 
 // RemoveWorkload removes a workload from its corresponding ClusterQueue and
 // updates resource usage.
+// RemoveWorkload 从对应的 ClusterQueue 移除 workload 并更新资源使用量。
 func (s *Snapshot) RemoveWorkload(wl *workload.Info) {
 	cq := s.ClusterQueue(wl.ClusterQueue)
 	delete(cq.Workloads, workload.Key(wl.Obj))
@@ -33,12 +34,14 @@ func (s *Snapshot) RemoveWorkload(wl *workload.Info) {
 
 // AddWorkload adds a workload from its corresponding ClusterQueue and
 // updates resource usage.
+// AddWorkload 将 workload 添加到对应的 ClusterQueue 并更新资源使用量。
 func (s *Snapshot) AddWorkload(wl *workload.Info) {
 	cq := s.ClusterQueue(wl.ClusterQueue)
 	cq.Workloads[workload.Key(wl.Obj)] = wl
 	cq.AddUsage(wl.Usage())
 }
 
+// Log 打印快照信息。
 func (s *Snapshot) Log(log logr.Logger) {
 	for name, cq := range s.ClusterQueues() {
 		cohortName := "<none>"
@@ -85,6 +88,7 @@ func (s *Snapshot) Log(log logr.Logger) {
 	}
 }
 
+// Snapshot 生成当前缓存的快照。
 func (c *Cache) Snapshot(ctx context.Context) (*Snapshot, error) {
 	c.RLock()
 	defer c.RUnlock()
@@ -139,8 +143,7 @@ func (c *Cache) Snapshot(ctx context.Context) (*Snapshot, error) {
 	return &snap, nil
 }
 
-// snapshotClusterQueue creates a copy of ClusterQueue that includes
-// references to immutable objects and deep copies of changing ones.
+// snapshotClusterQueue 创建 ClusterQueue 的快照副本。
 func snapshotClusterQueue(c *clusterQueue) *ClusterQueueSnapshot {
 	cc := &ClusterQueueSnapshot{
 		Name:                          c.Name,
@@ -164,6 +167,7 @@ func snapshotClusterQueue(c *clusterQueue) *ClusterQueueSnapshot {
 	return cc
 }
 
+// newCohortSnapshot 创建新的 CohortSnapshot。
 func newCohortSnapshot(name kueue.CohortReference) *CohortSnapshot {
 	return &CohortSnapshot{
 		Name:   name,

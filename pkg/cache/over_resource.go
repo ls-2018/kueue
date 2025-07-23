@@ -13,9 +13,8 @@ import (
 type ResourceGroup struct {
 	CoveredResources sets.Set[corev1.ResourceName]
 	Flavors          []kueue.ResourceFlavorReference
-	// The set of key labels from all flavors.
-	// Those keys define the affinity terms of a workload
-	// that can be matched against the flavors.
+	// 所有 flavor 的 key label 集合。
+	// 这些 key 定义了 workload 的亲和性条件，可用于与 flavor 匹配。
 	LabelKeys sets.Set[string]
 }
 
@@ -27,10 +26,10 @@ func (rg *ResourceGroup) Clone() ResourceGroup {
 	}
 }
 
-type ResourceQuota struct {
-	Nominal        int64
-	BorrowingLimit *int64
-	LendingLimit   *int64
+type ResourceQuota struct { // 分类为 cq 的资源; cohort 可以使用的资源
+	Nominal        int64  // 规定的大小
+	BorrowingLimit *int64 // 可以借别人多大
+	LendingLimit   *int64 // 出借 的 大小
 }
 
 func createResourceQuotas(kueueRgs []kueue.ResourceGroup) map[resources.FlavorResource]ResourceQuota {

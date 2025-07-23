@@ -27,10 +27,6 @@ func (c *Cohort[CQ, C]) ChildCQs() []CQ {
 	return c.childCqs.UnsortedList()
 }
 
-func (c *Cohort[CQ, C]) ChildCohorts() []C {
-	return c.childCohorts.UnsortedList()
-}
-
 // ChildCount returns number of Cohorts + ClusterQueues.
 func (c *Cohort[CQ, C]) ChildCount() int {
 	return c.childCohorts.Len() + c.childCqs.Len()
@@ -74,4 +70,7 @@ func (c *Cohort[CQ, C]) markExplicit() {
 }
 func (c *Cohort[CQ, C]) deleteClusterQueue(cq CQ) {
 	c.childCqs.Delete(cq)
+}
+func (c *Cohort[CQ, C]) ChildCohorts() []C {
+	return c.childCohorts.UnsortedList()
 }

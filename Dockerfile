@@ -1,6 +1,6 @@
 # defaulted ARGs need to be declared first
 ARG BUILDER_IMAGE=golang:1.24
-ARG BASE_IMAGE=gcr.io/distroless/static:nonroot
+ARG BASE_IMAGE=registry.cn-hangzhou.aliyuncs.com/ls-2018/static:nonroot
 # compilation stage for the manager binary
 FROM --platform=${BUILDPLATFORM} ${BUILDER_IMAGE} AS builder
 WORKDIR /workspace

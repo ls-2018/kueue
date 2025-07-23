@@ -4,9 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	utilindexer "sigs.k8s.io/kueue/pkg/controller/core/over_indexer"
 	"sort"
 	"sync"
+
+	utilindexer "sigs.k8s.io/kueue/pkg/controller/core/over_indexer"
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
@@ -50,11 +51,13 @@ type options struct {
 }
 
 // Option configures the reconciler.
+// Option 配置 reconciler。
 type Option func(*options)
 
 // WithPodsReadyTracking indicates the cache controller tracks the PodsReady
 // condition for admitted workloads, and allows to block admission of new
 // workloads until all admitted workloads are in the PodsReady condition.
+// WithPodsReadyTracking 表示 cache 控制器会跟踪已接收 workloads 的 PodsReady 状态，并允许在所有已接收 workloads 处于 PodsReady 状态前阻止新 workloads 的接收。
 func WithPodsReadyTracking(f bool) Option {
 	return func(o *options) {
 		o.podsReadyTracking = f
@@ -68,6 +71,7 @@ func WithExcludedResourcePrefixes(excludedPrefixes []string) Option {
 }
 
 // WithResourceTransformations sets the resource transformations.
+// WithResourceTransformations 设置资源转换。
 func WithResourceTransformations(transforms []config.ResourceTransformation) Option {
 	return func(o *options) {
 		o.workloadInfoOptions = append(o.workloadInfoOptions, workload.WithResourceTransformations(transforms))
@@ -83,6 +87,7 @@ func WithFairSharing(enabled bool) Option {
 var defaultOptions = options{}
 
 // Cache keeps track of the Workloads that got admitted through ClusterQueues.
+// Cache 跟踪通过 ClusterQueues 接收的 Workloads。
 type Cache struct {
 	sync.RWMutex
 	podsReadyCond sync.Cond
@@ -145,6 +150,7 @@ func (c *Cache) newClusterQueue(log logr.Logger, cq *kueue.ClusterQueue) (*clust
 
 // WaitForPodsReady waits for all admitted workloads to be in the PodsReady condition
 // if podsReadyTracking is enabled, otherwise returns immediately.
+// WaitForPodsReady 等待所有已接收 workloads 进入 PodsReady 状态（如果启用了 podsReadyTracking），否则立即返回。
 func (c *Cache) WaitForPodsReady(ctx context.Context) {
 	if !c.podsReadyTracking {
 		return
@@ -193,6 +199,7 @@ func (c *Cache) podsReadyForAllAdmittedWorkloads(log logr.Logger) bool {
 // CleanUpOnContext tracks the context. When closed, it wakes routines waiting
 // on the podsReady condition. It should be called before doing any calls to
 // cache.WaitForPodsReady.
+// CleanUpOnContext 跟踪 context。当 context 关闭时，唤醒等待 podsReady 条件的协程。应在调用 cache.WaitForPodsReady 前调用。
 func (c *Cache) CleanUpOnContext(ctx context.Context) {
 	<-ctx.Done()
 	c.Lock()
@@ -297,6 +304,8 @@ func (c *Cache) TerminateClusterQueue(name kueue.ClusterQueueReference) {
 // ClusterQueueEmpty indicates whether there's any active workload admitted by
 // the provided clusterQueue.
 // Return true if the clusterQueue doesn't exist.
+// ClusterQueueEmpty 表示指定 clusterQueue 是否有活跃的已接收 workload。
+// 如果 clusterQueue 不存在则返回 true。
 func (c *Cache) ClusterQueueEmpty(name kueue.ClusterQueueReference) bool {
 	c.RLock()
 	defer c.RUnlock()
@@ -545,6 +554,8 @@ type ClusterQueueUsageStats struct {
 }
 
 // Usage reports the reserved and admitted resources and number of workloads holding them in the ClusterQueue.
+// Usage 报告 ClusterQueue 中已保留和已接收资源及其持有的 workload 数量。
+// Usage reports the reserved and admitted resources and number of workloads holding them in the ClusterQueue.
 func (c *Cache) Usage(cqObj *kueue.ClusterQueue) (*ClusterQueueUsageStats, error) {
 	c.RLock()
 	defer c.RUnlock()
@@ -594,6 +605,7 @@ func (c *Cache) CohortStats(cohortObj *kueuealpha.Cohort) (*CohortUsageStats, er
 // ClusterQueueAncestors returns all ancestors (Cohorts), excluding the root,
 // for a given ClusterQueue. If the ClusterQueue contains a Cohort cycle, it
 // returns ErrCohortHasCycle.
+// ClusterQueueAncestors 返回指定 ClusterQueue 的所有祖先 Cohort（不包括根节点）。如果存在 Cohort 环则返回 ErrCohortHasCycle。
 func (c *Cache) ClusterQueueAncestors(cqObj *kueue.ClusterQueue) ([]kueue.CohortReference, error) {
 	c.RLock()
 	defer c.RUnlock()
@@ -819,6 +831,7 @@ func (c *Cache) MatchingClusterQueues(nsLabels map[string]string) sets.Set[kueue
 }
 
 // Key is the key used to index the queue.
+// Key 是用于索引队列的 key。
 func queueKey(q *kueue.LocalQueue) queue.LocalQueueReference {
 	return queue.NewLocalQueueReference(q.Namespace, kueue.LocalQueueName(q.Name))
 }

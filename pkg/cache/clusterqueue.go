@@ -34,6 +34,7 @@ var (
 
 // clusterQueue is the internal implementation of kueue.clusterQueue that
 // holds admitted workloads.
+// clusterQueue 是 kueue.clusterQueue 的内部实现，保存已接收的 workloads。
 type clusterQueue struct {
 	Name              kueue.ClusterQueueReference
 	ResourceGroups    []ResourceGroup
@@ -46,13 +47,16 @@ type clusterQueue struct {
 	// Aggregates AdmissionChecks from both .spec.AdmissionChecks and .spec.AdmissionCheckStrategy
 	// Sets hold ResourceFlavors to which an AdmissionCheck should apply.
 	// In case its empty, it means an AdmissionCheck should apply to all ResourceFlavor
-	AdmissionChecks map[kueue.AdmissionCheckReference]sets.Set[kueue.ResourceFlavorReference]
-	Status          metrics.ClusterQueueStatus
+	// AdmissionChecks 聚合自 .spec.AdmissionChecks 和 .spec.AdmissionCheckStrategy
+	// Sets 保存 AdmissionCheck 应该应用的 ResourceFlavors。
+	// 如果为空，表示 AdmissionCheck 应该应用于所有 ResourceFlavor。
 	// AllocatableResourceGeneration will be increased when some admitted workloads are
 	// deleted, or the resource groups are changed.
-	AllocatableResourceGeneration int64
-
-	AdmittedUsage resources.FlavorResourceQuantities
+	// 当某些已接收的 workloads 被删除或资源组发生变化时，AllocatableResourceGeneration 会增加。
+	AdmissionChecks               map[kueue.AdmissionCheckReference]sets.Set[kueue.ResourceFlavorReference]
+	Status                        metrics.ClusterQueueStatus
+	AllocatableResourceGeneration int64 // 当删除某些已确认的工作负载或更改资源组时，将会增加。
+	AdmittedUsage                 resources.FlavorResourceQuantities
 	// localQueues by (namespace/name).
 	localQueues                        map[queue.LocalQueueReference]*LocalQueue
 	podsReadyTracking                  bool
@@ -67,7 +71,7 @@ type clusterQueue struct {
 	isStopped                          bool
 	workloadInfoOptions                []workload.InfoOption
 
-	resourceNode resourceNode
+	resourceNode ResourceNode
 	hierarchy.ClusterQueue[*cohort]
 
 	tasCache *tasCache
@@ -80,8 +84,8 @@ func (c *clusterQueue) GetName() kueue.ClusterQueueReference {
 }
 
 // implement flatResourceNode/hierarchicalResourceNode interfaces
-
-func (c *clusterQueue) getResourceNode() resourceNode {
+// 实现 flatResourceNode/hierarchicalResourceNode 接口
+func (c *clusterQueue) getResourceNode() ResourceNode {
 	return c.resourceNode
 }
 
@@ -154,22 +158,10 @@ func (c *clusterQueue) updateClusterQueue(log logr.Logger, in *kueue.ClusterQueu
 	return nil
 }
 
-func createdResourceGroups(kueueRgs []kueue.ResourceGroup) []ResourceGroup {
-	rgs := make([]ResourceGroup, len(kueueRgs))
-	for i, kueueRg := range kueueRgs {
-		rgs[i] = ResourceGroup{
-			CoveredResources: sets.New(kueueRg.CoveredResources...),
-			Flavors:          make([]kueue.ResourceFlavorReference, 0, len(kueueRg.Flavors)),
-		}
-		for _, fIn := range kueueRg.Flavors {
-			rgs[i].Flavors = append(rgs[i].Flavors, fIn.Name)
-		}
-	}
-	return rgs
-}
-
 // updateQuotasAndResourceGroups updates Quotas and ResourceGroups.
 // It returns true if any changes were made.
+// updateQuotasAndResourceGroups 更新 Quotas 和 ResourceGroups。
+// 如果有任何更改则返回 true。
 func (c *clusterQueue) updateQuotasAndResourceGroups(in []kueue.ResourceGroup) bool {
 	oldRG := c.ResourceGroups
 	oldQuotas := c.resourceNode.Quotas
@@ -295,12 +287,15 @@ func (c *clusterQueue) isTASViolated() bool {
 
 // UpdateWithFlavors updates a ClusterQueue based on the passed ResourceFlavors set.
 // Exported only for testing.
+// UpdateWithFlavors 根据传入的 ResourceFlavors 集合更新 ClusterQueue。
+// 仅用于测试导出。
 func (c *clusterQueue) UpdateWithFlavors(log logr.Logger, flavors map[kueue.ResourceFlavorReference]*kueue.ResourceFlavor) {
 	c.updateLabelKeys(flavors)
 	c.updateQueueStatus(log)
 }
 
 // updateWithAdmissionChecks updates a ClusterQueue based on the passed AdmissionChecks set.
+// updateWithAdmissionChecks 根据传入的 AdmissionChecks 集合更新 ClusterQueue。
 func (c *clusterQueue) updateWithAdmissionChecks(log logr.Logger, checks map[kueue.AdmissionCheckReference]AdmissionCheck) {
 	checksPerController := make(map[string][]kueue.AdmissionCheckReference, len(c.AdmissionChecks))
 	singleInstanceControllers := sets.New[string]()
@@ -430,6 +425,7 @@ func (q *LocalQueue) reportActiveWorkloads() {
 
 // updateWorkloadUsage updates the usage of the ClusterQueue for the workload
 // and the number of admitted workloads for local queues.
+// updateWorkloadUsage 更新 ClusterQueue 的资源使用情况。
 func (c *clusterQueue) updateWorkloadUsage(log logr.Logger, wi *workload.Info, op usageOp) {
 	admitted := workload.IsAdmitted(wi.Obj)
 	frUsage := wi.FlavorResourceUsage()
@@ -563,7 +559,7 @@ func workloadBelongsToLocalQueue(wl *kueue.Workload, q *kueue.LocalQueue) bool {
 }
 
 // Implements dominantResourceShareNode interface.
-
+// 实现 dominantResourceShareNode 接口。
 func (c *clusterQueue) fairWeight() *resource.Quantity {
 	return &c.FairWeight
 }
@@ -637,4 +633,18 @@ func (c *clusterQueue) isTASOnly() bool {
 		}
 	}
 	return true
+}
+
+func createdResourceGroups(kueueRgs []kueue.ResourceGroup) []ResourceGroup {
+	rgs := make([]ResourceGroup, len(kueueRgs))
+	for i, kueueRg := range kueueRgs {
+		rgs[i] = ResourceGroup{
+			CoveredResources: sets.New(kueueRg.CoveredResources...),
+			Flavors:          make([]kueue.ResourceFlavorReference, 0, len(kueueRg.Flavors)),
+		}
+		for _, fIn := range kueueRg.Flavors {
+			rgs[i].Flavors = append(rgs[i].Flavors, fIn.Name)
+		}
+	}
+	return rgs
 }

@@ -1,3 +1,4 @@
+set -ex
 kind delete cluster -n koord
 kind create cluster --config ./kind.yaml -n koord --kubeconfig ~/.kube/kind-koord --image registry.cn-hangzhou.aliyuncs.com/acejilam/node:v1.30.3
 
@@ -18,7 +19,7 @@ until kubectl -n kueue-system get secret kueue-webhook-server-cert -oyaml |grep 
 done
 
 kubectl rollout restart deployment kueue-controller-manager -n kueue-system
-kubectl wait --for=condition=Ready -A --all pod --timeout=30s
+kubectl wait --for=condition=Ready -A --all pod --timeout=30s || true 
 
 sleep 5
 # 需要等待 secret 的内容 挂载到pod

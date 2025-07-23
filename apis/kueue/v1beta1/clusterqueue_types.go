@@ -218,9 +218,6 @@ type ResourceQuota struct {
 	// 如果 ClusterQueue 属于 cohort，则每个（flavor, resource）组合的配额总和定义了 cohort 中 ClusterQueue 可分配的最大数量。
 	NominalQuota resource.Quantity `json:"nominalQuota"`
 
-	// borrowingLimit is the maximum amount of quota for the [flavor, resource]
-	// combination that this ClusterQueue is allowed to borrow from the unused
-	// quota of other ClusterQueues in the same cohort.
 	// borrowingLimit 是该 ClusterQueue 可从同一 cohort 其他 ClusterQueue 未使用配额中借用的最大数量。
 	// 在任意时刻，ClusterQueue 中的工作负载最多可消耗 nominalQuota+borrowingLimit 的配额，前提是 cohort 中其他 ClusterQueue 有足够未用配额。
 	// 如果为 null，表示没有借用上限。
@@ -229,8 +226,6 @@ type ResourceQuota struct {
 	// +optional
 	BorrowingLimit *resource.Quantity `json:"borrowingLimit,omitempty"`
 
-	// lendingLimit is the maximum amount of unused quota for the [flavor, resource]
-	// combination that this ClusterQueue can lend to other ClusterQueues in the same cohort.
 	// lendingLimit 是该 ClusterQueue 可借给同一 cohort 其他 ClusterQueue 的未用配额的最大数量。
 	// 在任意时刻，ClusterQueue 为自身专用保留的配额为 nominalQuota - lendingLimit。
 	// 如果为 null，表示没有出借上限，即所有 nominalQuota 都可被 cohort 中其他 ClusterQueue 借用。

@@ -17,35 +17,32 @@ import (
 	"sigs.k8s.io/kueue/pkg/workload"
 )
 
+// ClusterQueueSnapshot 表示某一时刻 ClusterQueue 的快照，
+// 用于调度和资源分配决策。该结构体包含了当前队列的资源、工作负载、
+// 命名空间选择器、抢占策略、权重、AdmissionChecks 等信息。
+// 通过快照可以模拟资源的增减、判断资源可用性等。
 type ClusterQueueSnapshot struct {
-	Name              kueue.ClusterQueueReference
-	ResourceGroups    []ResourceGroup
-	Workloads         map[string]*workload.Info
-	WorkloadsNotReady sets.Set[string]
-	NamespaceSelector labels.Selector
-	Preemption        kueue.ClusterQueuePreemption
-	FairWeight        resource.Quantity
-	FlavorFungibility kueue.FlavorFungibility
-	// Aggregates AdmissionChecks from both .spec.AdmissionChecks and .spec.AdmissionCheckStrategy
-	// Sets hold ResourceFlavors to which an AdmissionCheck should apply.
-	// In case its empty, it means an AdmissionCheck should apply to all ResourceFlavor
-	AdmissionChecks map[kueue.AdmissionCheckReference]sets.Set[kueue.ResourceFlavorReference]
-	Status          metrics.ClusterQueueStatus
-	// AllocatableResourceGeneration will be increased when some admitted workloads are
-	// deleted, or the resource groups are changed.
-	AllocatableResourceGeneration int64
-
-	ResourceNode resourceNode
-	hierarchy.ClusterQueue[*CohortSnapshot]
-
-	TASFlavors map[kueue.ResourceFlavorReference]*TASFlavorSnapshot
-	tasOnly    bool
-
-	flavorsForProvReqACs sets.Set[kueue.ResourceFlavorReference]
+	Name                                    kueue.ClusterQueueReference                                               // ClusterQueue 的唯一标识引用
+	ResourceGroups                          []ResourceGroup                                                           // 该队列可用的资源组列表
+	Workloads                               map[string]*workload.Info                                                 // 当前在队列中的工作负载信息，key 为 workload 名称
+	WorkloadsNotReady                       sets.Set[string]                                                          // 尚未就绪的工作负载名称集合
+	NamespaceSelector                       labels.Selector                                                           // 命名空间选择器，决定哪些命名空间可用此队列
+	Preemption                              kueue.ClusterQueuePreemption                                              // 抢占策略配置
+	FairWeight                              resource.Quantity                                                         // 队列的公平调度权重
+	FlavorFungibility                       kueue.FlavorFungibility                                                   // Flavor 可替代性配置
+	AdmissionChecks                         map[kueue.AdmissionCheckReference]sets.Set[kueue.ResourceFlavorReference] // AdmissionChecks 及其适用的 ResourceFlavor 集合
+	Status                                  metrics.ClusterQueueStatus                                                // 队列当前状态
+	AllocatableResourceGeneration           int64                                                                     // 可分配资源的版本号（变更时递增）
+	ResourceNode                            ResourceNode                                                              // 1、flavorName+ResourceName: quota
+	hierarchy.ClusterQueue[*CohortSnapshot]                                                                           // 队列的层级结构信息
+	TASFlavors                              map[kueue.ResourceFlavorReference]*TASFlavorSnapshot                      // TAS 相关的 ResourceFlavor 快照
+	tasOnly                                 bool                                                                      // 是否仅 TAS 模式
+	flavorsForProvReqACs                    sets.Set[kueue.ResourceFlavorReference]                                   // 需要 AdmissionCheck 的 ResourceFlavor 集合
 }
 
 // RGByResource returns the ResourceGroup which contains capacity
 // for the resource, or nil if the CQ doesn't provide this resource.
+// RGByResource 返回包含该资源容量的 ResourceGroup，如果 CQ 不提供该资源则返回 nil。
 func (c *ClusterQueueSnapshot) RGByResource(resource corev1.ResourceName) *ResourceGroup {
 	for i := range c.ResourceGroups {
 		if c.ResourceGroups[i].CoveredResources.Has(resource) {
@@ -58,6 +55,7 @@ func (c *ClusterQueueSnapshot) RGByResource(resource corev1.ResourceName) *Resou
 // SimulateWorkloadRemoval modifies the snapshot by removing the usage
 // corresponding to the list of workloads. It returns a function which
 // can be used to restore the usage.
+// SimulateWorkloadRemoval 通过移除 workloads 列表对应的使用量来修改快照。返回一个可用于恢复使用量的函数。
 func (c *ClusterQueueSnapshot) SimulateWorkloadRemoval(workloads []*workload.Info) func() {
 	usage := make([]workload.Usage, 0, len(workloads))
 	for _, w := range workloads {
@@ -75,6 +73,7 @@ func (c *ClusterQueueSnapshot) SimulateWorkloadRemoval(workloads []*workload.Inf
 
 // SimulateUsageAddition modifies the snapshot by adding usage, and
 // returns a function used to restore the usage.
+// SimulateUsageAddition 通过增加使用量来修改快照，并返回一个用于恢复使用量的函数。
 func (c *ClusterQueueSnapshot) SimulateUsageAddition(usage workload.Usage) func() {
 	c.AddUsage(usage)
 	return func() {
@@ -84,6 +83,7 @@ func (c *ClusterQueueSnapshot) SimulateUsageAddition(usage workload.Usage) func(
 
 // SimulateUsageRemoval modifies the snapshot by removing usage, and
 // returns a function used to restore the usage.
+// SimulateUsageRemoval 通过移除使用量来修改快照，并返回一个用于恢复使用量的函数。
 func (c *ClusterQueueSnapshot) SimulateUsageRemoval(usage workload.Usage) func() {
 	c.RemoveUsage(usage)
 	return func() {
@@ -91,6 +91,7 @@ func (c *ClusterQueueSnapshot) SimulateUsageRemoval(usage workload.Usage) func()
 	}
 }
 
+// AddUsage 向快照中添加资源使用量。
 func (c *ClusterQueueSnapshot) AddUsage(usage workload.Usage) {
 	for fr, q := range usage.Quota {
 		addUsage(c, fr, q)
@@ -98,6 +99,7 @@ func (c *ClusterQueueSnapshot) AddUsage(usage workload.Usage) {
 	c.updateTASUsage(usage.TAS, add)
 }
 
+// RemoveUsage 从快照中移除资源使用量。
 func (c *ClusterQueueSnapshot) RemoveUsage(usage workload.Usage) {
 	for fr, q := range usage.Quota {
 		removeUsage(c, fr, q)
@@ -105,6 +107,7 @@ func (c *ClusterQueueSnapshot) RemoveUsage(usage workload.Usage) {
 	c.updateTASUsage(usage.TAS, subtract)
 }
 
+// updateTASUsage 更新 TAS 相关的资源使用量。
 func (c *ClusterQueueSnapshot) updateTASUsage(usage workload.TASUsage, op usageOp) {
 	if features.Enabled(features.TopologyAwareScheduling) {
 		for tasFlavor, tasUsage := range usage {
@@ -118,6 +121,7 @@ func (c *ClusterQueueSnapshot) updateTASUsage(usage workload.TASUsage, op usageO
 	}
 }
 
+// Fits 检查快照是否有足够的资源容量容纳指定的 usage。
 func (c *ClusterQueueSnapshot) Fits(usage workload.Usage) bool {
 	for fr, q := range usage.Quota {
 		if c.Available(fr) < q {
@@ -135,53 +139,51 @@ func (c *ClusterQueueSnapshot) Fits(usage workload.Usage) bool {
 	return true
 }
 
-func (c *ClusterQueueSnapshot) QuotaFor(fr resources.FlavorResource) ResourceQuota {
-	return c.ResourceNode.Quotas[fr]
-}
-
+// Borrowing 判断当前资源 flavor 是否处于借用状态。
 func (c *ClusterQueueSnapshot) Borrowing(fr resources.FlavorResource) bool {
 	return c.BorrowingWith(fr, 0)
 }
 
+// BorrowingWith 判断加上 val 后资源 flavor 是否处于借用状态。
 func (c *ClusterQueueSnapshot) BorrowingWith(fr resources.FlavorResource, val int64) bool {
 	return c.ResourceNode.Usage[fr]+val > c.QuotaFor(fr).Nominal
 }
 
-// Available returns the current capacity available, before preempting
-// any workloads. Includes local capacity and capacity borrowed from
-// Cohort. When the ClusterQueue/Cohort is in debt, Available
-// will return 0.
+// Available 返回当前可用容量（包括本地和 Cohort 借用的容量），如果处于债务状态则返回 0。
 func (c *ClusterQueueSnapshot) Available(fr resources.FlavorResource) int64 {
 	return max(0, available(c, fr))
 }
 
-// PotentialAvailable returns the largest workload this ClusterQueue could
-// possibly admit, accounting for its capacity and capacity borrowed
-// its from Cohort.
+// PotentialAvailable 返回该 ClusterQueue 理论上可接纳的最大 workload。
 func (c *ClusterQueueSnapshot) PotentialAvailable(fr resources.FlavorResource) int64 {
 	return potentialAvailable(c, fr)
 }
 
+// GetName 返回 ClusterQueue 的名称。
 func (c *ClusterQueueSnapshot) GetName() kueue.ClusterQueueReference {
 	return c.Name
 }
 
 // Implements dominantResourceShareNode interface.
 
+// fairWeight 返回公平权重。
 func (c *ClusterQueueSnapshot) fairWeight() *resource.Quantity {
 	return &c.FairWeight
 }
 
 // implement flatResourceNode/hierarchicalResourceNode interfaces
 
-func (c *ClusterQueueSnapshot) getResourceNode() resourceNode {
+// getResourceNode 返回资源节点。
+func (c *ClusterQueueSnapshot) getResourceNode() ResourceNode {
 	return c.ResourceNode
 }
 
+// parentHRN 返回父节点。
 func (c *ClusterQueueSnapshot) parentHRN() hierarchicalResourceNode {
 	return c.Parent()
 }
 
+// DominantResourceShare 返回主导资源份额。
 func (c *ClusterQueueSnapshot) DominantResourceShare() int {
 	share, _ := dominantResourceShare(c, nil)
 	return share
@@ -189,6 +191,7 @@ func (c *ClusterQueueSnapshot) DominantResourceShare() int {
 
 type WorkloadTASRequests map[kueue.ResourceFlavorReference]FlavorTASRequests
 
+// FindTopologyAssignmentsForWorkload 为 workload 查找拓扑分配。
 func (c *ClusterQueueSnapshot) FindTopologyAssignmentsForWorkload(
 	tasRequestsByFlavor WorkloadTASRequests,
 	simulateEmpty bool, wl *kueue.Workload) TASAssignmentsResult {
@@ -206,15 +209,18 @@ func (c *ClusterQueueSnapshot) FindTopologyAssignmentsForWorkload(
 	return result
 }
 
+// IsTASOnly 判断是否仅为 TAS。
 func (c *ClusterQueueSnapshot) IsTASOnly() bool {
 	return c.tasOnly
 }
 
+// HasProvRequestAdmissionCheck 判断指定 flavor 是否有 ProvisioningRequest AdmissionCheck。
 func (c *ClusterQueueSnapshot) HasProvRequestAdmissionCheck(rf kueue.ResourceFlavorReference) bool {
 	return c.flavorsForProvReqACs.Has(rf)
 }
 
 // Returns all ancestors starting with parent and ending with root
+// PathParentToRoot 返回所有祖先（从父到根）。
 func (c *ClusterQueueSnapshot) PathParentToRoot() iter.Seq[*CohortSnapshot] {
 	return func(yield func(*CohortSnapshot) bool) {
 		a := c.Parent()
@@ -225,4 +231,9 @@ func (c *ClusterQueueSnapshot) PathParentToRoot() iter.Seq[*CohortSnapshot] {
 			a = a.Parent()
 		}
 	}
+}
+
+// QuotaFor 返回指定资源 flavor 的配额。
+func (c *ClusterQueueSnapshot) QuotaFor(fr resources.FlavorResource) ResourceQuota {
+	return c.ResourceNode.Quotas[fr]
 }

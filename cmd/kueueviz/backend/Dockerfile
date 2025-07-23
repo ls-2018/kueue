@@ -1,6 +1,6 @@
 # Build stage
 ARG BUILDER_IMAGE=golang:1.23
-ARG BASE_IMAGE=gcr.io/distroless/static:nonroot
+ARG BASE_IMAGE=registry.cn-hangzhou.aliyuncs.com/ls-2018/static:nonroot
 FROM --platform=${BUILDPLATFORM} ${BUILDER_IMAGE} AS builder
 
 # Copy Go modules manifests and download dependencies

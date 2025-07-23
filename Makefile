@@ -60,7 +60,7 @@ TOOLS_DIR := $(PROJECT_DIR)/hack/internal/tools
 
 # Use distroless as minimal base image to package the manager binary
 # Refer to https://github.com/GoogleContainerTools/distroless for more details
-BASE_IMAGE ?= gcr.io/distroless/static:nonroot
+BASE_IMAGE ?= registry.cn-hangzhou.aliyuncs.com/ls-2018/static:nonroot
 #BUILDER_IMAGE ?= golang:$(GO_VERSION)
 BUILDER_IMAGE ?= registry.cn-hangzhou.aliyuncs.com/ls-2018/mygo:v1.24.1
 CGO_ENABLED ?= 0
