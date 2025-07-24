@@ -28,8 +28,8 @@ func (rg *ResourceGroup) Clone() ResourceGroup {
 
 type ResourceQuota struct { // 分类为 cq 的资源; cohort 可以使用的资源
 	Nominal        int64  // 规定的大小
-	BorrowingLimit *int64 // 可以借别人多大
-	LendingLimit   *int64 // 出借 的 大小
+	BorrowingLimit *int64 // 借入
+	LendingLimit   *int64 // 借出
 }
 
 func createResourceQuotas(kueueRgs []kueue.ResourceGroup) map[resources.FlavorResource]ResourceQuota {

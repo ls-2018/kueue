@@ -19,8 +19,6 @@ func (c *CohortSnapshot) GetName() kueue.CohortReference {
 	return c.Name
 }
 
-// Root returns the root of the Cohort Tree. It expects that no cycles
-// exist in the Cohort graph.
 // Root 返回 Cohort 树的根节点，假设 Cohort 图中不存在环。
 func (c *CohortSnapshot) Root() *CohortSnapshot {
 	if !c.HasParent() {

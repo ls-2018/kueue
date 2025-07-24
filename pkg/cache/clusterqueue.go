@@ -158,22 +158,6 @@ func (c *clusterQueue) updateClusterQueue(log logr.Logger, in *kueue.ClusterQueu
 	return nil
 }
 
-// updateQuotasAndResourceGroups updates Quotas and ResourceGroups.
-// It returns true if any changes were made.
-// updateQuotasAndResourceGroups 更新 Quotas 和 ResourceGroups。
-// 如果有任何更改则返回 true。
-func (c *clusterQueue) updateQuotasAndResourceGroups(in []kueue.ResourceGroup) bool {
-	oldRG := c.ResourceGroups
-	oldQuotas := c.resourceNode.Quotas
-	c.ResourceGroups = createdResourceGroups(in)
-	c.resourceNode.Quotas = createResourceQuotas(in)
-
-	// Start at 1, for backwards compatibility.
-	return c.AllocatableResourceGeneration == 0 ||
-		!equality.Semantic.DeepEqual(oldRG, c.ResourceGroups) ||
-		!equality.Semantic.DeepEqual(oldQuotas, c.resourceNode.Quotas)
-}
-
 func (c *clusterQueue) updateQueueStatus(log logr.Logger) {
 	if features.Enabled(features.TopologyAwareScheduling) &&
 		len(c.tasFlavors) > 0 &&
@@ -647,4 +631,18 @@ func createdResourceGroups(kueueRgs []kueue.ResourceGroup) []ResourceGroup {
 		}
 	}
 	return rgs
+}
+
+// updateQuotasAndResourceGroups 更新 Quotas 和 ResourceGroups。
+// 如果有任何更改则返回 true。
+func (c *clusterQueue) updateQuotasAndResourceGroups(in []kueue.ResourceGroup) bool {
+	oldRG := c.ResourceGroups
+	oldQuotas := c.resourceNode.Quotas
+	c.ResourceGroups = createdResourceGroups(in)
+	c.resourceNode.Quotas = createResourceQuotas(in)
+
+	// Start at 1, for backwards compatibility.
+	return c.AllocatableResourceGeneration == 0 ||
+		!equality.Semantic.DeepEqual(oldRG, c.ResourceGroups) ||
+		!equality.Semantic.DeepEqual(oldQuotas, c.resourceNode.Quotas)
 }

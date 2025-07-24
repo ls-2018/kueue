@@ -23,7 +23,7 @@ type PreemptionOracle struct {
 func (p *PreemptionOracle) SimulatePreemption(log logr.Logger, cq *cache.ClusterQueueSnapshot, wl workload.Info, fr resources.FlavorResource, quantity int64) preemptioncommon.PreemptionPossibility {
 	//1 获取抢占候选
 	//调用 preemptor.getTargets，传入当前上下文，获取可以被抢占的候选工作负载列表
-	candidates := p.preemptor.getTargets(&preemptionCtx{
+	candidates := p.preemptor.getTargets(&preemptionCtx{ // 1 ✅
 		log:               log,
 		preemptor:         wl,
 		preemptorCQ:       p.snapshot.ClusterQueue(wl.ClusterQueue),

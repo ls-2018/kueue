@@ -12,8 +12,8 @@ import (
 // ResourceNode 是 Quotas 和 Usage 的共享表示，由 ClusterQueues 和 Cohorts 使用。
 type ResourceNode struct { // 所有 flavor 的资源情况
 	Quotas       map[resources.FlavorResource]ResourceQuota // flavorName+resourceName: Quota
-	SubtreeQuota resources.FlavorResourceQuantities         // 是节点配额的总和，以及受 LendingLimits(借给别人) 限制的其子节点可用资源。
-	Usage        resources.FlavorResourceQuantities         // cohort 所有子 cq 不允许出借的资源
+	SubtreeQuota resources.FlavorResourceQuantities         // cq.SubtreeQuota=cq.Nominal ;cohort.SubtreeQuota = sum([flavor.lendingLimit])
+	Usage        resources.FlavorResourceQuantities         // 当前cq 使用的资源，会超出 上限-借出     ； cohort 用的(借用总和)
 }
 
 func NewResourceNode() ResourceNode {
@@ -33,8 +33,6 @@ func (r ResourceNode) Clone() ResourceNode {
 	}
 }
 
-// hierarchicalResourceNode extends flatResourceNode
-// with the ability to navigate to the parent node.
 // hierarchicalResourceNode 扩展了 flatResourceNode，具备导航到父节点的能力。
 type hierarchicalResourceNode interface {
 	flatResourceNode
@@ -45,58 +43,6 @@ type hierarchicalResourceNode interface {
 // flatResourceNode 通过提供对包含的 ResourceNode 的访问，实现对 ClusterQueues 和 Cohorts 的抽象。
 type flatResourceNode interface {
 	getResourceNode() ResourceNode
-}
-
-// LocalAvailable returns, for a given node and resource flavor,
-// how much guaranteed quota in this flavor exceeds usage.
-// This quota is available at this node but is not visible at its parent.
-// LocalAvailable 返回对于给定节点和资源 flavor，该 flavor 的 guaranteed quota 超出使用量的部分。
-// 这部分配额在本节点可用，但在父节点不可见。
-func LocalAvailable(node flatResourceNode, fr resources.FlavorResource) int64 {
-	return max(0, node.getResourceNode().guaranteedQuota(fr)-node.getResourceNode().Usage[fr])
-}
-
-// potentialAvailable returns the maximum capacity available to this node,
-// assuming no usage, while respecting BorrowingLimits.
-// potentialAvailable 返回在无使用量且遵守 BorrowingLimits 的情况下，此节点可用的最大容量。
-func potentialAvailable(node hierarchicalResourceNode, fr resources.FlavorResource) int64 {
-	r := node.getResourceNode()
-	if !node.HasParent() {
-		return r.SubtreeQuota[fr]
-	}
-	available := r.guaranteedQuota(fr) + potentialAvailable(node.parentHRN(), fr)
-	if borrowingLimit := r.Quotas[fr].BorrowingLimit; borrowingLimit != nil {
-		maxWithBorrowing := r.SubtreeQuota[fr] + *borrowingLimit
-		available = min(maxWithBorrowing, available)
-	}
-	return available
-}
-
-// addUsage adds usage to the current node, and bubbles up usage to
-// its Cohort when usage exceeds guaranteedQuota.
-// addUsage 向当前节点添加使用量，当使用量超过 guaranteedQuota 时，将超出部分向 Cohort 逐级上报。
-func addUsage(node hierarchicalResourceNode, fr resources.FlavorResource, val int64) {
-	r := node.getResourceNode()
-	localAvailable := LocalAvailable(node, fr)
-	r.Usage[fr] += val
-	if node.HasParent() && val > localAvailable {
-		deltaParentUsage := val - localAvailable
-		addUsage(node.parentHRN(), fr, deltaParentUsage)
-	}
-}
-
-// removeUsage removes usage from the current node, and removes usage
-// past guaranteedQuota that it was storing in its Cohort.
-// removeUsage 从当前节点移除使用量，并从 Cohort 中移除超出 guaranteedQuota 的部分。
-func removeUsage(node hierarchicalResourceNode, fr resources.FlavorResource, val int64) {
-	r := node.getResourceNode()
-	usageStoredInParent := r.Usage[fr] - r.guaranteedQuota(fr)
-	r.Usage[fr] -= val
-	if usageStoredInParent <= 0 || !node.HasParent() {
-		return
-	}
-	deltaParentUsage := min(val, usageStoredInParent)
-	removeUsage(node.parentHRN(), fr, deltaParentUsage)
 }
 
 // updateCohortTreeResources 从根节点遍历 Cohort 树，累加 SubtreeQuota 和 Usage。如果 Cohort 存在环，则返回错误。
@@ -137,28 +83,6 @@ func IsWithinNominalInResources(node flatResourceNode, frs sets.Set[resources.Fl
 	return true
 }
 
-// available 用于确定当前节点剩余多少容量，考虑了使用量和 BorrowingLimits。它查找本地存储的剩余容量。如果节点有父节点，则查询父节点的容量，并通过借用限制和节点在父节点中存储/使用的容量来限制该容量。
-// This function may return a negative number in the case of
-// overadmission - e.g. capacity was removed or the node moved to
-// another Cohort.
-// 如果出现超额分配（如容量被移除或节点移动到另一个 Cohort），此函数可能返回负数。
-func available(node hierarchicalResourceNode, fr resources.FlavorResource) int64 {
-	_ = node.(*ClusterQueueSnapshot).ClusterQueue.HasParent
-	r := node.getResourceNode()
-	if !node.HasParent() { // 没有配置 cohort
-		return r.SubtreeQuota[fr] - r.Usage[fr] // 正常值 - 出借值
-	}
-	parentAvailable := available(node.parentHRN(), fr)
-
-	if borrowingLimit := r.Quotas[fr].BorrowingLimit; borrowingLimit != nil {
-		storedInParent := r.SubtreeQuota[fr] - r.guaranteedQuota(fr)
-		usedInParent := max(0, r.Usage[fr]-r.guaranteedQuota(fr))
-		withMaxFromParent := storedInParent - usedInParent + *borrowingLimit
-		parentAvailable = min(withMaxFromParent, parentAvailable)
-	}
-	return LocalAvailable(node, fr) + parentAvailable
-}
-
 // updateCohortResourceNode 遍历 Cohort 树以累加 SubtreeQuota 和 Usage。通常应通过 updateCohortTree 调用，该方法从根节点开始并包含环检测。
 func updateCohortResourceNode(cohort *cohort) { // ✅
 	cohort.resourceNode.SubtreeQuota = make(resources.FlavorResourceQuantities, len(cohort.resourceNode.SubtreeQuota))
@@ -176,13 +100,35 @@ func updateCohortResourceNode(cohort *cohort) { // ✅
 		accumulateFromChild(cohort, child)    // ✅
 	}
 }
-func accumulateFromChild(parent *cohort, child flatResourceNode) {
-	for fr, childQuota := range child.getResourceNode().SubtreeQuota { // cohort 可以供使用的资源
-		parent.resourceNode.SubtreeQuota[fr] += childQuota - child.getResourceNode().guaranteedQuota(fr) // ✅
+
+// “available” 参数决定了当前节点剩余的可用容量大小，该值会综合考虑使用情况和借用限制等因素。
+//
+//	1、它会查找本地存储的剩余容量。
+//	2、则会查询父节点的容量，并将此容量限制在借用限制范围内— 同时还要考虑到该节点在其父节点中所存储/使用的容量。
+//
+// 在出现超额入院的情况时（例如，病床容量被取消或该患者被转至其他病区），此函数可能会返回负数。
+func available(node hierarchicalResourceNode, fr resources.FlavorResource) int64 {
+	// 获取当前节点的资源信息
+	r := node.getResourceNode()
+	// 如果没有父节点（即没有配置 cohort），直接返回本节点可用资源（总配额 - 已用资源）
+	if !node.HasParent() { // 没有配置 cohort
+		return r.SubtreeQuota[fr] - r.Usage[fr] // 正常值 - 已用资源
 	}
-	for fr, childUsage := range child.getResourceNode().Usage {
-		parent.resourceNode.Usage[fr] += max(0, childUsage-child.getResourceNode().guaranteedQuota(fr)) // ✅
+	// 递归获取父节点的可用资源（即 cohort 的可用资源）
+	parentAvailable := available(node.parentHRN(), fr) // 获取  cohort
+	_ = ResourceNode{}                                 // 占位，无实际作用
+	// 检查当前资源 flavor 是否设置了 BorrowingLimit（可借用上限）
+	if borrowingLimit := r.Quotas[fr].BorrowingLimit; borrowingLimit != nil {
+		// 可以借出的上限
+		storedInParentUpperLimit := r.SubtreeQuota[fr] - r.guaranteedQuota(fr)
+		// 已经借出的？
+		usedInParentCurrent := max(0, r.Usage[fr]-r.guaranteedQuota(fr))
+		// 可以借出的上限 - 已经借出的 + 可以借别人的
+		withMaxFromParent := storedInParentUpperLimit - usedInParentCurrent + *borrowingLimit
+		// 父节点可用资源不能超过上述计算的最大值
+		parentAvailable = min(withMaxFromParent, parentAvailable)
 	}
+	return LocalAvailable(node, fr) + parentAvailable
 }
 
 func updateClusterQueueResourceNode(cq *clusterQueue) {
@@ -196,7 +142,59 @@ func updateClusterQueueResourceNode(cq *clusterQueue) {
 // guaranteedQuota 是不会借给节点 Cohort 的容量。
 func (r ResourceNode) guaranteedQuota(fr resources.FlavorResource) int64 {
 	if lendingLimit := r.Quotas[fr].LendingLimit; lendingLimit != nil {
-		return max(0, r.SubtreeQuota[fr]-*lendingLimit)
+		return max(0, r.SubtreeQuota[fr]-*lendingLimit) // 可供自己用的
 	}
 	return 0
+}
+
+// addUsage 向当前节点添加使用量，当使用量超过 guaranteedQuota 时，将超出部分向 Cohort 逐级上报。
+func addUsage(node hierarchicalResourceNode, fr resources.FlavorResource, val int64) {
+	r := node.getResourceNode()
+	localAvailable := LocalAvailable(node, fr)
+	r.Usage[fr] += val
+	if node.HasParent() && val > localAvailable {
+		deltaParentUsage := val - localAvailable
+		addUsage(node.parentHRN(), fr, deltaParentUsage)
+	}
+}
+
+// LocalAvailable 返回对于给定节点和资源 flavor，该 flavor 的 guaranteed quota 超出使用量的部分。
+// 这部分配额在本节点可用，但在父节点不可见。
+func LocalAvailable(node flatResourceNode, fr resources.FlavorResource) int64 {
+	return max(0, node.getResourceNode().guaranteedQuota(fr)-node.getResourceNode().Usage[fr])
+}
+
+// removeUsage 从当前节点移除使用量，并从 Cohort 中移除超出 guaranteedQuota 的部分。
+func removeUsage(node hierarchicalResourceNode, fr resources.FlavorResource, val int64) {
+	r := node.getResourceNode()
+	usageStoredInParent := r.Usage[fr] - r.guaranteedQuota(fr)
+	r.Usage[fr] -= val
+	if usageStoredInParent <= 0 || !node.HasParent() {
+		return
+	}
+	deltaParentUsage := min(val, usageStoredInParent)
+	removeUsage(node.parentHRN(), fr, deltaParentUsage)
+}
+func accumulateFromChild(parent *cohort, child flatResourceNode) {
+	// 每一轮，都会清空SubtreeQuota  Usage
+	for fr, childQuota := range child.getResourceNode().SubtreeQuota { // cohort 可以供使用的资源
+		parent.resourceNode.SubtreeQuota[fr] += childQuota - child.getResourceNode().guaranteedQuota(fr)
+	}
+	for fr, childUsage := range child.getResourceNode().Usage {
+		parent.resourceNode.Usage[fr] += max(0, childUsage-child.getResourceNode().guaranteedQuota(fr))
+	}
+}
+
+// potentialAvailable 返回在无使用量且遵守 BorrowingLimits 的情况下，此节点可用的最大容量。
+func potentialAvailable(node hierarchicalResourceNode, fr resources.FlavorResource) int64 {
+	r := node.getResourceNode()
+	if !node.HasParent() {
+		return r.SubtreeQuota[fr]
+	}
+	available := r.guaranteedQuota(fr) + potentialAvailable(node.parentHRN(), fr)
+	if borrowingLimit := r.Quotas[fr].BorrowingLimit; borrowingLimit != nil {
+		maxWithBorrowing := r.SubtreeQuota[fr] + *borrowingLimit
+		available = min(maxWithBorrowing, available)
+	}
+	return available
 }

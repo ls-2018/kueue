@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"maps"
 	"slices"
+	"sync"
+	"time"
 
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -88,8 +90,18 @@ func (s *Snapshot) Log(log logr.Logger) {
 	}
 }
 
+var snap sync.Once
+
 // Snapshot 生成当前缓存的快照。
 func (c *Cache) Snapshot(ctx context.Context) (*Snapshot, error) {
+	snap.Do(func() {
+		go func() {
+			for {
+				time.Sleep(5 * time.Second)
+				fmt.Println(c)
+			}
+		}()
+	})
 	c.RLock()
 	defer c.RUnlock()
 

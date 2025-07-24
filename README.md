@@ -29,10 +29,9 @@ cohort  -> CQ
     - NewGroupWorkload
         - NewWorkload
 
-
-
-component-helpers@v0.32.5
-
-
 job\pod ---> workload ---> localqueue
                       ---> clusterqueue
+
+
+
+FindTopologyAssignmentsForWorkload

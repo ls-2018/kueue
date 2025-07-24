@@ -46,21 +46,12 @@ const (
 	CheckStateReady CheckState = "Ready"
 )
 
-// AdmissionCheckSpec defines the desired state of AdmissionCheck
 // AdmissionCheckSpec 定义了 AdmissionCheck 的期望状态
 type AdmissionCheckSpec struct {
-	// controllerName identifies the controller that processes the AdmissionCheck,
 	// controllerName 标识处理 AdmissionCheck 的控制器，不一定是 Kubernetes 的 Pod 或 Deployment 名称。不能为空。
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf", message="field is immutable"
 	ControllerName string `json:"controllerName"`
-
-	// RetryDelayMinutes specifies how long to keep the workload suspended after
-	// RetryDelayMinutes 指定检查失败（转为 False）后，工作负载保持挂起的时长（分钟）。当延迟期结束后，检查状态变为 "Unknown"。默认 15 分钟。
-	// +optional
-	// +kubebuilder:default=15
-	// Deprecated: retryDelayMinutes has already been deprecated since v0.8 and will be removed in v1beta2.
-	RetryDelayMinutes *int64 `json:"retryDelayMinutes,omitempty"`
 
 	// Parameters identifies a configuration with additional parameters for the
 	// Parameters 标识检查的附加参数配置。
@@ -69,17 +60,14 @@ type AdmissionCheckSpec struct {
 }
 
 type AdmissionCheckParametersReference struct {
-	// ApiGroup is the group for the resource being referenced.
 	// ApiGroup 是被引用资源的组。
 	// +kubebuilder:validation:MaxLength=253
 	// +kubebuilder:validation:Pattern="^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
 	APIGroup string `json:"apiGroup"`
-	// Kind is the type of the resource being referenced.
 	// Kind 是被引用资源的类型。
 	// +kubebuilder:validation:MaxLength=63
 	// +kubebuilder:validation:Pattern="^(?i)[a-z]([-a-z0-9]*[a-z0-9])?$"
 	Kind string `json:"kind"`
-	// Name is the name of the resource being referenced.
 	// Name 是被引用资源的名称。
 	// +kubebuilder:validation:MaxLength=63
 	// +kubebuilder:validation:Pattern="^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"

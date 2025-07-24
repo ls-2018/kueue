@@ -71,18 +71,6 @@ func (c *ClusterQueueSnapshot) SimulateWorkloadRemoval(workloads []*workload.Inf
 	}
 }
 
-// SimulateUsageAddition modifies the snapshot by adding usage, and
-// returns a function used to restore the usage.
-// SimulateUsageAddition 通过增加使用量来修改快照，并返回一个用于恢复使用量的函数。
-func (c *ClusterQueueSnapshot) SimulateUsageAddition(usage workload.Usage) func() {
-	c.AddUsage(usage)
-	return func() {
-		c.RemoveUsage(usage)
-	}
-}
-
-// SimulateUsageRemoval modifies the snapshot by removing usage, and
-// returns a function used to restore the usage.
 // SimulateUsageRemoval 通过移除使用量来修改快照，并返回一个用于恢复使用量的函数。
 func (c *ClusterQueueSnapshot) SimulateUsageRemoval(usage workload.Usage) func() {
 	c.RemoveUsage(usage)
@@ -91,34 +79,12 @@ func (c *ClusterQueueSnapshot) SimulateUsageRemoval(usage workload.Usage) func()
 	}
 }
 
-// AddUsage 向快照中添加资源使用量。
-func (c *ClusterQueueSnapshot) AddUsage(usage workload.Usage) {
-	for fr, q := range usage.Quota {
-		addUsage(c, fr, q)
-	}
-	c.updateTASUsage(usage.TAS, add)
-}
-
 // RemoveUsage 从快照中移除资源使用量。
 func (c *ClusterQueueSnapshot) RemoveUsage(usage workload.Usage) {
 	for fr, q := range usage.Quota {
 		removeUsage(c, fr, q)
 	}
 	c.updateTASUsage(usage.TAS, subtract)
-}
-
-// updateTASUsage 更新 TAS 相关的资源使用量。
-func (c *ClusterQueueSnapshot) updateTASUsage(usage workload.TASUsage, op usageOp) {
-	if features.Enabled(features.TopologyAwareScheduling) {
-		for tasFlavor, tasUsage := range usage {
-			if tasFlvCache := c.TASFlavors[tasFlavor]; tasFlvCache != nil {
-				for _, tr := range tasUsage {
-					domainID := utiltas.DomainID(tr.Values)
-					tasFlvCache.updateTASUsage(domainID, tr.TotalRequests(), op, tr.Count)
-				}
-			}
-		}
-	}
 }
 
 // Fits 检查快照是否有足够的资源容量容纳指定的 usage。
@@ -151,12 +117,12 @@ func (c *ClusterQueueSnapshot) BorrowingWith(fr resources.FlavorResource, val in
 
 // Available 返回当前可用容量（包括本地和 Cohort 借用的容量），如果处于债务状态则返回 0。
 func (c *ClusterQueueSnapshot) Available(fr resources.FlavorResource) int64 {
-	return max(0, available(c, fr))
+	return max(0, available(c, fr)) // ✅
 }
 
 // PotentialAvailable 返回该 ClusterQueue 理论上可接纳的最大 workload。
 func (c *ClusterQueueSnapshot) PotentialAvailable(fr resources.FlavorResource) int64 {
-	return potentialAvailable(c, fr)
+	return potentialAvailable(c, fr) // ✅
 }
 
 // GetName 返回 ClusterQueue 的名称。
@@ -191,24 +157,6 @@ func (c *ClusterQueueSnapshot) DominantResourceShare() int {
 
 type WorkloadTASRequests map[kueue.ResourceFlavorReference]FlavorTASRequests
 
-// FindTopologyAssignmentsForWorkload 为 workload 查找拓扑分配。
-func (c *ClusterQueueSnapshot) FindTopologyAssignmentsForWorkload(
-	tasRequestsByFlavor WorkloadTASRequests,
-	simulateEmpty bool, wl *kueue.Workload) TASAssignmentsResult {
-	result := make(TASAssignmentsResult)
-	for tasFlavor, flavorTASRequests := range tasRequestsByFlavor {
-		// We assume the `tasFlavor` is already in the snapshot as this was
-		// already checked earlier during flavor assignment, and the set of
-		// flavors is immutable in snapshot.
-		tasFlavorCache := c.TASFlavors[tasFlavor]
-		flvResult := tasFlavorCache.FindTopologyAssignmentsForFlavor(flavorTASRequests, simulateEmpty, wl)
-		for psName, psAssignment := range flvResult {
-			result[psName] = psAssignment
-		}
-	}
-	return result
-}
-
 // IsTASOnly 判断是否仅为 TAS。
 func (c *ClusterQueueSnapshot) IsTASOnly() bool {
 	return c.tasOnly
@@ -219,7 +167,6 @@ func (c *ClusterQueueSnapshot) HasProvRequestAdmissionCheck(rf kueue.ResourceFla
 	return c.flavorsForProvReqACs.Has(rf)
 }
 
-// Returns all ancestors starting with parent and ending with root
 // PathParentToRoot 返回所有祖先（从父到根）。
 func (c *ClusterQueueSnapshot) PathParentToRoot() iter.Seq[*CohortSnapshot] {
 	return func(yield func(*CohortSnapshot) bool) {
@@ -236,4 +183,49 @@ func (c *ClusterQueueSnapshot) PathParentToRoot() iter.Seq[*CohortSnapshot] {
 // QuotaFor 返回指定资源 flavor 的配额。
 func (c *ClusterQueueSnapshot) QuotaFor(fr resources.FlavorResource) ResourceQuota {
 	return c.ResourceNode.Quotas[fr]
+}
+
+// SimulateUsageAddition 通过增加使用量来修改快照，并返回一个用于恢复使用量的函数。
+func (c *ClusterQueueSnapshot) SimulateUsageAddition(usage workload.Usage) func() {
+	c.AddUsage(usage)
+	return func() {
+		c.RemoveUsage(usage)
+	}
+}
+
+// AddUsage 向快照中添加资源使用量。
+func (c *ClusterQueueSnapshot) AddUsage(usage workload.Usage) {
+	for fr, q := range usage.Quota {
+		addUsage(c, fr, q)
+	}
+	c.updateTASUsage(usage.TAS, add)
+}
+
+// updateTASUsage 更新 TAS 相关的资源使用量。
+func (c *ClusterQueueSnapshot) updateTASUsage(usage workload.TASUsage, op usageOp) {
+	if features.Enabled(features.TopologyAwareScheduling) {
+		for tasFlavor, tasUsage := range usage {
+			if tasFlvCache := c.TASFlavors[tasFlavor]; tasFlvCache != nil {
+				for _, tr := range tasUsage {
+					domainID := utiltas.DomainID(tr.Values)
+					tasFlvCache.updateTASUsage(domainID, tr.TotalRequests(), op, tr.Count)
+				}
+			}
+		}
+	}
+}
+
+// FindTopologyAssignmentsForWorkload 为 workload 查找拓扑分配。
+func (c *ClusterQueueSnapshot) FindTopologyAssignmentsForWorkload(tasRequestsByFlavor WorkloadTASRequests,
+	simulateEmpty bool, wl *kueue.Workload) TASAssignmentsResult {
+	result := make(TASAssignmentsResult)
+	for tasFlavor, flavorTASRequests := range tasRequestsByFlavor {
+		// 我们假定“tasFlavor”已在快照中存在，因为这一情况在之前分配口味时已经进行了检查，并且快照中的口味集合是不可变的。
+		tasFlavorCache := c.TASFlavors[tasFlavor]
+		flvResult := tasFlavorCache.FindTopologyAssignmentsForFlavor(flavorTASRequests, simulateEmpty, wl)
+		for psName, psAssignment := range flvResult {
+			result[psName] = psAssignment
+		}
+	}
+	return result
 }

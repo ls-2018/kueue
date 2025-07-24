@@ -1,16 +1,10 @@
 package preemptioncommon
 
-// PreemptionPossibility represents the result
-// of a preemption simulation.
+// PreemptionPossibility 表示抢占模拟的结果。
 type PreemptionPossibility int
 
 const (
-	// NoCandidates were found.
-	NoCandidates PreemptionPossibility = iota
-	// Preemption targets were found.
-	Preempt
-	// Preemption targets were found, and
-	// all of them are outside of preempting
-	// ClusterQueue.
-	Reclaim
+	NoCandidates PreemptionPossibility = iota // 未找到候选项。
+	Preempt                                   // 找到了抢占目标。
+	Reclaim                                   // 找到了抢占目标，且所有目标都在抢占 ClusterQueue 之外。
 )

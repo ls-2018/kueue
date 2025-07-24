@@ -255,9 +255,7 @@ type PodSet struct {
 
 	// minCount 是规范中接受的 Pod 最小数量
 	// 如果工作负载支持部分接纳，则此值未提供。
-	//
 	// 只有工作负载中的一个 podSet 可以使用此值。
-	//
 	// 这是一个 alpha 字段，需要启用 PartialAdmission 功能门。
 	//
 	// +optional
@@ -475,13 +473,10 @@ type PodSetRequest struct {
 const (
 	// WorkloadAdmitted 表示工作负载已保留配额，且 ClusterQueue 中定义的所有接纳检查均已满足。
 	WorkloadAdmitted = "Admitted"
-
 	// WorkloadQuotaReserved 表示工作负载已保留配额。
 	WorkloadQuotaReserved = "QuotaReserved"
-
 	// WorkloadFinished 表示与 ResourceClaim 关联的工作负载运行完成（失败或成功）。
 	WorkloadFinished = "Finished"
-
 	// WorkloadPodsReady 表示至少 `.spec.podSets[*].count` Pods 已就绪或成功。
 	WorkloadPodsReady = "PodsReady"
 

@@ -24,5 +24,5 @@ kubectl wait --for=condition=Ready -A --all pod --timeout=30s || true
 sleep 5
 # 需要等待 secret 的内容 挂载到pod
 kubectl apply -f "examples/1、preposition.yaml"
-#kubectl apply -f "examples/2、job.yaml"
+kubectl apply -f "examples/2、job.yaml"
 

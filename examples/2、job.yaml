@@ -4,10 +4,10 @@ metadata:
   name: sample-job
   namespace: default
   labels:
-    kueue.x-k8s.io/queue-name: user-queue
+    kueue.x-k8s.io/queue-name: user-queue2
 spec:
-  parallelism: 3
-  completions: 3
+  parallelism: 1
+  completions: 1
   suspend: true
   template:
     spec:
@@ -18,6 +18,6 @@ spec:
           args: [ "-c", "sleep 60" ]
           resources:
             requests:
-              cpu: "1"
-              memory: "200Mi"
+              cpu: "2"
+              memory: "2Gi"
       restartPolicy: Never

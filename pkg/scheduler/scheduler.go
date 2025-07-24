@@ -86,14 +86,6 @@ func WithPodsReadyRequeuingTimestamp(ts config.RequeuingTimestamp) Option {
 	}
 }
 
-func WithFairSharing(fs *config.FairSharing) Option {
-	return func(o *options) {
-		if fs != nil {
-			o.fairSharing = *fs
-		}
-	}
-}
-
 func New(queues *queue.Manager, cache *cache.Cache, cl client.Client, recorder record.EventRecorder, opts ...Option) *Scheduler {
 	options := defaultOptions  // 初始化 options 为默认配置
 	for _, opt := range opts { // 遍历所有可选参数
@@ -300,49 +292,6 @@ func (e *entry) assignmentUsage() workload.Usage {
 	})
 }
 
-// nominate returns the workloads with their requirements (resource flavors, borrowing) if
-// they were admitted by the clusterQueues in the snapshot. The second return value
-// is the list of inadmissibleEntries.
-// nominate 返回如果被快照中的 clusterQueue 调度时，工作负载的资源需求（资源类型、借用等）。第二个返回值是不可调度的 entry 列表。
-func (s *Scheduler) nominate(ctx context.Context, workloads []workload.Info, snap *cache.Snapshot) ([]entry, []entry) {
-	log := ctrl.LoggerFrom(ctx)                 // 获取日志对象
-	entries := make([]entry, 0, len(workloads)) // 初始化可调度 entry 列表
-	var inadmissibleEntries []entry             // 初始化不可调度 entry 列表
-	for _, w := range workloads {               // 遍历所有待调度工作负载
-		log := log.WithValues("workload", klog.KObj(w.Obj), "clusterQueue", klog.KRef("", string(w.ClusterQueue))) // 日志中加入工作负载和 ClusterQueue 信息
-		ns := corev1.Namespace{}                                                                                   // 用于存储命名空间对象
-		e := entry{Info: w}                                                                                        // 构造 entry 对象
-		e.clusterQueueSnapshot = snap.ClusterQueue(w.ClusterQueue)                                                 // 获取对应的 ClusterQueue 快照
-		if !workload.NeedsSecondPass(w.Obj) && s.cache.IsAssumedOrAdmittedWorkload(w) {                            // 如果不需要二次调度且已在缓存中
-			log.Info("Workload skipped from admission because it's already accounted in cache, and it does not need second pass", "workload", klog.KObj(w.Obj)) // 打印跳过信息
-			continue                                                                                                                                            // 跳过该 entry
-		} else if workload.HasRetryChecks(w.Obj) || workload.HasRejectedChecks(w.Obj) { // 如果 admission check 失败
-			e.inadmissibleMsg = "The workload has failed admission checks" // 记录失败原因
-		} else if snap.InactiveClusterQueueSets.Has(w.ClusterQueue) { // 如果 ClusterQueue 不可用
-			e.inadmissibleMsg = fmt.Sprintf("ClusterQueue %s is inactive", w.ClusterQueue) // 记录失败原因
-		} else if e.clusterQueueSnapshot == nil { // 如果找不到 ClusterQueue 快照
-			e.inadmissibleMsg = fmt.Sprintf("ClusterQueue %s not found", w.ClusterQueue) // 记录失败原因
-		} else if err := s.client.Get(ctx, types.NamespacedName{Name: w.Obj.Namespace}, &ns); err != nil { // 获取命名空间失败
-			e.inadmissibleMsg = fmt.Sprintf("Could not obtain workload namespace: %v", err) // 记录失败原因
-		} else if !e.clusterQueueSnapshot.NamespaceSelector.Matches(labels.Set(ns.Labels)) { // 命名空间标签不匹配
-			e.inadmissibleMsg = "Workload namespace doesn't match ClusterQueue selector" // 记录失败原因
-			e.requeueReason = queue.RequeueReasonNamespaceMismatch                       // 设置重新入队原因
-		} else if err := workload.ValidateResources(&w); err != nil { // 资源校验失败
-			e.inadmissibleMsg = fmt.Sprintf("%s: %v", errInvalidWLResources, err.ToAggregate()) // 记录失败原因
-		} else if err := workload.ValidateLimitRange(ctx, s.client, &w); err != nil { // LimitRange 校验失败
-			e.inadmissibleMsg = fmt.Sprintf("%s: %v", errLimitRangeConstraintsUnsatisfiedResources, err.ToAggregate()) // 记录失败原因
-		} else {
-			e.assignment, e.preemptionTargets = s.getAssignments(log, &e.Info, snap) // 获取资源分配和抢占目标
-			e.inadmissibleMsg = e.assignment.Message()                               // 记录分配信息
-			e.LastAssignment = &e.assignment.LastState                               // 记录上一次分配状态
-			entries = append(entries, e)                                             // 加入可调度 entry 列表
-			continue                                                                 // 进入下一个工作负载
-		}
-		inadmissibleEntries = append(inadmissibleEntries, e) // 加入不可调度 entry 列表
-	}
-	return entries, inadmissibleEntries // 返回可调度和不可调度 entry 列表
-}
-
 func fits(cq *cache.ClusterQueueSnapshot, usage *workload.Usage, preemptedWorkloads preemption.PreemptedWorkloads, newTargets []*preemption.Target) bool {
 	workloads := slices.Collect(maps.Values(preemptedWorkloads))
 	for _, target := range newTargets {
@@ -399,67 +348,6 @@ func quotaResourcesToReserve(e *entry, cq *cache.ClusterQueueSnapshot) resources
 type partialAssignment struct {
 	assignment        flavorassigner.Assignment // 部分调度的资源分配结果
 	preemptionTargets []*preemption.Target      // 部分调度对应的抢占目标列表
-}
-
-func (s *Scheduler) getInitialAssignments(log logr.Logger, wl *workload.Info, snap *cache.Snapshot) (flavorassigner.Assignment, []*preemption.Target) {
-	cq := snap.ClusterQueue(wl.ClusterQueue)                                                                                       // 获取当前工作负载对应的 ClusterQueue 快照
-	flvAssigner := flavorassigner.New(wl, cq, snap.ResourceFlavors, s.fairSharing.Enable, preemption.NewOracle(s.preemptor, snap)) // 创建资源分配器
-	fullAssignment := flvAssigner.Assign(log, nil)                                                                                 // 尝试为所有 PodSet 分配资源
-
-	arm := fullAssignment.RepresentativeMode() // 获取分配模式
-	if arm == flavorassigner.Fit {             // 如果所有资源都能直接分配
-		return fullAssignment, nil // 返回分配结果，无需抢占
-	}
-
-	if arm == flavorassigner.Preempt { // 如果需要抢占
-		faPreemptionTargets := s.preemptor.GetTargets(log, *wl, fullAssignment, snap) // 获取可抢占的目标
-		if len(faPreemptionTargets) > 0 {                                             // 如果有可抢占目标
-			return fullAssignment, faPreemptionTargets // 返回分配结果和抢占目标
-		}
-	}
-
-	if features.Enabled(features.PartialAdmission) && wl.CanBePartiallyAdmitted() { // 如果支持部分调度且工作负载允许部分调度
-		reducer := flavorassigner.NewPodSetReducer(wl.Obj.Spec.PodSets, func(nextCounts []int32) (*partialAssignment, bool) { // 创建 PodSet 数量缩减器
-			assignment := flvAssigner.Assign(log, nextCounts) // 尝试为缩减后的 PodSet 分配资源
-			mode := assignment.RepresentativeMode()           // 获取分配模式
-			if mode == flavorassigner.Fit {                   // 如果缩减后可以直接分配
-				return &partialAssignment{assignment: assignment}, true // 返回部分分配结果
-			}
-
-			if mode == flavorassigner.Preempt { // 如果缩减后需要抢占
-				preemptionTargets := s.preemptor.GetTargets(log, *wl, assignment, snap) // 获取可抢占目标
-				if len(preemptionTargets) > 0 {                                         // 如果有可抢占目标
-					return &partialAssignment{assignment: assignment, preemptionTargets: preemptionTargets}, true // 返回部分分配和抢占目标
-				}
-			}
-			return nil, false // 否则继续缩减
-		})
-		if pa, found := reducer.Search(); found { // 搜索可行的部分分配方案
-			return pa.assignment, pa.preemptionTargets // 返回部分分配和抢占目标
-		}
-	}
-	return fullAssignment, nil // 返回原始分配结果，未找到可行方案
-}
-
-func updateAssignmentForTAS(cq *cache.ClusterQueueSnapshot, wl *workload.Info, assignment *flavorassigner.Assignment, targets []*preemption.Target) {
-	if features.Enabled(features.TopologyAwareScheduling) && assignment.RepresentativeMode() == flavorassigner.Preempt && (wl.IsRequestingTAS() || cq.IsTASOnly()) && !workload.HasTopologyAssignmentWithNodeToReplace(wl.Obj) {
-		tasRequests := assignment.WorkloadsTopologyRequests(wl, cq) // 获取工作负载的拓扑请求
-		var tasResult cache.TASAssignmentsResult                    // 定义 TAS 分配结果变量
-		if len(targets) > 0 {                                       // 如果有抢占目标
-			var targetWorkloads []*workload.Info // 定义抢占目标工作负载切片
-			for _, target := range targets {     // 遍历所有抢占目标
-				targetWorkloads = append(targetWorkloads, target.WorkloadInfo) // 添加到切片
-			}
-			revertUsage := cq.SimulateWorkloadRemoval(targetWorkloads)                 // 模拟移除抢占目标后的资源使用
-			tasResult = cq.FindTopologyAssignmentsForWorkload(tasRequests, false, nil) // 查找拓扑分配
-			revertUsage()                                                              // 恢复资源使用
-		} else {
-			// 在没有抢占候选的情况下，需要预留 TAS 资源，防止低优先级工作负载被调度后又被抢占。
-			// 这里假设集群为空，运行算法获得 TAS 分配用于资源预留。
-			tasResult = cq.FindTopologyAssignmentsForWorkload(tasRequests, true, nil) // 查找拓扑分配（假设集群为空）
-		}
-		assignment.UpdateForTASResult(tasResult) // 更新分配结果
-	}
 }
 
 // admit 将调度的 clusterQueue 和资源类型写入 entry 的工作负载，并在缓存中假定后，异步更新 apiserver 中的对象。
@@ -521,10 +409,6 @@ func (s *Scheduler) admit(ctx context.Context, e *entry, cq *cache.ClusterQueueS
 	return nil // 返回 nil 表示成功
 }
 
-func (s *Scheduler) applyAdmissionWithSSA(ctx context.Context, w *kueue.Workload) error {
-	return workload.ApplyAdmissionStatus(ctx, s.client, w, false, s.clock)
-}
-
 type entryOrdering struct {
 	entries          []entry
 	workloadOrdering workload.Ordering
@@ -583,11 +467,151 @@ type entryIterator interface {
 	hasNext() bool
 }
 
-func makeIterator(ctx context.Context, entries []entry, workloadOrdering workload.Ordering, enableFairSharing bool) entryIterator {
-	if enableFairSharing {
-		return makeFairSharingIterator(ctx, entries, workloadOrdering)
+func (s *Scheduler) requeueAndUpdate(ctx context.Context, e entry) {
+	log := ctrl.LoggerFrom(ctx)                                                    // 获取日志对象
+	if e.status != notNominated && e.requeueReason == queue.RequeueReasonGeneric { // 如果 entry 已被提名且重入队原因为通用
+		// 被提名后失败是工作负载会被下游重新入队的唯一原因。
+		e.requeueReason = queue.RequeueReasonFailedAfterNomination // 设置为被提名后失败
 	}
-	return makeClassicalIterator(entries, workloadOrdering)
+
+	if s.queues.QueueSecondPassIfNeeded(ctx, e.Obj) { // 如果需要二次调度
+		log.V(2).Info("Workload re-queued for second pass", "workload", klog.KObj(e.Obj), "clusterQueue", klog.KRef("", string(e.ClusterQueue)), "queue", klog.KRef(e.Obj.Namespace, string(e.Obj.Spec.QueueName)), "requeueReason", e.requeueReason, "status", e.status) // 打印日志
+		s.recorder.Eventf(e.Obj, corev1.EventTypeWarning, "SecondPassFailed", api.TruncateEventMessage(e.inadmissibleMsg))                                                                                                                                                // 发送二次调度失败事件
+		return                                                                                                                                                                                                                                                            // 直接返回
+	}
+
+	added := s.queues.RequeueWorkload(ctx, &e.Info, e.requeueReason)                                                                                                                                                                                                  // 将 entry 重新入队
+	log.V(2).Info("Workload re-queued", "workload", klog.KObj(e.Obj), "clusterQueue", klog.KRef("", string(e.ClusterQueue)), "queue", klog.KRef(e.Obj.Namespace, string(e.Obj.Spec.QueueName)), "requeueReason", e.requeueReason, "added", added, "status", e.status) // 打印日志
+
+	if e.status == notNominated || e.status == skipped { // 如果 entry 未被提名或被跳过
+		patch := workload.PrepareWorkloadPatch(e.Obj, true, s.clock)                                                            // 构造 patch 对象
+		reservationIsChanged := workload.UnsetQuotaReservationWithCondition(patch, "Pending", e.inadmissibleMsg, s.clock.Now()) // 取消配额预留并设置 Pending 条件
+		resourceRequestsIsChanged := workload.PropagateResourceRequests(patch, &e.Info)                                         // 传播资源请求
+		if reservationIsChanged || resourceRequestsIsChanged {                                                                  // 如果有变更
+			if err := workload.ApplyAdmissionStatusPatch(ctx, s.client, patch); err != nil { // 应用 patch 更新 admission 状态
+				log.Error(err, "Could not update Workload status") // 打印错误日志
+			}
+		}
+		s.recorder.Eventf(e.Obj, corev1.EventTypeWarning, "Pending", api.TruncateEventMessage(e.inadmissibleMsg)) // 发送 Pending 事件
+	}
+}
+func (s *Scheduler) getAssignments(log logr.Logger, wl *workload.Info, snap *cache.Snapshot) (flavorassigner.Assignment, []*preemption.Target) {
+	assignment, targets := s.getInitialAssignments(log, wl, snap) // ✅
+	cq := snap.ClusterQueue(wl.ClusterQueue)
+	updateAssignmentForTAS(cq, wl, &assignment, targets)
+	return assignment, targets
+}
+
+func WithFairSharing(fs *config.FairSharing) Option {
+	return func(o *options) {
+		if fs != nil {
+			o.fairSharing = *fs
+		}
+	}
+}
+
+func (s *Scheduler) getInitialAssignments(log logr.Logger, wl *workload.Info, snap *cache.Snapshot) (flavorassigner.Assignment, []*preemption.Target) {
+	cq := snap.ClusterQueue(wl.ClusterQueue)                                                                                       // 获取当前工作负载对应的 ClusterQueue 快照
+	flvAssigner := flavorassigner.New(wl, cq, snap.ResourceFlavors, s.fairSharing.Enable, preemption.NewOracle(s.preemptor, snap)) // 创建资源分配器
+
+	fullAssignment := flvAssigner.Assign(log, nil) // ✅ 尝试为所有 PodSet 分配资源
+
+	arm := fullAssignment.RepresentativeMode() // 获取分配模式
+	if arm == flavorassigner.Fit {             // 如果所有资源都能直接分配
+		return fullAssignment, nil // 返回分配结果，无需抢占
+	}
+
+	if arm == flavorassigner.Preempt { // 如果需要抢占
+		faPreemptionTargets := s.preemptor.GetTargets(log, *wl, fullAssignment, snap) // 获取可抢占的目标
+		if len(faPreemptionTargets) > 0 {                                             // 如果有可抢占目标
+			return fullAssignment, faPreemptionTargets // 返回分配结果和抢占目标
+		}
+	}
+
+	if features.Enabled(features.PartialAdmission) && wl.CanBePartiallyAdmitted() { // 如果支持部分调度且工作负载允许部分调度  ✅
+		reducer := flavorassigner.NewPodSetReducer(
+			wl.Obj.Spec.PodSets,
+			func(nextCounts []int32) (*partialAssignment, bool) { // 创建 PodSet 数量缩减器
+				assignment := flvAssigner.Assign(log, nextCounts) // 尝试为缩减后的 PodSet 分配资源
+				mode := assignment.RepresentativeMode()           // 获取分配模式
+				if mode == flavorassigner.Fit {                   // 如果缩减后可以直接分配
+					return &partialAssignment{assignment: assignment}, true // 返回部分分配结果
+				}
+				if mode == flavorassigner.Preempt { // 如果缩减后需要抢占
+					preemptionTargets := s.preemptor.GetTargets(log, *wl, assignment, snap) // 获取可抢占目标
+					if len(preemptionTargets) > 0 {                                         // 如果有可抢占目标
+						return &partialAssignment{assignment: assignment, preemptionTargets: preemptionTargets}, true // 返回部分分配和抢占目标
+					}
+				}
+				return nil, false // 否则继续缩减
+			},
+		)
+		if pa, found := reducer.Search(); found { // 搜索可行的部分分配方案
+			return pa.assignment, pa.preemptionTargets // 返回部分分配和抢占目标
+		}
+	}
+	return fullAssignment, nil // 返回原始分配结果，未找到可行方案
+}
+
+func updateAssignmentForTAS(cq *cache.ClusterQueueSnapshot, wl *workload.Info, assignment *flavorassigner.Assignment, targets []*preemption.Target) {
+	if features.Enabled(features.TopologyAwareScheduling) && assignment.RepresentativeMode() == flavorassigner.Preempt && (wl.IsRequestingTAS() || cq.IsTASOnly()) && !workload.HasTopologyAssignmentWithNodeToReplace(wl.Obj) {
+		tasRequests := assignment.WorkloadsTopologyRequests(wl, cq) // 获取工作负载的拓扑请求
+		var tasResult cache.TASAssignmentsResult                    // 定义 TAS 分配结果变量
+		if len(targets) > 0 {                                       // 如果有抢占目标
+			var targetWorkloads []*workload.Info // 定义抢占目标工作负载切片
+			for _, target := range targets {     // 遍历所有抢占目标
+				targetWorkloads = append(targetWorkloads, target.WorkloadInfo) // 添加到切片
+			}
+			revertUsage := cq.SimulateWorkloadRemoval(targetWorkloads)                 // 模拟移除抢占目标后的资源使用
+			tasResult = cq.FindTopologyAssignmentsForWorkload(tasRequests, false, nil) // 查找拓扑分配
+			revertUsage()                                                              // 恢复资源使用
+		} else {
+			// 在没有抢占候选的情况下，需要预留 TAS 资源，防止低优先级工作负载被调度后又被抢占。
+			// 这里假设集群为空，运行算法获得 TAS 分配用于资源预留。
+			tasResult = cq.FindTopologyAssignmentsForWorkload(tasRequests, true, nil) // 查找拓扑分配（假设集群为空）
+		}
+		assignment.UpdateForTASResult(tasResult) // 更新分配结果
+	}
+}
+
+// nominate 返回如果被快照中的 clusterQueue 调度时，工作负载的资源需求（资源类型、借用等）。第二个返回值是不可调度的 entry 列表。
+func (s *Scheduler) nominate(ctx context.Context, workloads []workload.Info, snap *cache.Snapshot) ([]entry, []entry) {
+	log := ctrl.LoggerFrom(ctx)                 // 获取日志对象
+	entries := make([]entry, 0, len(workloads)) // 初始化可调度 entry 列表
+	var inadmissibleEntries []entry             // 初始化不可调度 entry 列表
+	for _, w := range workloads {               // 遍历所有待调度工作负载
+		log := log.WithValues("workload", klog.KObj(w.Obj), "clusterQueue", klog.KRef("", string(w.ClusterQueue))) // 日志中加入工作负载和 ClusterQueue 信息
+		ns := corev1.Namespace{}                                                                                   // 用于存储命名空间对象
+		e := entry{Info: w}                                                                                        // 构造 entry 对象
+		e.clusterQueueSnapshot = snap.ClusterQueue(w.ClusterQueue)                                                 // 获取对应的 ClusterQueue 快照
+		if !workload.NeedsSecondPass(w.Obj) && s.cache.IsAssumedOrAdmittedWorkload(w) {                            // 如果不需要二次调度且已在缓存中
+			log.Info("Workload skipped from admission because it's already accounted in cache, and it does not need second pass", "workload", klog.KObj(w.Obj)) // 打印跳过信息
+			continue                                                                                                                                            // 跳过该 entry
+		} else if workload.HasRetryChecks(w.Obj) || workload.HasRejectedChecks(w.Obj) { // 如果 admission check 失败
+			e.inadmissibleMsg = "The workload has failed admission checks" // 记录失败原因
+		} else if snap.InactiveClusterQueueSets.Has(w.ClusterQueue) { // 如果 ClusterQueue 不可用
+			e.inadmissibleMsg = fmt.Sprintf("ClusterQueue %s is inactive", w.ClusterQueue) // 记录失败原因
+		} else if e.clusterQueueSnapshot == nil { // 如果找不到 ClusterQueue 快照
+			e.inadmissibleMsg = fmt.Sprintf("ClusterQueue %s not found", w.ClusterQueue) // 记录失败原因
+		} else if err := s.client.Get(ctx, types.NamespacedName{Name: w.Obj.Namespace}, &ns); err != nil { // 获取命名空间失败
+			e.inadmissibleMsg = fmt.Sprintf("Could not obtain workload namespace: %v", err) // 记录失败原因
+		} else if !e.clusterQueueSnapshot.NamespaceSelector.Matches(labels.Set(ns.Labels)) { // 命名空间标签不匹配
+			e.inadmissibleMsg = "Workload namespace doesn't match ClusterQueue selector" // 记录失败原因
+			e.requeueReason = queue.RequeueReasonNamespaceMismatch                       // 设置重新入队原因
+		} else if err := workload.ValidateResources(&w); err != nil { // 资源校验失败
+			e.inadmissibleMsg = fmt.Sprintf("%s: %v", errInvalidWLResources, err.ToAggregate()) // 记录失败原因
+		} else if err := workload.ValidateLimitRange(ctx, s.client, &w); err != nil { // LimitRange 校验失败
+			e.inadmissibleMsg = fmt.Sprintf("%s: %v", errLimitRangeConstraintsUnsatisfiedResources, err.ToAggregate()) // 记录失败原因
+		} else {
+			e.assignment, e.preemptionTargets = s.getAssignments(log, &e.Info, snap) // 获取资源分配和抢占目标
+			e.inadmissibleMsg = e.assignment.Message()                               // 记录分配信息
+			e.LastAssignment = &e.assignment.LastState                               // 记录上一次分配状态
+			entries = append(entries, e)                                             // 加入可调度 entry 列表
+			continue                                                                 // 进入下一个工作负载
+		}
+		inadmissibleEntries = append(inadmissibleEntries, e) // 加入不可调度 entry 列表
+	}
+	return entries, inadmissibleEntries // 返回可调度和不可调度 entry 列表
 }
 
 // classicalIterator returns entries ordered on:
@@ -623,38 +647,12 @@ func makeClassicalIterator(entries []entry, workloadOrdering workload.Ordering) 
 		entries: entries,
 	}
 }
-
-func (s *Scheduler) requeueAndUpdate(ctx context.Context, e entry) {
-	log := ctrl.LoggerFrom(ctx)                                                    // 获取日志对象
-	if e.status != notNominated && e.requeueReason == queue.RequeueReasonGeneric { // 如果 entry 已被提名且重入队原因为通用
-		// 被提名后失败是工作负载会被下游重新入队的唯一原因。
-		e.requeueReason = queue.RequeueReasonFailedAfterNomination // 设置为被提名后失败
+func makeIterator(ctx context.Context, entries []entry, workloadOrdering workload.Ordering, enableFairSharing bool) entryIterator {
+	if enableFairSharing {
+		return makeFairSharingIterator(ctx, entries, workloadOrdering)
 	}
-
-	if s.queues.QueueSecondPassIfNeeded(ctx, e.Obj) { // 如果需要二次调度
-		log.V(2).Info("Workload re-queued for second pass", "workload", klog.KObj(e.Obj), "clusterQueue", klog.KRef("", string(e.ClusterQueue)), "queue", klog.KRef(e.Obj.Namespace, string(e.Obj.Spec.QueueName)), "requeueReason", e.requeueReason, "status", e.status) // 打印日志
-		s.recorder.Eventf(e.Obj, corev1.EventTypeWarning, "SecondPassFailed", api.TruncateEventMessage(e.inadmissibleMsg))                                                                                                                                                // 发送二次调度失败事件
-		return                                                                                                                                                                                                                                                            // 直接返回
-	}
-
-	added := s.queues.RequeueWorkload(ctx, &e.Info, e.requeueReason)                                                                                                                                                                                                  // 将 entry 重新入队
-	log.V(2).Info("Workload re-queued", "workload", klog.KObj(e.Obj), "clusterQueue", klog.KRef("", string(e.ClusterQueue)), "queue", klog.KRef(e.Obj.Namespace, string(e.Obj.Spec.QueueName)), "requeueReason", e.requeueReason, "added", added, "status", e.status) // 打印日志
-
-	if e.status == notNominated || e.status == skipped { // 如果 entry 未被提名或被跳过
-		patch := workload.PrepareWorkloadPatch(e.Obj, true, s.clock)                                                            // 构造 patch 对象
-		reservationIsChanged := workload.UnsetQuotaReservationWithCondition(patch, "Pending", e.inadmissibleMsg, s.clock.Now()) // 取消配额预留并设置 Pending 条件
-		resourceRequestsIsChanged := workload.PropagateResourceRequests(patch, &e.Info)                                         // 传播资源请求
-		if reservationIsChanged || resourceRequestsIsChanged {                                                                  // 如果有变更
-			if err := workload.ApplyAdmissionStatusPatch(ctx, s.client, patch); err != nil { // 应用 patch 更新 admission 状态
-				log.Error(err, "Could not update Workload status") // 打印错误日志
-			}
-		}
-		s.recorder.Eventf(e.Obj, corev1.EventTypeWarning, "Pending", api.TruncateEventMessage(e.inadmissibleMsg)) // 发送 Pending 事件
-	}
+	return makeClassicalIterator(entries, workloadOrdering)
 }
-func (s *Scheduler) getAssignments(log logr.Logger, wl *workload.Info, snap *cache.Snapshot) (flavorassigner.Assignment, []*preemption.Target) {
-	assignment, targets := s.getInitialAssignments(log, wl, snap)
-	cq := snap.ClusterQueue(wl.ClusterQueue)
-	updateAssignmentForTAS(cq, wl, &assignment, targets)
-	return assignment, targets
+func (s *Scheduler) applyAdmissionWithSSA(ctx context.Context, w *kueue.Workload) error {
+	return workload.ApplyAdmissionStatus(ctx, s.client, w, false, s.clock)
 }

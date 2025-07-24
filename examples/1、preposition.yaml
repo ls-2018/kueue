@@ -1,4 +1,9 @@
 apiVersion: kueue.x-k8s.io/v1alpha1
+kind: Cohort
+metadata:
+  name: "ai-for-humanity-foundation"
+---
+apiVersion: kueue.x-k8s.io/v1alpha1
 kind: Topology
 metadata:
   name: "zone-tp"
@@ -28,15 +33,39 @@ spec:
 apiVersion: kueue.x-k8s.io/v1beta1
 kind: ClusterQueue
 metadata:
-  name: "cluster-queue-2"
+  name: "cluster-queue2"
 spec:
   cohort: ai-for-humanity-foundation
   namespaceSelector: { } # match all.
+  preemption:
+    borrowWithinCohort:
+      policy: LowerPriority
+    withinClusterQueue: LowerPriority
+    reclaimWithinCohort: Any # Any、Never if the pending Workload fits within the nominal quota of its ClusterQueue, preempt any Workload in the cohort, irrespective of priority.
+  flavorFungibility:
+    whenCanBorrow: Borrow  # this is the default but I'm making it explicit here
+    whenCanPreempt: Preempt  # ensures that accelerators aren't hit with compute workloads
   admissionChecksStrategy:
     admissionChecks:
       - name: "sample-prov"           # Name of the AdmissionCheck to be run
-        onFlavors: [ "default-flavor" ] # This AdmissionCheck will only run for Workloads that use default-flavor
+        onFlavors: [ "spot" ] # This AdmissionCheck will only run for Workloads that use default-flavor
       - name: "sample-prov-2" # This AdmissionCheck will run for all Workloads regardless of a used ResourceFlavor
+  resourceGroups:
+    - coveredResources: [ "cpu","memory" ]
+      flavors:
+        - name: "spot"
+          resources:
+            - name: "cpu"
+              nominalQuota: 1
+            - name: "memory"
+              nominalQuota: 1Gi
+#        - name: "default-flavor"
+#          resources:
+#            - name: "cpu"
+#              nominalQuota: 1
+#            - name: "memory"
+#              nominalQuota: 1Gi
+
 ---
 apiVersion: kueue.x-k8s.io/v1beta1
 kind: ClusterQueue
@@ -56,28 +85,16 @@ spec:
   resourceGroups:
     - coveredResources: [ "cpu", "memory" ]
       flavors:
-        - name: "default-flavor"
-          resources:
-            - name: "cpu"
-              nominalQuota: 6
-              borrowingLimit: 1    # 超出1
-              lendingLimit: 1      # 至多借出1
-            - name: "memory"
-              nominalQuota: 6Gi
-              borrowingLimit: 1Gi    # 超出1
-              lendingLimit: 1Gi     # 至多借出1
         - name: "spot"
           resources:
             - name: "cpu"
               nominalQuota: 6
+              borrowingLimit: 3    # 超出1
+              lendingLimit: 3      # 至多借出1
             - name: "memory"
               nominalQuota: 6Gi
-    - coveredResources: [ "gpu" ]
-      flavors:
-        - name: "spot"
-          resources:
-            - name: "gpu"
-              nominalQuota: 1Gi
+              borrowingLimit: 3Gi    # 多使用 1
+              lendingLimit: 3Gi     # 至多借出 1
 ---
 apiVersion: kueue.x-k8s.io/v1beta1
 kind: LocalQueue
@@ -86,4 +103,11 @@ metadata:
   name: "user-queue"
 spec:
   clusterQueue: "cluster-queue"
-
+---
+apiVersion: kueue.x-k8s.io/v1beta1
+kind: LocalQueue
+metadata:
+  namespace: "default"
+  name: "user-queue2"
+spec:
+  clusterQueue: "cluster-queue2"
