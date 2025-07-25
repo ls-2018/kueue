@@ -27,9 +27,9 @@ import (
 	config "sigs.k8s.io/kueue/apis/config/v1beta1"
 	kueuealpha "sigs.k8s.io/kueue/apis/kueue/v1alpha1"
 	kueue "sigs.k8s.io/kueue/apis/kueue/v1beta1"
-	"sigs.k8s.io/kueue/pkg/controller/core"
-	clientutil "sigs.k8s.io/kueue/pkg/util/client"
-	utilnode "sigs.k8s.io/kueue/pkg/util/node"
+	"sigs.k8s.io/kueue/pkg/controller/over_core"
+	clientutil "sigs.k8s.io/kueue/pkg/util/over_client"
+	utilnode "sigs.k8s.io/kueue/pkg/util/over_node"
 	utiltas "sigs.k8s.io/kueue/pkg/util/tas"
 	"sigs.k8s.io/kueue/pkg/workload"
 )
@@ -135,7 +135,7 @@ func (r *nodeFailureReconciler) SetupWithManager(mgr ctrl.Manager, cfg *config.C
 			NeedLeaderElection:      ptr.To(false),
 			MaxConcurrentReconciles: mgr.GetControllerOptions().GroupKindConcurrency[corev1.SchemeGroupVersion.WithKind("Node").GroupKind().String()],
 		}).
-		Complete(core.WithLeadingManager(mgr, r, &corev1.Node{}, cfg))
+		Complete(over_core.WithLeadingManager(mgr, r, &corev1.Node{}, cfg))
 }
 
 // getWorkloadsOnNode gets all workloads that have the given node assigned in TAS topology assignment

@@ -20,7 +20,7 @@ import (
 
 	generatedopenapi "sigs.k8s.io/kueue/apis/visibility/openapi"
 	visibilityv1beta1 "sigs.k8s.io/kueue/apis/visibility/v1beta1"
-	"sigs.k8s.io/kueue/pkg/queue"
+	"sigs.k8s.io/kueue/pkg/over_queue"
 	"sigs.k8s.io/kueue/pkg/visibility/api"
 
 	_ "k8s.io/component-base/metrics/prometheus/restclient" // for client-go metrics registration
@@ -44,7 +44,7 @@ var (
 // +kubebuilder:rbac:groups=flowcontrol.apiserver.k8s.io,resources=flowschemas/status,verbs=patch
 
 // CreateAndStartVisibilityServer creates visibility server injecting KueueManager and starts it
-func CreateAndStartVisibilityServer(ctx context.Context, kueueMgr *queue.Manager) {
+func CreateAndStartVisibilityServer(ctx context.Context, kueueMgr *over_queue.Manager) {
 	config := newVisibilityServerConfig()
 	if err := applyVisibilityServerOptions(config); err != nil {
 		setupLog.Error(err, "Unable to apply VisibilityServerOptions")

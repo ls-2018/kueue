@@ -5,7 +5,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"sigs.k8s.io/kueue/pkg/cache"
-	"sigs.k8s.io/kueue/pkg/resources"
+	"sigs.k8s.io/kueue/pkg/over_resources"
 	preemptioncommon "sigs.k8s.io/kueue/pkg/scheduler/preemption/common"
 	"sigs.k8s.io/kueue/pkg/workload"
 )
@@ -20,7 +20,7 @@ type PreemptionOracle struct {
 }
 
 // SimulatePreemption 模拟和判断在 Kubernetes 调度系统中某个资源是否可以通过抢占（preemption）或回收（reclaim）来满足调度需求。
-func (p *PreemptionOracle) SimulatePreemption(log logr.Logger, cq *cache.ClusterQueueSnapshot, wl workload.Info, fr resources.FlavorResource, quantity int64) preemptioncommon.PreemptionPossibility {
+func (p *PreemptionOracle) SimulatePreemption(log logr.Logger, cq *cache.ClusterQueueSnapshot, wl workload.Info, fr over_resources.FlavorResource, quantity int64) preemptioncommon.PreemptionPossibility {
 	//1 获取抢占候选
 	//调用 preemptor.getTargets，传入当前上下文，获取可以被抢占的候选工作负载列表
 	candidates := p.preemptor.getTargets(&preemptionCtx{ // 1 ✅
@@ -29,7 +29,7 @@ func (p *PreemptionOracle) SimulatePreemption(log logr.Logger, cq *cache.Cluster
 		preemptorCQ:       p.snapshot.ClusterQueue(wl.ClusterQueue),
 		snapshot:          p.snapshot,
 		frsNeedPreemption: sets.New(fr),
-		workloadUsage:     workload.Usage{Quota: resources.FlavorResourceQuantities{fr: quantity}},
+		workloadUsage:     workload.Usage{Quota: over_resources.FlavorResourceQuantities{fr: quantity}},
 	})
 	//2 无候选
 	//如果没有候选（len(candidates) == 0），返回 NoCandidates，表示无法通过抢占或回收满足需求。

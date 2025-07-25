@@ -10,7 +10,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"sigs.k8s.io/kueue/pkg/cache"
-	"sigs.k8s.io/kueue/pkg/queue"
+	"sigs.k8s.io/kueue/pkg/over_queue"
 )
 
 // BaseWebhook applies basic defaulting and validation for jobs.
@@ -19,7 +19,7 @@ type BaseWebhook struct {
 	ManageJobsWithoutQueueName   bool
 	ManagedJobsNamespaceSelector labels.Selector
 	FromObject                   func(runtime.Object) GenericJob
-	Queues                       *queue.Manager
+	Queues                       *over_queue.Manager
 	Cache                        *cache.Cache
 }
 

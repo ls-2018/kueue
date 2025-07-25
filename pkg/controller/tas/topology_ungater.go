@@ -25,15 +25,15 @@ import (
 	configapi "sigs.k8s.io/kueue/apis/config/v1beta1"
 	kueuealpha "sigs.k8s.io/kueue/apis/kueue/v1alpha1"
 	kueue "sigs.k8s.io/kueue/apis/kueue/v1beta1"
-	"sigs.k8s.io/kueue/pkg/controller/core"
 	controllerconsts "sigs.k8s.io/kueue/pkg/controller/over_constants"
+	"sigs.k8s.io/kueue/pkg/controller/over_core"
 	"sigs.k8s.io/kueue/pkg/controller/tas/indexer"
 	"sigs.k8s.io/kueue/pkg/over_constants"
-	utilclient "sigs.k8s.io/kueue/pkg/util/client"
-	"sigs.k8s.io/kueue/pkg/util/expectations"
-	"sigs.k8s.io/kueue/pkg/util/parallelize"
-	utilpod "sigs.k8s.io/kueue/pkg/util/pod"
-	utilslices "sigs.k8s.io/kueue/pkg/util/slices"
+	utilclient "sigs.k8s.io/kueue/pkg/util/over_client"
+	"sigs.k8s.io/kueue/pkg/util/over_expectations"
+	"sigs.k8s.io/kueue/pkg/util/over_parallelize"
+	utilpod "sigs.k8s.io/kueue/pkg/util/over_pod"
+	utilslices "sigs.k8s.io/kueue/pkg/util/over_slices"
 	utiltas "sigs.k8s.io/kueue/pkg/util/tas"
 	"sigs.k8s.io/kueue/pkg/workload"
 )
@@ -44,7 +44,7 @@ var (
 
 type topologyUngater struct {
 	client            client.Client
-	expectationsStore *expectations.Store
+	expectationsStore *over_expectations.Store
 }
 
 type podWithUngateInfo struct {
@@ -67,7 +67,7 @@ var _ predicate.TypedPredicate[*kueue.Workload] = (*topologyUngater)(nil)
 func newTopologyUngater(c client.Client) *topologyUngater {
 	return &topologyUngater{
 		client:            c,
-		expectationsStore: expectations.NewStore(TASTopologyUngater),
+		expectationsStore: over_expectations.NewStore(TASTopologyUngater),
 	}
 }
 
@@ -89,13 +89,13 @@ func (r *topologyUngater) setupWithManager(mgr ctrl.Manager, cfg *configapi.Conf
 			NeedLeaderElection:      ptr.To(false),
 			MaxConcurrentReconciles: mgr.GetControllerOptions().GroupKindConcurrency[kueue.GroupVersion.WithKind("Workload").GroupKind().String()],
 		}).
-		Complete(core.WithLeadingManager(mgr, r, &kueue.Workload{}, cfg))
+		Complete(over_core.WithLeadingManager(mgr, r, &kueue.Workload{}, cfg))
 }
 
 var _ handler.EventHandler = (*podHandler)(nil)
 
 type podHandler struct {
-	expectationsStore *expectations.Store
+	expectationsStore *over_expectations.Store
 }
 
 func (h *podHandler) Create(ctx context.Context, e event.CreateEvent, q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
@@ -184,7 +184,7 @@ func (r *topologyUngater) Reconcile(ctx context.Context, req reconcile.Request) 
 		podsToUngateUIDs := utilslices.Map(allToUngate, func(p *podWithUngateInfo) types.UID { return p.pod.UID })
 		r.expectationsStore.ExpectUIDs(log, req.NamespacedName, podsToUngateUIDs)
 
-		err = parallelize.Until(ctx, len(allToUngate), func(i int) error {
+		err = over_parallelize.Until(ctx, len(allToUngate), func(i int) error {
 			podWithUngateInfo := &allToUngate[i]
 			var ungated bool
 			e := utilclient.Patch(ctx, r.client, podWithUngateInfo.pod, true, func() (bool, error) {
@@ -253,9 +253,7 @@ func (r *topologyUngater) podsForPodSet(ctx context.Context, ns, wlName string, 
 	return result, nil
 }
 
-func podsToUngateInfo(
-	psa *kueue.PodSetAssignment,
-	podToUngateWithDomain []podWithDomain) []podWithUngateInfo {
+func podsToUngateInfo(psa *kueue.PodSetAssignment, podToUngateWithDomain []podWithDomain) []podWithUngateInfo {
 	domainIDToLabelValues := make(map[utiltas.TopologyDomainID][]string)
 	for _, psaDomain := range psa.TopologyAssignment.Domains {
 		domainID := utiltas.DomainID(psaDomain.Values)

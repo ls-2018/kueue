@@ -1,7 +1,40 @@
 apiVersion: kueue.x-k8s.io/v1alpha1
 kind: Cohort
 metadata:
-  name: "ai-for-humanity-foundation"
+  name: "root-cohort"
+spec:
+  resourceGroups:
+    - coveredResources: ["cpu"]
+      flavors:
+        - name: "default-flavor"
+          resources:
+            - name: "cpu"
+              nominalQuota: 12 # 此队列中的 ClusterQueue 可使用的共享配额
+---
+apiVersion: kueue.x-k8s.io/v1alpha1
+kind: Cohort
+metadata:
+  name: "important-org"
+spec:
+  parent: "root-cohort"
+  fairSharing:
+    weight: "0.75"
+---
+apiVersion: kueue.x-k8s.io/v1alpha1
+kind: Cohort
+metadata:
+  name: "regular-org"
+spec:
+  parent: "root-cohort"
+  fairSharing:
+    weight: "0.25"
+---
+apiVersion: kueue.x-k8s.io/v1beta1
+kind: WorkloadPriorityClass
+metadata:
+  name: sample-priority
+value: 10000
+description: "示例优先级"
 ---
 apiVersion: kueue.x-k8s.io/v1alpha1
 kind: Topology
@@ -9,7 +42,9 @@ metadata:
   name: "zone-tp"
 spec:
   levels:
-    - nodeLabel: zone
+    - nodeLabel: "cloud.provider.com/topology-block"
+    - nodeLabel: "cloud.provider.com/topology-rack"
+    - nodeLabel: "kubernetes.io/hostname"
 ---
 apiVersion: kueue.x-k8s.io/v1beta1
 kind: ResourceFlavor
@@ -31,11 +66,81 @@ spec:
   topologyName: zone-tp
 ---
 apiVersion: kueue.x-k8s.io/v1beta1
+kind: AdmissionCheck
+metadata:
+  name: sample-prov
+spec:
+  controllerName: kueue.x-k8s.io/provisioning-request
+  parameters:
+    apiGroup: kueue.x-k8s.io
+    kind: ProvisioningRequestConfig
+    name: sample-prov-config
+---
+apiVersion: kueue.x-k8s.io/v1beta1
+kind: AdmissionCheck
+metadata:
+  name: sample-prov-2
+spec:
+  controllerName: kueue.x-k8s.io/multikueue
+  parameters:
+    apiGroup: kueue.x-k8s.io
+    kind: MultiKueueConfig
+    name: multikueue-test
+---
+apiVersion: kueue.x-k8s.io/v1beta1
+kind: MultiKueueConfig
+metadata:
+  name: multikueue-test
+spec:
+  clusters:
+    - multikueue-test-worker1
+---
+apiVersion: kueue.x-k8s.io/v1beta1
+kind: MultiKueueCluster
+metadata:
+  name: multikueue-test-worker1
+spec:
+  kubeConfig:
+    locationType: Secret
+    location: worker1-secret
+---
+apiVersion: kueue.x-k8s.io/v1beta1
+kind: ProvisioningRequestConfig
+metadata:
+  name: sample-prov-config
+spec:
+  provisioningClassName: check-capacity.autoscaling.x-k8s.io
+  managedResources:
+    - cpu
+    - memory
+  retryStrategy:
+    backoffLimitCount: 2
+    backoffBaseSeconds: 0
+    backoffMaxSeconds: 1800
+---
+apiVersion: kueue.x-k8s.io/v1beta1
+kind: ProvisioningRequestConfig
+metadata:
+  name: sample-prov-2-config
+spec:
+  provisioningClassName: check-capacity.autoscaling.x-k8s.io
+  managedResources:
+    - cpu
+    - memory
+  retryStrategy:
+    backoffLimitCount: 2
+    backoffBaseSeconds: 0
+    backoffMaxSeconds: 1800
+---
+apiVersion: kueue.x-k8s.io/v1beta1
 kind: ClusterQueue
 metadata:
   name: "cluster-queue2"
 spec:
-  cohort: ai-for-humanity-foundation
+  cohort: regular-org
+  admissionScope:
+    admissionMode: UsageBasedAdmissionFairSharing
+#    admissionMode: UsageBasedFairSharing
   namespaceSelector: { } # match all.
   preemption:
     borrowWithinCohort:
@@ -65,14 +170,13 @@ spec:
 #              nominalQuota: 1
 #            - name: "memory"
 #              nominalQuota: 1Gi
-
 ---
 apiVersion: kueue.x-k8s.io/v1beta1
 kind: ClusterQueue
 metadata:
   name: "cluster-queue"
 spec:
-  cohort: ai-for-humanity-foundation
+  cohort: regular-org
   namespaceSelector: { } # match all.
   preemption:
     borrowWithinCohort:
@@ -103,6 +207,8 @@ metadata:
   name: "user-queue"
 spec:
   clusterQueue: "cluster-queue"
+  fairSharing:
+    weight: "1"
 ---
 apiVersion: kueue.x-k8s.io/v1beta1
 kind: LocalQueue
@@ -111,3 +217,5 @@ metadata:
   name: "user-queue2"
 spec:
   clusterQueue: "cluster-queue2"
+  fairSharing:
+    weight: "1"

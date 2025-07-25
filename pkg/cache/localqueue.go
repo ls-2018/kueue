@@ -5,8 +5,8 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 
-	"sigs.k8s.io/kueue/pkg/queue"
-	"sigs.k8s.io/kueue/pkg/resources"
+	"sigs.k8s.io/kueue/pkg/over_queue"
+	"sigs.k8s.io/kueue/pkg/over_resources"
 )
 
 // LocalQueue 结构体用于描述本地队列。
@@ -14,11 +14,11 @@ import (
 // updateAdmittedUsage 更新已接收的资源使用量。
 type LocalQueue struct {
 	sync.RWMutex
-	key                queue.LocalQueueReference
+	key                over_queue.LocalQueueReference
 	reservingWorkloads int
 	admittedWorkloads  int
-	totalReserved      resources.FlavorResourceQuantities
-	admittedUsage      resources.FlavorResourceQuantities
+	totalReserved      over_resources.FlavorResourceQuantities
+	admittedUsage      over_resources.FlavorResourceQuantities
 }
 
 func (lq *LocalQueue) GetAdmittedUsage() corev1.ResourceList {
@@ -27,7 +27,7 @@ func (lq *LocalQueue) GetAdmittedUsage() corev1.ResourceList {
 	return lq.admittedUsage.FlattenFlavors().ToResourceList()
 }
 
-func (lq *LocalQueue) updateAdmittedUsage(usage resources.FlavorResourceQuantities, op usageOp) {
+func (lq *LocalQueue) updateAdmittedUsage(usage over_resources.FlavorResourceQuantities, op usageOp) {
 	lq.Lock()
 	defer lq.Unlock()
 	updateFlavorUsage(usage, lq.admittedUsage, op)

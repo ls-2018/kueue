@@ -16,9 +16,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	kueue "sigs.k8s.io/kueue/apis/kueue/v1beta1"
-	"sigs.k8s.io/kueue/pkg/features"
-	"sigs.k8s.io/kueue/pkg/resources"
-	"sigs.k8s.io/kueue/pkg/util/slices"
+	"sigs.k8s.io/kueue/pkg/over_features"
+	"sigs.k8s.io/kueue/pkg/over_resources"
+	"sigs.k8s.io/kueue/pkg/util/over_slices"
 	"sigs.k8s.io/kueue/pkg/workload"
 )
 
@@ -43,7 +43,7 @@ func (w *WorkloadWebhook) Default(ctx context.Context, obj runtime.Object) error
 	log.V(5).Info("Applying defaults")
 
 	// drop minCounts if PartialAdmission is not enabled
-	if !features.Enabled(features.PartialAdmission) {
+	if !over_features.Enabled(over_features.PartialAdmission) {
 		for i := range wl.Spec.PodSets {
 			wl.Spec.PodSets[i].MinCount = nil
 		}
@@ -148,7 +148,7 @@ func validateAdmissionChecks(obj *kueue.Workload, basePath *field.Path) field.Er
 func validatePodSetUpdates(acs *kueue.AdmissionCheckState, obj *kueue.Workload, basePath *field.Path) field.ErrorList {
 	var allErrs field.ErrorList
 
-	knowPodSets := sets.New(slices.Map(obj.Spec.PodSets, func(ps *kueue.PodSet) kueue.PodSetReference {
+	knowPodSets := sets.New(over_slices.Map(obj.Spec.PodSets, func(ps *kueue.PodSet) kueue.PodSetReference {
 		return ps.Name
 	})...)
 
@@ -168,7 +168,7 @@ func validatePodSetUpdates(acs *kueue.AdmissionCheckState, obj *kueue.Workload, 
 
 func validateImmutablePodSetUpdates(newObj, oldObj *kueue.Workload, basePath *field.Path) field.ErrorList {
 	var allErrs field.ErrorList
-	newAcs := slices.ToRefMap(newObj.Status.AdmissionChecks, func(f *kueue.AdmissionCheckState) kueue.AdmissionCheckReference { return f.Name })
+	newAcs := over_slices.ToRefMap(newObj.Status.AdmissionChecks, func(f *kueue.AdmissionCheckState) kueue.AdmissionCheckReference { return f.Name })
 	for i := range oldObj.Status.AdmissionChecks {
 		oldAc := &oldObj.Status.AdmissionChecks[i]
 		newAc, found := newAcs[oldAc.Name]
@@ -213,7 +213,7 @@ func validateAdmission(obj *kueue.Workload, path *field.Path) field.ErrorList {
 		}
 		if count := ptr.Deref(ps.Count, 0); count > 0 {
 			for k, v := range ps.ResourceUsage {
-				if (resources.ResourceValue(k, v) % int64(count)) != 0 {
+				if (over_resources.ResourceValue(k, v) % int64(count)) != 0 {
 					allErrs = append(allErrs, field.Invalid(psaPath.Child("resourceUsage").Key(string(k)), v, fmt.Sprintf("is not a multiple of %d", ps.Count)))
 				}
 			}
@@ -273,7 +273,7 @@ func validateAdmissionUpdate(new, old *kueue.Admission, path *field.Path) field.
 	if old == nil || new == nil {
 		return nil
 	}
-	if features.Enabled(features.TopologyAwareScheduling) {
+	if over_features.Enabled(over_features.TopologyAwareScheduling) {
 		if len(new.PodSetAssignments) != len(old.PodSetAssignments) {
 			return apivalidation.ValidateImmutableField(new, old, path)
 		}

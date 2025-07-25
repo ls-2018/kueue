@@ -31,9 +31,9 @@ import (
 	kueue "sigs.k8s.io/kueue/apis/kueue/v1beta1"
 	"sigs.k8s.io/kueue/pkg/over_constants"
 	"sigs.k8s.io/kueue/pkg/over_podset"
-	"sigs.k8s.io/kueue/pkg/util/admissioncheck"
-	"sigs.k8s.io/kueue/pkg/util/api"
-	"sigs.k8s.io/kueue/pkg/util/slices"
+	"sigs.k8s.io/kueue/pkg/util/over_admissioncheck"
+	"sigs.k8s.io/kueue/pkg/util/over_api"
+	"sigs.k8s.io/kueue/pkg/util/over_slices"
 	"sigs.k8s.io/kueue/pkg/workload"
 )
 
@@ -52,11 +52,7 @@ var (
 	realClock = clock.RealClock{}
 )
 
-type provisioningConfigHelper = admissioncheck.ConfigHelper[*kueue.ProvisioningRequestConfig, kueue.ProvisioningRequestConfig]
-
-func newProvisioningConfigHelper(c client.Client) (*provisioningConfigHelper, error) {
-	return admissioncheck.NewConfigHelper[*kueue.ProvisioningRequestConfig](c)
-}
+type provisioningConfigHelper = over_admissioncheck.ConfigHelper[*kueue.ProvisioningRequestConfig, kueue.ProvisioningRequestConfig]
 
 type Controller struct {
 	client client.Client
@@ -71,92 +67,6 @@ type workloadInfo struct {
 }
 
 var _ reconcile.Reconciler = (*Controller)(nil)
-
-// +kubebuilder:rbac:groups="",resources=events,verbs=create;watch;update
-// +kubebuilder:rbac:groups="",resources=podtemplates,verbs=get;list;watch;create;delete;update
-// +kubebuilder:rbac:groups=autoscaling.x-k8s.io,resources=provisioningrequests,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=autoscaling.x-k8s.io,resources=provisioningrequests/status,verbs=get
-// +kubebuilder:rbac:groups=kueue.x-k8s.io,resources=workloads,verbs=get;list;watch;update;patch;delete
-// +kubebuilder:rbac:groups=kueue.x-k8s.io,resources=workloads/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=kueue.x-k8s.io,resources=admissionchecks,verbs=get;list;watch
-// +kubebuilder:rbac:groups=kueue.x-k8s.io,resources=provisioningrequestconfigs,verbs=get;list;watch
-
-func NewController(client client.Client, record record.EventRecorder) (*Controller, error) {
-	helper, err := newProvisioningConfigHelper(client)
-	if err != nil {
-		return nil, err
-	}
-	return &Controller{
-		client: client,
-		record: record,
-		helper: helper,
-		clock:  realClock,
-	}, nil
-}
-
-// Reconcile performs a full reconciliation for the object referred to by the Request.
-// The Controller will requeue the Request to be processed again if an error is non-nil or
-// Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
-func (c *Controller) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
-	wl := &kueue.Workload{}
-
-	err := c.client.Get(ctx, req.NamespacedName, wl)
-	if err != nil {
-		return reconcile.Result{}, client.IgnoreNotFound(err)
-	}
-
-	log := ctrl.LoggerFrom(ctx)
-	log.V(2).Info("Reconcile Workload")
-
-	if !workload.HasQuotaReservation(wl) || workload.IsFinished(wl) || workload.IsEvicted(wl) {
-		return reconcile.Result{}, nil
-	}
-
-	provisioningRequestList := &autoscaling.ProvisioningRequestList{}
-	if err := c.client.List(ctx, provisioningRequestList, client.InNamespace(wl.Namespace), client.MatchingFields{RequestsOwnedByWorkloadKey: wl.Name}); client.IgnoreNotFound(err) != nil {
-		return reconcile.Result{}, err
-	}
-
-	// get the lists of relevant checks
-	relevantChecks, err := admissioncheck.FilterForController(ctx, c.client, wl.Status.AdmissionChecks, kueue.ProvisioningRequestControllerName)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-
-	checkConfig := make(map[kueue.AdmissionCheckReference]*kueue.ProvisioningRequestConfig, len(relevantChecks))
-	for _, checkName := range relevantChecks {
-		prc, err := c.helper.ConfigForAdmissionCheck(ctx, checkName)
-		if client.IgnoreNotFound(err) != nil {
-			return reconcile.Result{}, err
-		}
-		checkConfig[checkName] = prc
-	}
-
-	activeOrLastPRForChecks := c.activeOrLastPRForChecks(ctx, wl, checkConfig, provisioningRequestList.Items)
-
-	wlInfo := workloadInfo{
-		checkStates: make([]kueue.AdmissionCheckState, 0),
-	}
-	err = c.syncCheckStates(ctx, wl, &wlInfo, checkConfig, activeOrLastPRForChecks)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-
-	err = c.deleteUnusedProvisioningRequests(ctx, provisioningRequestList.Items, activeOrLastPRForChecks)
-	if err != nil {
-		log.V(2).Error(err, "syncOwnedProvisionRequest failed to delete unused provisioning requests")
-		return reconcile.Result{}, err
-	}
-
-	err = c.syncOwnedProvisionRequest(ctx, wl, &wlInfo, checkConfig, activeOrLastPRForChecks)
-	if err != nil {
-		// this can also delete unneeded checks
-		log.V(2).Error(err, "syncOwnedProvisionRequest failed")
-		return reconcile.Result{}, err
-	}
-
-	return reconcile.Result{}, nil
-}
 
 func (c *Controller) activeOrLastPRForChecks(
 	ctx context.Context,
@@ -308,9 +218,9 @@ func (c *Controller) syncOwnedProvisionRequest(
 }
 
 func (c *Controller) handleError(ctx context.Context, wl *kueue.Workload, ac *kueue.AdmissionCheckState, msg string, err error) error {
-	c.record.Eventf(wl, corev1.EventTypeWarning, "FailedCreate", api.TruncateEventMessage(msg))
+	c.record.Eventf(wl, corev1.EventTypeWarning, "FailedCreate", over_api.TruncateEventMessage(msg))
 
-	ac.Message = api.TruncateConditionMessage(msg)
+	ac.Message = over_api.TruncateConditionMessage(msg)
 	wlPatch := workload.BaseSSAWorkload(wl)
 	workload.SetAdmissionCheckState(&wlPatch.Status.AdmissionChecks, *ac, c.clock)
 
@@ -481,7 +391,7 @@ func (c *Controller) syncCheckStates(
 ) error {
 	log := ctrl.LoggerFrom(ctx)
 	wlInfo.update(wl, c.clock)
-	checksMap := slices.ToRefMap(wl.Status.AdmissionChecks, func(c *kueue.AdmissionCheckState) kueue.AdmissionCheckReference { return c.Name })
+	checksMap := over_slices.ToRefMap(wl.Status.AdmissionChecks, func(c *kueue.AdmissionCheckState) kueue.AdmissionCheckReference { return c.Name })
 	wlPatch := workload.BaseSSAWorkload(wl)
 	recorderMessages := make([]string, 0, len(checkConfig))
 	updated := false
@@ -591,7 +501,7 @@ func (c *Controller) syncCheckStates(
 			return err
 		}
 		for i := range recorderMessages {
-			c.record.Event(wl, corev1.EventTypeNormal, "AdmissionCheckUpdated", api.TruncateEventMessage(recorderMessages[i]))
+			c.record.Event(wl, corev1.EventTypeNormal, "AdmissionCheckUpdated", over_api.TruncateEventMessage(recorderMessages[i]))
 		}
 	}
 	wlInfo.update(wlPatch, c.clock)
@@ -600,10 +510,10 @@ func (c *Controller) syncCheckStates(
 
 func podSetUpdates(log logr.Logger, wl *kueue.Workload, pr *autoscaling.ProvisioningRequest, prc *kueue.ProvisioningRequestConfig) []kueue.PodSetUpdate {
 	podSets := wl.Spec.PodSets
-	refMap := slices.ToMap(podSets, func(i int) (string, kueue.PodSetReference) {
+	refMap := over_slices.ToMap(podSets, func(i int) (string, kueue.PodSetReference) {
 		return getProvisioningRequestPodTemplateName(pr.Name, podSets[i].Name), podSets[i].Name
 	})
-	return slices.Map(pr.Spec.PodSets, func(ps *autoscaling.PodSet) kueue.PodSetUpdate {
+	return over_slices.Map(pr.Spec.PodSets, func(ps *autoscaling.PodSet) kueue.PodSetUpdate {
 		podSetUpdate := kueue.PodSetUpdate{
 			Name: refMap[ps.PodTemplateRef.Name],
 			Annotations: map[string]string{
@@ -625,6 +535,215 @@ func podSetUpdates(log logr.Logger, wl *kueue.Workload, pr *autoscaling.Provisio
 		}
 		return podSetUpdate
 	})
+}
+
+type MergedPodSet struct {
+	Name             kueue.PodSetReference
+	PodSet           *kueue.PodSet
+	PodSetAssignment *kueue.PodSetAssignment
+	Count            int32
+}
+
+func mergePodSets(wl *kueue.Workload, prcSpec *kueue.ProvisioningRequestConfigSpec) ([]MergedPodSet, error) {
+	expectedPodSets := requiredPodSets(wl.Spec.PodSets, prcSpec.ManagedResources)
+	psaMap := over_slices.ToRefMap(wl.Status.Admission.PodSetAssignments, func(p *kueue.PodSetAssignment) kueue.PodSetReference { return p.Name })
+	podSetMap := over_slices.ToRefMap(wl.Spec.PodSets, func(ps *kueue.PodSet) kueue.PodSetReference { return ps.Name })
+
+	mergePolicy := prcSpec.PodSetMergePolicy
+	mergedPodSets := []MergedPodSet{}
+	for _, psName := range expectedPodSets {
+		ps, psFound := podSetMap[psName]
+		psa, psaFound := psaMap[psName]
+		if !psFound || !psaFound {
+			return nil, errInconsistentPodSetAssignments
+		}
+
+		merged := false
+		if mergePolicy != nil {
+			for i, mps := range mergedPodSets {
+				if merged = canMergePodSets(mps.PodSet, ps, mergePolicy); merged {
+					mergedPodSets[i].Count += ptr.Deref(psa.Count, ps.Count)
+					break
+				}
+			}
+		}
+
+		if !merged {
+			mergedPodSets = append(mergedPodSets, MergedPodSet{
+				Name:             psName,
+				PodSet:           ps,
+				PodSetAssignment: psa,
+				Count:            ptr.Deref(psa.Count, ps.Count),
+			})
+		}
+	}
+
+	return mergedPodSets, nil
+}
+
+func canMergePodSets(ps1, ps2 *kueue.PodSet, mergePolicy *kueue.ProvisioningRequestConfigPodSetMergePolicy) bool {
+	switch *mergePolicy {
+	case kueue.IdenticalPodTemplates:
+		return equality.Semantic.DeepEqual(ps1.Template, ps2.Template)
+	case kueue.IdenticalWorkloadSchedulingRequirements:
+		return arePodSetsSimilar(ps1, ps2)
+	default:
+		return false
+	}
+}
+
+func arePodSetsSimilar(ps1, ps2 *kueue.PodSet) bool {
+	return areContainersEqual(ps1.Template.Spec.Containers, ps2.Template.Spec.Containers) &&
+		areContainersEqual(ps1.Template.Spec.InitContainers, ps2.Template.Spec.InitContainers) &&
+		equality.Semantic.DeepEqual(ps1.Template.Spec.Resources, ps2.Template.Spec.Resources) &&
+		equality.Semantic.DeepEqual(ps1.Template.Spec.NodeSelector, ps2.Template.Spec.NodeSelector) &&
+		equality.Semantic.DeepEqual(ps1.Template.Spec.Tolerations, ps2.Template.Spec.Tolerations) &&
+		equality.Semantic.DeepEqual(ps1.Template.Spec.Affinity, ps2.Template.Spec.Affinity) &&
+		equality.Semantic.DeepEqual(ps1.Template.Spec.ResourceClaims, ps2.Template.Spec.ResourceClaims)
+}
+
+// areContainersEqual compares the resource requests of containers between two lists of PodSet containers.
+func areContainersEqual(ps1Containers []corev1.Container, ps2Containers []corev1.Container) bool {
+	if len(ps1Containers) != len(ps2Containers) {
+		return false
+	}
+	for i := range ps1Containers {
+		if !equality.Semantic.DeepEqual(ps1Containers[i].Resources.Requests, ps2Containers[i].Resources.Requests) {
+			return false
+		}
+	}
+	return true
+}
+
+func newProvisioningConfigHelper(c client.Client) (*provisioningConfigHelper, error) {
+	return over_admissioncheck.NewConfigHelper[*kueue.ProvisioningRequestConfig](c)
+}
+
+// +kubebuilder:rbac:groups="",resources=events,verbs=create;watch;update
+// +kubebuilder:rbac:groups="",resources=podtemplates,verbs=get;list;watch;create;delete;update
+// +kubebuilder:rbac:groups=autoscaling.x-k8s.io,resources=provisioningrequests,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=autoscaling.x-k8s.io,resources=provisioningrequests/status,verbs=get
+// +kubebuilder:rbac:groups=kueue.x-k8s.io,resources=workloads,verbs=get;list;watch;update;patch;delete
+// +kubebuilder:rbac:groups=kueue.x-k8s.io,resources=workloads/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=kueue.x-k8s.io,resources=admissionchecks,verbs=get;list;watch
+// +kubebuilder:rbac:groups=kueue.x-k8s.io,resources=provisioningrequestconfigs,verbs=get;list;watch
+
+func NewController(client client.Client, record record.EventRecorder) (*Controller, error) {
+	helper, err := newProvisioningConfigHelper(client)
+	if err != nil {
+		return nil, err
+	}
+	return &Controller{
+		client: client,
+		record: record,
+		helper: helper,
+		clock:  realClock,
+	}, nil
+}
+
+func (c *Controller) SetupWithManager(mgr ctrl.Manager) error {
+	ach := &acHandler{
+		client: c.client,
+	}
+	prch := &prcHandler{
+		client:            c.client,
+		acHandlerOverride: ach.reconcileWorkloadsUsing,
+	}
+	err := ctrl.NewControllerManagedBy(mgr).
+		Named("provisioning_workload").
+		For(&kueue.Workload{}).
+		Owns(&autoscaling.ProvisioningRequest{}).
+		Watches(&kueue.AdmissionCheck{}, ach).
+		Watches(&kueue.ProvisioningRequestConfig{}, prch).
+		Complete(c)
+	if err != nil {
+		return err
+	}
+
+	prcACh := &prcHandler{
+		client: c.client,
+	}
+	acReconciler := &acReconciler{
+		client: c.client,
+		helper: c.helper,
+	}
+
+	return ctrl.NewControllerManagedBy(mgr).
+		Named("provisioning_admissioncheck").
+		For(&kueue.AdmissionCheck{}).
+		Watches(&kueue.ProvisioningRequestConfig{}, prcACh).
+		Complete(acReconciler)
+}
+
+type prcHandler struct {
+	client            client.Client
+	acHandlerOverride func(ctx context.Context, config string, q workqueue.TypedRateLimitingInterface[reconcile.Request]) error
+}
+
+var _ handler.EventHandler = (*prcHandler)(nil)
+
+func (p *prcHandler) Create(ctx context.Context, event event.CreateEvent, q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+	prc, isPRC := event.Object.(*kueue.ProvisioningRequestConfig)
+	if !isPRC {
+		return
+	}
+	err := p.reconcileWorkloadsUsing(ctx, prc.Name, q)
+	if err != nil {
+		ctrl.LoggerFrom(ctx).V(5).Error(err, "Failure on create event", "provisioningRequestConfig", klog.KObj(prc))
+	}
+}
+
+func (p *prcHandler) Update(ctx context.Context, event event.UpdateEvent, q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+	oldPRC, isOldPRC := event.ObjectOld.(*kueue.ProvisioningRequestConfig)
+	newPRC, isNewPRC := event.ObjectNew.(*kueue.ProvisioningRequestConfig)
+	if !isNewPRC || !isOldPRC {
+		return
+	}
+
+	if oldPRC.Spec.ProvisioningClassName != newPRC.Spec.ProvisioningClassName || !maps.Equal(oldPRC.Spec.Parameters, newPRC.Spec.Parameters) || !over_slices.CmpNoOrder(oldPRC.Spec.ManagedResources, newPRC.Spec.ManagedResources) {
+		err := p.reconcileWorkloadsUsing(ctx, oldPRC.Name, q)
+		if err != nil {
+			ctrl.LoggerFrom(ctx).V(5).Error(err, "Failure on update event", "provisioningRequestConfig", klog.KObj(oldPRC))
+		}
+	}
+}
+
+func (p *prcHandler) Delete(ctx context.Context, event event.DeleteEvent, q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+	prc, isPRC := event.Object.(*kueue.ProvisioningRequestConfig)
+	if !isPRC {
+		return
+	}
+	err := p.reconcileWorkloadsUsing(ctx, prc.Name, q)
+	if err != nil {
+		ctrl.LoggerFrom(ctx).V(5).Error(err, "Failure on delete event", "provisioningRequestConfig", klog.KObj(prc))
+	}
+}
+
+func (p *prcHandler) Generic(_ context.Context, _ event.GenericEvent, _ workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+	// nothing to do for now
+}
+
+func (p *prcHandler) reconcileWorkloadsUsing(ctx context.Context, config string, q workqueue.TypedRateLimitingInterface[reconcile.Request]) error {
+	list := &kueue.AdmissionCheckList{}
+	if err := p.client.List(ctx, list, client.MatchingFields{AdmissionCheckUsingConfigKey: config}); client.IgnoreNotFound(err) != nil {
+		return err
+	}
+	users := over_slices.Map(list.Items, func(ac *kueue.AdmissionCheck) string { return ac.Name })
+	for _, user := range users {
+		if p.acHandlerOverride != nil {
+			if err := p.acHandlerOverride(ctx, user, q); err != nil {
+				return err
+			}
+		} else {
+			req := reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Name: user,
+				},
+			}
+			q.Add(req)
+		}
+	}
+	return nil
 }
 
 type acHandler struct {
@@ -700,111 +819,6 @@ func (a *acHandler) reconcileWorkloadsUsing(ctx context.Context, check string, q
 	return nil
 }
 
-type prcHandler struct {
-	client            client.Client
-	acHandlerOverride func(ctx context.Context, config string, q workqueue.TypedRateLimitingInterface[reconcile.Request]) error
-}
-
-var _ handler.EventHandler = (*prcHandler)(nil)
-
-func (p *prcHandler) Create(ctx context.Context, event event.CreateEvent, q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
-	prc, isPRC := event.Object.(*kueue.ProvisioningRequestConfig)
-	if !isPRC {
-		return
-	}
-	err := p.reconcileWorkloadsUsing(ctx, prc.Name, q)
-	if err != nil {
-		ctrl.LoggerFrom(ctx).V(5).Error(err, "Failure on create event", "provisioningRequestConfig", klog.KObj(prc))
-	}
-}
-
-func (p *prcHandler) Update(ctx context.Context, event event.UpdateEvent, q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
-	oldPRC, isOldPRC := event.ObjectOld.(*kueue.ProvisioningRequestConfig)
-	newPRC, isNewPRC := event.ObjectNew.(*kueue.ProvisioningRequestConfig)
-	if !isNewPRC || !isOldPRC {
-		return
-	}
-
-	if oldPRC.Spec.ProvisioningClassName != newPRC.Spec.ProvisioningClassName || !maps.Equal(oldPRC.Spec.Parameters, newPRC.Spec.Parameters) || !slices.CmpNoOrder(oldPRC.Spec.ManagedResources, newPRC.Spec.ManagedResources) {
-		err := p.reconcileWorkloadsUsing(ctx, oldPRC.Name, q)
-		if err != nil {
-			ctrl.LoggerFrom(ctx).V(5).Error(err, "Failure on update event", "provisioningRequestConfig", klog.KObj(oldPRC))
-		}
-	}
-}
-
-func (p *prcHandler) Delete(ctx context.Context, event event.DeleteEvent, q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
-	prc, isPRC := event.Object.(*kueue.ProvisioningRequestConfig)
-	if !isPRC {
-		return
-	}
-	err := p.reconcileWorkloadsUsing(ctx, prc.Name, q)
-	if err != nil {
-		ctrl.LoggerFrom(ctx).V(5).Error(err, "Failure on delete event", "provisioningRequestConfig", klog.KObj(prc))
-	}
-}
-
-func (p *prcHandler) Generic(_ context.Context, _ event.GenericEvent, _ workqueue.TypedRateLimitingInterface[reconcile.Request]) {
-	// nothing to do for now
-}
-
-func (p *prcHandler) reconcileWorkloadsUsing(ctx context.Context, config string, q workqueue.TypedRateLimitingInterface[reconcile.Request]) error {
-	list := &kueue.AdmissionCheckList{}
-	if err := p.client.List(ctx, list, client.MatchingFields{AdmissionCheckUsingConfigKey: config}); client.IgnoreNotFound(err) != nil {
-		return err
-	}
-	users := slices.Map(list.Items, func(ac *kueue.AdmissionCheck) string { return ac.Name })
-	for _, user := range users {
-		if p.acHandlerOverride != nil {
-			if err := p.acHandlerOverride(ctx, user, q); err != nil {
-				return err
-			}
-		} else {
-			req := reconcile.Request{
-				NamespacedName: types.NamespacedName{
-					Name: user,
-				},
-			}
-			q.Add(req)
-		}
-	}
-	return nil
-}
-
-func (c *Controller) SetupWithManager(mgr ctrl.Manager) error {
-	ach := &acHandler{
-		client: c.client,
-	}
-	prch := &prcHandler{
-		client:            c.client,
-		acHandlerOverride: ach.reconcileWorkloadsUsing,
-	}
-	err := ctrl.NewControllerManagedBy(mgr).
-		Named("provisioning_workload").
-		For(&kueue.Workload{}).
-		Owns(&autoscaling.ProvisioningRequest{}).
-		Watches(&kueue.AdmissionCheck{}, ach).
-		Watches(&kueue.ProvisioningRequestConfig{}, prch).
-		Complete(c)
-	if err != nil {
-		return err
-	}
-
-	prcACh := &prcHandler{
-		client: c.client,
-	}
-	acReconciler := &acReconciler{
-		client: c.client,
-		helper: c.helper,
-	}
-
-	return ctrl.NewControllerManagedBy(mgr).
-		Named("provisioning_admissioncheck").
-		For(&kueue.AdmissionCheck{}).
-		Watches(&kueue.ProvisioningRequestConfig{}, prcACh).
-		Complete(acReconciler)
-}
-
 func limitObjectName(fullName string) string {
 	if len(fullName) <= objNameMaxPrefixLength {
 		return fullName
@@ -815,83 +829,65 @@ func limitObjectName(fullName string) string {
 	return fmt.Sprintf("%s-%s", fullName[:objNameMaxPrefixLength], hashBytes[:objNameHashLength])
 }
 
-type MergedPodSet struct {
-	Name             kueue.PodSetReference
-	PodSet           *kueue.PodSet
-	PodSetAssignment *kueue.PodSetAssignment
-	Count            int32
-}
+//AdmissionCheck、Workload => Workload
 
-func mergePodSets(
-	wl *kueue.Workload,
-	prcSpec *kueue.ProvisioningRequestConfigSpec,
-) ([]MergedPodSet, error) {
-	expectedPodSets := requiredPodSets(wl.Spec.PodSets, prcSpec.ManagedResources)
-	psaMap := slices.ToRefMap(wl.Status.Admission.PodSetAssignments, func(p *kueue.PodSetAssignment) kueue.PodSetReference { return p.Name })
-	podSetMap := slices.ToRefMap(wl.Spec.PodSets, func(ps *kueue.PodSet) kueue.PodSetReference { return ps.Name })
+func (c *Controller) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
+	wl := &kueue.Workload{}
 
-	mergePolicy := prcSpec.PodSetMergePolicy
-	mergedPodSets := []MergedPodSet{}
-	for _, psName := range expectedPodSets {
-		ps, psFound := podSetMap[psName]
-		psa, psaFound := psaMap[psName]
-		if !psFound || !psaFound {
-			return nil, errInconsistentPodSetAssignments
-		}
-
-		merged := false
-		if mergePolicy != nil {
-			for i, mps := range mergedPodSets {
-				if merged = canMergePodSets(mps.PodSet, ps, mergePolicy); merged {
-					mergedPodSets[i].Count += ptr.Deref(psa.Count, ps.Count)
-					break
-				}
-			}
-		}
-
-		if !merged {
-			mergedPodSets = append(mergedPodSets, MergedPodSet{
-				Name:             psName,
-				PodSet:           ps,
-				PodSetAssignment: psa,
-				Count:            ptr.Deref(psa.Count, ps.Count),
-			})
-		}
+	err := c.client.Get(ctx, req.NamespacedName, wl)
+	if err != nil {
+		return reconcile.Result{}, client.IgnoreNotFound(err)
 	}
 
-	return mergedPodSets, nil
-}
+	log := ctrl.LoggerFrom(ctx)
+	log.V(2).Info("Reconcile Workload")
 
-func canMergePodSets(ps1, ps2 *kueue.PodSet, mergePolicy *kueue.ProvisioningRequestConfigPodSetMergePolicy) bool {
-	switch *mergePolicy {
-	case kueue.IdenticalPodTemplates:
-		return equality.Semantic.DeepEqual(ps1.Template, ps2.Template)
-	case kueue.IdenticalWorkloadSchedulingRequirements:
-		return arePodSetsSimilar(ps1, ps2)
-	default:
-		return false
+	if !workload.HasQuotaReservation(wl) || workload.IsFinished(wl) || workload.IsEvicted(wl) {
+		return reconcile.Result{}, nil
 	}
-}
 
-func arePodSetsSimilar(ps1, ps2 *kueue.PodSet) bool {
-	return areContainersEqual(ps1.Template.Spec.Containers, ps2.Template.Spec.Containers) &&
-		areContainersEqual(ps1.Template.Spec.InitContainers, ps2.Template.Spec.InitContainers) &&
-		equality.Semantic.DeepEqual(ps1.Template.Spec.Resources, ps2.Template.Spec.Resources) &&
-		equality.Semantic.DeepEqual(ps1.Template.Spec.NodeSelector, ps2.Template.Spec.NodeSelector) &&
-		equality.Semantic.DeepEqual(ps1.Template.Spec.Tolerations, ps2.Template.Spec.Tolerations) &&
-		equality.Semantic.DeepEqual(ps1.Template.Spec.Affinity, ps2.Template.Spec.Affinity) &&
-		equality.Semantic.DeepEqual(ps1.Template.Spec.ResourceClaims, ps2.Template.Spec.ResourceClaims)
-}
-
-// areContainersEqual compares the resource requests of containers between two lists of PodSet containers.
-func areContainersEqual(ps1Containers []corev1.Container, ps2Containers []corev1.Container) bool {
-	if len(ps1Containers) != len(ps2Containers) {
-		return false
+	provisioningRequestList := &autoscaling.ProvisioningRequestList{}
+	if err := c.client.List(ctx, provisioningRequestList, client.InNamespace(wl.Namespace), client.MatchingFields{RequestsOwnedByWorkloadKey: wl.Name}); client.IgnoreNotFound(err) != nil {
+		return reconcile.Result{}, err
 	}
-	for i := range ps1Containers {
-		if !equality.Semantic.DeepEqual(ps1Containers[i].Resources.Requests, ps2Containers[i].Resources.Requests) {
-			return false
+
+	// get the lists of relevant checks
+	relevantChecks, err := over_admissioncheck.FilterForController(ctx, c.client, wl.Status.AdmissionChecks, kueue.ProvisioningRequestControllerName)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	checkConfig := make(map[kueue.AdmissionCheckReference]*kueue.ProvisioningRequestConfig, len(relevantChecks))
+	for _, checkName := range relevantChecks {
+		prc, err := c.helper.ConfigForAdmissionCheck(ctx, checkName)
+		if client.IgnoreNotFound(err) != nil {
+			return reconcile.Result{}, err
 		}
+		checkConfig[checkName] = prc
 	}
-	return true
+
+	activeOrLastPRForChecks := c.activeOrLastPRForChecks(ctx, wl, checkConfig, provisioningRequestList.Items)
+
+	wlInfo := workloadInfo{
+		checkStates: make([]kueue.AdmissionCheckState, 0),
+	}
+	err = c.syncCheckStates(ctx, wl, &wlInfo, checkConfig, activeOrLastPRForChecks)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	err = c.deleteUnusedProvisioningRequests(ctx, provisioningRequestList.Items, activeOrLastPRForChecks)
+	if err != nil {
+		log.V(2).Error(err, "syncOwnedProvisionRequest failed to delete unused provisioning requests")
+		return reconcile.Result{}, err
+	}
+
+	err = c.syncOwnedProvisionRequest(ctx, wl, &wlInfo, checkConfig, activeOrLastPRForChecks)
+	if err != nil {
+		// this can also delete unneeded checks
+		log.V(2).Error(err, "syncOwnedProvisionRequest failed")
+		return reconcile.Result{}, err
+	}
+
+	return reconcile.Result{}, nil
 }

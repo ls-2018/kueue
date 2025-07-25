@@ -18,8 +18,8 @@ import (
 	kueuealpha "sigs.k8s.io/kueue/apis/kueue/v1alpha1"
 	kueue "sigs.k8s.io/kueue/apis/kueue/v1beta1"
 	"sigs.k8s.io/kueue/pkg/controller/tas/indexer"
-	"sigs.k8s.io/kueue/pkg/resources"
-	utilpod "sigs.k8s.io/kueue/pkg/util/pod"
+	"sigs.k8s.io/kueue/pkg/over_resources"
+	utilpod "sigs.k8s.io/kueue/pkg/util/over_pod"
 	utiltas "sigs.k8s.io/kueue/pkg/util/tas"
 	"sigs.k8s.io/kueue/pkg/workload"
 )
@@ -73,7 +73,7 @@ type TASFlavorCache struct {
 	flavor flavorInformation
 
 	// usage maintains the usage per topology domain
-	usage map[utiltas.TopologyDomainID]resources.Requests
+	usage map[utiltas.TopologyDomainID]over_resources.Requests
 }
 
 func (t *tasCache) NewTASFlavorCache(topologyInfo topologyInformation,
@@ -82,7 +82,7 @@ func (t *tasCache) NewTASFlavorCache(topologyInfo topologyInformation,
 		client:   t.client,
 		topology: topologyInfo,
 		flavor:   flavorInfo,
-		usage:    make(map[utiltas.TopologyDomainID]resources.Requests),
+		usage:    make(map[utiltas.TopologyDomainID]over_resources.Requests),
 	}
 }
 
@@ -149,7 +149,7 @@ func (c *TASFlavorCache) snapshotForNodes(log logr.Logger, nodes []corev1.Node, 
 		}
 		if domainID, ok := nodeToDomain[pod.Spec.NodeName]; ok {
 			requests := resourcehelpers.PodRequests(&pod, resourcehelpers.PodResourcesOptions{})
-			usage := resources.NewRequests(requests)
+			usage := over_resources.NewRequests(requests)
 			snapshot.addNonTASUsage(domainID, usage)
 		}
 	}
@@ -171,14 +171,14 @@ func (c *TASFlavorCache) updateUsage(topologyRequests []workload.TopologyDomainR
 		domainID := utiltas.DomainID(tr.Values)
 		_, found := c.usage[domainID]
 		if !found {
-			c.usage[domainID] = resources.Requests{}
+			c.usage[domainID] = over_resources.Requests{}
 		}
 		if op == subtract {
 			c.usage[domainID].Sub(tr.TotalRequests())
-			c.usage[domainID].Sub(resources.Requests{corev1.ResourcePods: int64(tr.Count)})
+			c.usage[domainID].Sub(over_resources.Requests{corev1.ResourcePods: int64(tr.Count)})
 		} else {
 			c.usage[domainID].Add(tr.TotalRequests())
-			c.usage[domainID].Add(resources.Requests{corev1.ResourcePods: int64(tr.Count)})
+			c.usage[domainID].Add(over_resources.Requests{corev1.ResourcePods: int64(tr.Count)})
 		}
 	}
 }

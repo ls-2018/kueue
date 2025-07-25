@@ -35,24 +35,24 @@ import (
 	kueuealpha "sigs.k8s.io/kueue/apis/kueue/v1alpha1"
 	kueue "sigs.k8s.io/kueue/apis/kueue/v1beta1"
 	"sigs.k8s.io/kueue/pkg/cache"
-	"sigs.k8s.io/kueue/pkg/controller/admissionchecks/multikueue"
+	"sigs.k8s.io/kueue/pkg/controller/admissionchecks/over_multikueue"
 	"sigs.k8s.io/kueue/pkg/controller/admissionchecks/provisioning"
-	"sigs.k8s.io/kueue/pkg/controller/core"
-	"sigs.k8s.io/kueue/pkg/controller/core/over_indexer"
 	"sigs.k8s.io/kueue/pkg/controller/jobframework"
+	"sigs.k8s.io/kueue/pkg/controller/over_core"
+	"sigs.k8s.io/kueue/pkg/controller/over_core/over_indexer"
 	"sigs.k8s.io/kueue/pkg/controller/tas"
 	tasindexer "sigs.k8s.io/kueue/pkg/controller/tas/indexer"
-	"sigs.k8s.io/kueue/pkg/features"
-	"sigs.k8s.io/kueue/pkg/metrics"
 	"sigs.k8s.io/kueue/pkg/over_config"
 	"sigs.k8s.io/kueue/pkg/over_constants"
 	"sigs.k8s.io/kueue/pkg/over_debugger"
+	"sigs.k8s.io/kueue/pkg/over_features"
+	"sigs.k8s.io/kueue/pkg/over_metrics"
+	"sigs.k8s.io/kueue/pkg/over_queue"
 	"sigs.k8s.io/kueue/pkg/over_version"
 	"sigs.k8s.io/kueue/pkg/over_webhooks"
-	"sigs.k8s.io/kueue/pkg/queue"
 	"sigs.k8s.io/kueue/pkg/scheduler"
-	"sigs.k8s.io/kueue/pkg/util/kubeversion"
 	"sigs.k8s.io/kueue/pkg/util/over_cert"
+	"sigs.k8s.io/kueue/pkg/util/over_kubeversion"
 	"sigs.k8s.io/kueue/pkg/util/over_useragent"
 	"sigs.k8s.io/kueue/pkg/visibility"
 
@@ -130,7 +130,7 @@ func main() {
 
 	setupLog.Info("Initializing", "gitVersion", over_version.GitVersion, "gitCommit", over_version.GitCommit)
 
-	features.LogFeatureGates(setupLog)
+	over_features.LogFeatureGates(setupLog)
 
 	// Metrics endpoint is enabled in 'config/default/kustomization.yaml'. The Metrics options configure the server.
 	// More info:
@@ -163,7 +163,7 @@ func main() {
 	}
 	options.Metrics = metricsServerOptions
 
-	metrics.Register()
+	over_metrics.Register()
 
 	kubeConfig := ctrl.GetConfigOrDie()
 	if kubeConfig.UserAgent == "" {
@@ -191,23 +191,23 @@ func main() {
 		close(certsReady)
 	}
 	cacheOptions := []cache.Option{cache.WithPodsReadyTracking(blockForPodsReady(&cfg))}
-	queueOptions := []queue.Option{queue.WithPodsReadyRequeuingTimestamp(podsReadyRequeuingTimestamp(&cfg))}
+	queueOptions := []over_queue.Option{over_queue.WithPodsReadyRequeuingTimestamp(podsReadyRequeuingTimestamp(&cfg))}
 	if cfg.Resources != nil && len(cfg.Resources.ExcludeResourcePrefixes) > 0 {
 		cacheOptions = append(cacheOptions, cache.WithExcludedResourcePrefixes(cfg.Resources.ExcludeResourcePrefixes))
-		queueOptions = append(queueOptions, queue.WithExcludedResourcePrefixes(cfg.Resources.ExcludeResourcePrefixes))
+		queueOptions = append(queueOptions, over_queue.WithExcludedResourcePrefixes(cfg.Resources.ExcludeResourcePrefixes))
 	}
-	if features.Enabled(features.ConfigurableResourceTransformations) && cfg.Resources != nil && len(cfg.Resources.Transformations) > 0 {
+	if over_features.Enabled(over_features.ConfigurableResourceTransformations) && cfg.Resources != nil && len(cfg.Resources.Transformations) > 0 {
 		cacheOptions = append(cacheOptions, cache.WithResourceTransformations(cfg.Resources.Transformations))
-		queueOptions = append(queueOptions, queue.WithResourceTransformations(cfg.Resources.Transformations))
+		queueOptions = append(queueOptions, over_queue.WithResourceTransformations(cfg.Resources.Transformations))
 	}
 	if cfg.FairSharing != nil {
 		cacheOptions = append(cacheOptions, cache.WithFairSharing(cfg.FairSharing.Enable))
 	}
 	if cfg.AdmissionFairSharing != nil {
-		queueOptions = append(queueOptions, queue.WithAdmissionFairSharing(cfg.AdmissionFairSharing))
+		queueOptions = append(queueOptions, over_queue.WithAdmissionFairSharing(cfg.AdmissionFairSharing))
 	}
 	cCache := cache.New(mgr.GetClient(), cacheOptions...)
-	queues := queue.NewManager(mgr.GetClient(), cCache, queueOptions...)
+	queues := over_queue.NewManager(mgr.GetClient(), cCache, queueOptions...)
 
 	ctx := ctrl.SetupSignalHandler()
 	if err := setupIndexes(ctx, mgr, &cfg); err != nil {
@@ -227,7 +227,7 @@ func main() {
 	go queues.CleanUpOnContext(ctx)
 	go cCache.CleanUpOnContext(ctx)
 
-	if features.Enabled(features.VisibilityOnDemand) {
+	if over_features.Enabled(over_features.VisibilityOnDemand) {
 		go visibility.CreateAndStartVisibilityServer(ctx, queues)
 	}
 
@@ -247,7 +247,7 @@ func setupIndexes(ctx context.Context, mgr ctrl.Manager, cfg *configapi.Configur
 	}
 
 	// setup provision admission check controller indexes
-	if features.Enabled(features.ProvisioningACC) {
+	if over_features.Enabled(over_features.ProvisioningACC) {
 		if err := provisioning.ServerSupportsProvisioningRequest(mgr); err != nil {
 			setupLog.Error(err, "Skipping admission check controller setup: Provisioning Requests not supported (Possible cause: missing or unsupported cluster-autoscaler)")
 		} else if err := provisioning.SetupIndexer(ctx, mgr.GetFieldIndexer()); err != nil {
@@ -256,15 +256,15 @@ func setupIndexes(ctx context.Context, mgr ctrl.Manager, cfg *configapi.Configur
 		}
 	}
 
-	if features.Enabled(features.TopologyAwareScheduling) {
+	if over_features.Enabled(over_features.TopologyAwareScheduling) {
 		if err := tasindexer.SetupIndexes(ctx, mgr.GetFieldIndexer()); err != nil {
 			setupLog.Error(err, "Could not setup TAS over_indexer")
 			os.Exit(1)
 		}
 	}
 
-	if features.Enabled(features.MultiKueue) {
-		if err := multikueue.SetupIndexer(ctx, mgr.GetFieldIndexer(), *cfg.Namespace); err != nil {
+	if over_features.Enabled(over_features.MultiKueue) {
+		if err := over_multikueue.SetupIndexer(ctx, mgr.GetFieldIndexer(), *cfg.Namespace); err != nil {
 			setupLog.Error(err, "Could not setup multikueue over_indexer")
 			os.Exit(1)
 		}
@@ -305,7 +305,7 @@ func setupProbeEndpoints(mgr ctrl.Manager, certsReady <-chan struct{}) {
 	}
 }
 
-func setupScheduler(mgr ctrl.Manager, cCache *cache.Cache, queues *queue.Manager, cfg *configapi.Configuration) {
+func setupScheduler(mgr ctrl.Manager, cCache *cache.Cache, queues *over_queue.Manager, cfg *configapi.Configuration) {
 	sched := scheduler.New(
 		queues,
 		cCache,
@@ -320,14 +320,14 @@ func setupScheduler(mgr ctrl.Manager, cCache *cache.Cache, queues *queue.Manager
 	}
 }
 
-func setupServerVersionFetcher(mgr ctrl.Manager, kubeConfig *rest.Config) *kubeversion.ServerVersionFetcher {
+func setupServerVersionFetcher(mgr ctrl.Manager, kubeConfig *rest.Config) *over_kubeversion.ServerVersionFetcher {
 	discoveryClient, err := discovery.NewDiscoveryClientForConfig(kubeConfig)
 	if err != nil {
 		setupLog.Error(err, "Unable to create the discovery client")
 		os.Exit(1)
 	}
 
-	serverVersionFetcher := kubeversion.NewServerVersionFetcher(discoveryClient)
+	serverVersionFetcher := over_kubeversion.NewServerVersionFetcher(discoveryClient)
 
 	if err := mgr.Add(serverVersionFetcher); err != nil {
 		setupLog.Error(err, "Unable to add server version fetcher to manager")
@@ -366,18 +366,18 @@ func apply(configFile string) (ctrl.Options, configapi.Configuration, error) {
 	setupLog.Info("Successfully loaded configuration", "config", cfgStr)
 	return options, cfg, nil
 }
-func setupControllers(ctx context.Context, mgr ctrl.Manager, cCache *cache.Cache, queues *queue.Manager, certsReady chan struct{}, cfg *configapi.Configuration, serverVersionFetcher *kubeversion.ServerVersionFetcher) {
+func setupControllers(ctx context.Context, mgr ctrl.Manager, cCache *cache.Cache, queues *over_queue.Manager, certsReady chan struct{}, cfg *configapi.Configuration, serverVersionFetcher *over_kubeversion.ServerVersionFetcher) {
 	// The controllers won't work until the webhooks are operating, and the webhook won't work until the
 	// certs are all in place.
 	over_cert.WaitForCertsReady(setupLog, certsReady)
 
-	if failedCtrl, err := core.SetupControllers(mgr, queues, cCache, cfg); err != nil {
+	if failedCtrl, err := over_core.SetupControllers(mgr, queues, cCache, cfg); err != nil {
 		setupLog.Error(err, "Unable to create controller", "controller", failedCtrl)
 		os.Exit(1)
 	}
 
 	// setup provision admission check controller
-	if features.Enabled(features.ProvisioningACC) {
+	if over_features.Enabled(over_features.ProvisioningACC) {
 		if err := provisioning.ServerSupportsProvisioningRequest(mgr); err != nil {
 			setupLog.Info("Skipping provisioning controller setup: Provisioning Requests not supported (Possible cause: missing or unsupported cluster-autoscaler)")
 		} else {
@@ -394,24 +394,24 @@ func setupControllers(ctx context.Context, mgr ctrl.Manager, cCache *cache.Cache
 		}
 	}
 
-	if features.Enabled(features.MultiKueue) {
+	if over_features.Enabled(over_features.MultiKueue) {
 		adapters, err := jobframework.GetMultiKueueAdapters(sets.New(cfg.Integrations.Frameworks...))
 		if err != nil {
 			setupLog.Error(err, "Could not get the enabled multikueue adapters")
 			os.Exit(1)
 		}
-		if err := multikueue.SetupControllers(mgr, *cfg.Namespace,
-			multikueue.WithGCInterval(cfg.MultiKueue.GCInterval.Duration),
-			multikueue.WithOrigin(ptr.Deref(cfg.MultiKueue.Origin, configapi.DefaultMultiKueueOrigin)),
-			multikueue.WithWorkerLostTimeout(cfg.MultiKueue.WorkerLostTimeout.Duration),
-			multikueue.WithAdapters(adapters),
+		if err := over_multikueue.SetupControllers(mgr, *cfg.Namespace,
+			over_multikueue.WithGCInterval(cfg.MultiKueue.GCInterval.Duration),
+			over_multikueue.WithOrigin(ptr.Deref(cfg.MultiKueue.Origin, configapi.DefaultMultiKueueOrigin)),
+			over_multikueue.WithWorkerLostTimeout(cfg.MultiKueue.WorkerLostTimeout.Duration),
+			over_multikueue.WithAdapters(adapters),
 		); err != nil {
 			setupLog.Error(err, "Could not setup MultiKueue controller")
 			os.Exit(1)
 		}
 	}
 
-	if features.Enabled(features.TopologyAwareScheduling) {
+	if over_features.Enabled(over_features.TopologyAwareScheduling) {
 		if failedCtrl, err := tas.SetupControllers(mgr, queues, cCache, cfg); err != nil {
 			setupLog.Error(err, "Could not setup TAS controller", "controller", failedCtrl)
 			os.Exit(1)
@@ -438,7 +438,7 @@ func setupControllers(ctx context.Context, mgr ctrl.Manager, cCache *cache.Cache
 	if cfg.Integrations.PodOptions != nil {
 		opts = append(opts, jobframework.WithIntegrationOptions(corev1.SchemeGroupVersion.WithKind("Pod").String(), cfg.Integrations.PodOptions))
 	}
-	if features.Enabled(features.ManagedJobsNamespaceSelector) {
+	if over_features.Enabled(over_features.ManagedJobsNamespaceSelector) {
 		nsSelector, err := metav1.LabelSelectorAsSelector(cfg.ManagedJobsNamespaceSelector)
 		if err != nil {
 			setupLog.Error(err, "Failed to parse managedJobsNamespaceSelector")

@@ -4,14 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	"sort"
 	"sync"
 
-	utilindexer "sigs.k8s.io/kueue/pkg/controller/core/over_indexer"
+	utilindexer "sigs.k8s.io/kueue/pkg/controller/over_core/over_indexer"
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
-	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -22,11 +22,11 @@ import (
 	config "sigs.k8s.io/kueue/apis/config/v1beta1"
 	kueuealpha "sigs.k8s.io/kueue/apis/kueue/v1alpha1"
 	kueue "sigs.k8s.io/kueue/apis/kueue/v1beta1"
-	"sigs.k8s.io/kueue/pkg/features"
-	"sigs.k8s.io/kueue/pkg/hierarchy"
-	"sigs.k8s.io/kueue/pkg/metrics"
-	"sigs.k8s.io/kueue/pkg/queue"
-	"sigs.k8s.io/kueue/pkg/resources"
+	"sigs.k8s.io/kueue/pkg/over_features"
+	"sigs.k8s.io/kueue/pkg/over_hierarchy"
+	"sigs.k8s.io/kueue/pkg/over_metrics"
+	"sigs.k8s.io/kueue/pkg/over_queue"
+	"sigs.k8s.io/kueue/pkg/over_resources"
 	"sigs.k8s.io/kueue/pkg/workload"
 )
 
@@ -39,9 +39,9 @@ var (
 )
 
 const (
-	pending     = metrics.CQStatusPending
-	active      = metrics.CQStatusActive
-	terminating = metrics.CQStatusTerminating
+	pending     = over_metrics.CQStatusPending
+	active      = over_metrics.CQStatusActive
+	terminating = over_metrics.CQStatusTerminating
 )
 
 type options struct {
@@ -100,7 +100,7 @@ type Cache struct {
 	workloadInfoOptions []workload.InfoOption
 	fairSharingEnabled  bool
 
-	hm hierarchy.Manager[*clusterQueue, *cohort]
+	hm over_hierarchy.Manager[*clusterQueue, *cohort]
 
 	tasCache tasCache
 }
@@ -118,7 +118,7 @@ func New(client client.Client, opts ...Option) *Cache {
 		podsReadyTracking:   options.podsReadyTracking,
 		workloadInfoOptions: options.workloadInfoOptions,
 		fairSharingEnabled:  options.fairSharingEnabled,
-		hm:                  hierarchy.NewManager[*clusterQueue, *cohort](newCohort),
+		hm:                  over_hierarchy.NewManager[*clusterQueue, *cohort](newCohort),
 		tasCache:            NewTASCache(client),
 	}
 	c.podsReadyCond.L = &c.RWMutex
@@ -130,10 +130,10 @@ func (c *Cache) newClusterQueue(log logr.Logger, cq *kueue.ClusterQueue) (*clust
 		Name:                kueue.ClusterQueueReference(cq.Name),
 		Workloads:           make(map[string]*workload.Info),
 		WorkloadsNotReady:   sets.New[string](),
-		localQueues:         make(map[queue.LocalQueueReference]*LocalQueue),
+		localQueues:         make(map[over_queue.LocalQueueReference]*LocalQueue),
 		podsReadyTracking:   c.podsReadyTracking,
 		workloadInfoOptions: c.workloadInfoOptions,
-		AdmittedUsage:       make(resources.FlavorResourceQuantities),
+		AdmittedUsage:       make(over_resources.FlavorResourceQuantities),
 		resourceNode:        NewResourceNode(),
 		tasCache:            &c.tasCache,
 
@@ -239,19 +239,6 @@ func (c *Cache) CloneTASCache() map[kueue.ResourceFlavorReference]*TASFlavorCach
 	return c.tasCache.Clone()
 }
 
-func (c *Cache) AddOrUpdateAdmissionCheck(log logr.Logger, ac *kueue.AdmissionCheck) sets.Set[kueue.ClusterQueueReference] {
-	c.Lock()
-	defer c.Unlock()
-
-	newAC := AdmissionCheck{
-		Active:     apimeta.IsStatusConditionTrue(ac.Status.Conditions, kueue.AdmissionCheckActive),
-		Controller: ac.Spec.ControllerName,
-	}
-	c.admissionChecks[kueue.AdmissionCheckReference(ac.Name)] = newAC
-
-	return c.updateClusterQueues(log)
-}
-
 func (c *Cache) DeleteAdmissionCheck(log logr.Logger, ac *kueue.AdmissionCheck) sets.Set[kueue.ClusterQueueReference] {
 	c.Lock()
 	defer c.Unlock()
@@ -281,7 +268,7 @@ func (c *Cache) ClusterQueueReadiness(name kueue.ClusterQueueReference) (metav1.
 	return metav1.ConditionFalse, reason, msg
 }
 
-func (c *Cache) clusterQueueInStatus(name kueue.ClusterQueueReference, status metrics.ClusterQueueStatus) bool {
+func (c *Cache) clusterQueueInStatus(name kueue.ClusterQueueReference, status over_metrics.ClusterQueueStatus) bool {
 	c.RLock()
 	defer c.RUnlock()
 
@@ -297,7 +284,7 @@ func (c *Cache) TerminateClusterQueue(name kueue.ClusterQueueReference) {
 	defer c.Unlock()
 	if cq := c.hm.ClusterQueue(name); cq != nil {
 		cq.Status = terminating
-		metrics.ReportClusterQueueStatus(cq.Name, cq.Status)
+		over_metrics.ReportClusterQueueStatus(cq.Name, cq.Status)
 	}
 }
 
@@ -344,17 +331,17 @@ func (c *Cache) DeleteClusterQueue(cq *kueue.ClusterQueue) {
 	if curCq == nil {
 		return
 	}
-	if features.Enabled(features.LocalQueueMetrics) {
+	if over_features.Enabled(over_features.LocalQueueMetrics) {
 		for _, q := range c.hm.ClusterQueue(cqName).localQueues {
-			namespace, lqName := queue.MustParseLocalQueueReference(q.key)
-			metrics.ClearLocalQueueCacheMetrics(metrics.LocalQueueReference{
+			namespace, lqName := over_queue.MustParseLocalQueueReference(q.key)
+			over_metrics.ClearLocalQueueCacheMetrics(over_metrics.LocalQueueReference{
 				Name:      lqName,
 				Namespace: namespace,
 			})
 		}
 	}
 	c.hm.DeleteClusterQueue(cqName)
-	metrics.ClearCacheMetrics(cq.Name)
+	over_metrics.ClearCacheMetrics(cq.Name)
 }
 
 func (c *Cache) AddOrUpdateCohort(apiCohort *kueuealpha.Cohort) error {
@@ -618,7 +605,7 @@ func (c *Cache) ClusterQueueAncestors(cqObj *kueue.ClusterQueue) ([]kueue.Cohort
 	if cohort == nil {
 		return nil, nil
 	}
-	if hierarchy.HasCycle(cohort) {
+	if over_hierarchy.HasCycle(cohort) {
 		return nil, ErrCohortHasCycle
 	}
 
@@ -631,7 +618,7 @@ func (c *Cache) ClusterQueueAncestors(cqObj *kueue.ClusterQueue) ([]kueue.Cohort
 	return ancestors[:len(ancestors)-1], nil
 }
 
-func getUsage(frq resources.FlavorResourceQuantities, cq *clusterQueue) []kueue.FlavorUsage {
+func getUsage(frq over_resources.FlavorResourceQuantities, cq *clusterQueue) []kueue.FlavorUsage {
 	usage := make([]kueue.FlavorUsage, 0, len(frq))
 	for _, rg := range cq.ResourceGroups {
 		for _, fName := range rg.Flavors {
@@ -640,18 +627,18 @@ func getUsage(frq resources.FlavorResourceQuantities, cq *clusterQueue) []kueue.
 				Resources: make([]kueue.ResourceUsage, 0, len(rg.CoveredResources)),
 			}
 			for rName := range rg.CoveredResources {
-				fr := resources.FlavorResource{Flavor: fName, Resource: rName}
+				fr := over_resources.FlavorResource{Flavor: fName, Resource: rName}
 				rQuota := cq.resourceNode.Quotas[fr]
 				used := frq[fr]
 				rUsage := kueue.ResourceUsage{
 					Name:  rName,
-					Total: resources.ResourceQuantity(rName, used),
+					Total: over_resources.ResourceQuantity(rName, used),
 				}
 				// Enforce `borrowed=0` if the clusterQueue doesn't belong to a cohort.
 				if cq.HasParent() {
 					borrowed := used - rQuota.Nominal
 					if borrowed > 0 {
-						rUsage.Borrowed = resources.ResourceQuantity(rName, borrowed)
+						rUsage.Borrowed = over_resources.ResourceQuantity(rName, borrowed)
 					}
 				}
 				outFlvUsage.Resources = append(outFlvUsage.Resources, rUsage)
@@ -689,7 +676,7 @@ func (c *Cache) LocalQueueUsage(qObj *kueue.LocalQueue) (*LocalQueueUsageStats, 
 
 	var flavors []kueue.LocalQueueFlavorStatus
 
-	if features.Enabled(features.ExposeFlavorsInLocalQueue) {
+	if over_features.Enabled(over_features.ExposeFlavorsInLocalQueue) {
 		resourcesInFlavor := make(map[kueue.ResourceFlavorReference][]corev1.ResourceName)
 		for _, rg := range cqImpl.ResourceGroups {
 			for _, rgFlavor := range rg.Flavors {
@@ -733,10 +720,10 @@ func (c *Cache) LocalQueueUsage(qObj *kueue.LocalQueue) (*LocalQueueUsageStats, 
 }
 
 func handleTASFlavor(rf *kueue.ResourceFlavor) bool {
-	return features.Enabled(features.TopologyAwareScheduling) && rf.Spec.TopologyName != nil
+	return over_features.Enabled(over_features.TopologyAwareScheduling) && rf.Spec.TopologyName != nil
 }
 
-func filterLocalQueueUsage(orig resources.FlavorResourceQuantities, resourceGroups []ResourceGroup) []kueue.LocalQueueFlavorUsage {
+func filterLocalQueueUsage(orig over_resources.FlavorResourceQuantities, resourceGroups []ResourceGroup) []kueue.LocalQueueFlavorUsage {
 	qFlvUsages := make([]kueue.LocalQueueFlavorUsage, 0, len(orig))
 	for _, rg := range resourceGroups {
 		for _, fName := range rg.Flavors {
@@ -745,10 +732,10 @@ func filterLocalQueueUsage(orig resources.FlavorResourceQuantities, resourceGrou
 				Resources: make([]kueue.LocalQueueResourceUsage, 0, len(rg.CoveredResources)),
 			}
 			for rName := range rg.CoveredResources {
-				fr := resources.FlavorResource{Flavor: fName, Resource: rName}
+				fr := over_resources.FlavorResource{Flavor: fName, Resource: rName}
 				outFlvUsage.Resources = append(outFlvUsage.Resources, kueue.LocalQueueResourceUsage{
 					Name:  rName,
-					Total: resources.ResourceQuantity(rName, orig[fr]),
+					Total: over_resources.ResourceQuantity(rName, orig[fr]),
 				})
 			}
 			// The resourceUsages should be in a stable order to avoid endless creation of update events.
@@ -832,8 +819,8 @@ func (c *Cache) MatchingClusterQueues(nsLabels map[string]string) sets.Set[kueue
 
 // Key is the key used to index the queue.
 // Key 是用于索引队列的 key。
-func queueKey(q *kueue.LocalQueue) queue.LocalQueueReference {
-	return queue.NewLocalQueueReference(q.Namespace, kueue.LocalQueueName(q.Name))
+func queueKey(q *kueue.LocalQueue) over_queue.LocalQueueReference {
+	return over_queue.NewLocalQueueReference(q.Namespace, kueue.LocalQueueName(q.Name))
 }
 
 func (c *Cache) AdmissionChecksForClusterQueue(cqName kueue.ClusterQueueReference) []AdmissionCheck {
@@ -933,8 +920,8 @@ func (c *Cache) AddClusterQueue(ctx context.Context, cq *kueue.ClusterQueue) err
 			key:                qKey,
 			reservingWorkloads: 0,
 			admittedWorkloads:  0,
-			totalReserved:      make(resources.FlavorResourceQuantities),
-			admittedUsage:      make(resources.FlavorResourceQuantities),
+			totalReserved:      make(over_resources.FlavorResourceQuantities),
+			admittedUsage:      make(over_resources.FlavorResourceQuantities),
 		}
 		qImpl.resetFlavorsAndResources(cqImpl.resourceNode.Usage, cqImpl.AdmittedUsage)
 		cqImpl.localQueues[qKey] = qImpl
@@ -970,4 +957,17 @@ func (c *Cache) addOrUpdateWorkload(log logr.Logger, w *kueue.Workload) bool {
 	}
 	clusterQueue.addOrUpdateWorkload(log, w)
 	return true
+}
+
+func (c *Cache) AddOrUpdateAdmissionCheck(log logr.Logger, ac *kueue.AdmissionCheck) sets.Set[kueue.ClusterQueueReference] {
+	c.Lock()
+	defer c.Unlock()
+
+	newAC := AdmissionCheck{
+		Active:     apimeta.IsStatusConditionTrue(ac.Status.Conditions, kueue.AdmissionCheckActive),
+		Controller: ac.Spec.ControllerName,
+	}
+	c.admissionChecks[kueue.AdmissionCheckReference(ac.Name)] = newAC
+
+	return c.updateClusterQueues(log)
 }

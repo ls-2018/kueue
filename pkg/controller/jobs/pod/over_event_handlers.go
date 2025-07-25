@@ -19,7 +19,7 @@ import (
 
 	kueue "sigs.k8s.io/kueue/apis/kueue/v1beta1"
 	podconstants "sigs.k8s.io/kueue/pkg/controller/jobs/pod/over_constants"
-	"sigs.k8s.io/kueue/pkg/util/expectations"
+	"sigs.k8s.io/kueue/pkg/util/over_expectations"
 )
 
 var (
@@ -29,7 +29,7 @@ var (
 // podEventHandler will convert reconcile requests for pods in group from "<namespace>/<pod-name>" to
 // "group/<namespace>/<group-name>".
 type podEventHandler struct {
-	cleanedUpPodsExpectations *expectations.Store
+	cleanedUpPodsExpectations *over_expectations.Store
 }
 
 func (h *podEventHandler) Generic(_ context.Context, _ event.GenericEvent, _ workqueue.TypedRateLimitingInterface[reconcile.Request]) {

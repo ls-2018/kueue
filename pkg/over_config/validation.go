@@ -22,8 +22,8 @@ import (
 	configapi "sigs.k8s.io/kueue/apis/config/v1beta1"
 	"sigs.k8s.io/kueue/pkg/controller/jobframework"
 	podworkload "sigs.k8s.io/kueue/pkg/controller/jobs/pod"
-	"sigs.k8s.io/kueue/pkg/features"
-	stringsutils "sigs.k8s.io/kueue/pkg/util/strings"
+	"sigs.k8s.io/kueue/pkg/over_features"
+	stringsutils "sigs.k8s.io/kueue/pkg/util/over_strings"
 )
 
 const (
@@ -225,7 +225,7 @@ func validatePodIntegrationOptions(c *configapi.Configuration) field.ErrorList {
 	// At least one namespace selector must be non-nil and enabled.
 	// It is ok for both to be non-nil; pods will only be managed if all non-nil selectors match
 	hasNamespaceSelector := false
-	if features.Enabled(features.ManagedJobsNamespaceSelector) && c.ManagedJobsNamespaceSelector != nil {
+	if over_features.Enabled(over_features.ManagedJobsNamespaceSelector) && c.ManagedJobsNamespaceSelector != nil {
 		allErrs = validateNamespaceSelectorForPodIntegration(c, c.ManagedJobsNamespaceSelector, managedJobsNamespaceSelectorPath, allErrs)
 		hasNamespaceSelector = true
 	}
@@ -235,7 +235,7 @@ func validatePodIntegrationOptions(c *configapi.Configuration) field.ErrorList {
 	}
 
 	if !hasNamespaceSelector {
-		if features.Enabled(features.ManagedJobsNamespaceSelector) {
+		if over_features.Enabled(over_features.ManagedJobsNamespaceSelector) {
 			allErrs = append(allErrs, field.Required(managedJobsNamespaceSelectorPath, "cannot be empty when pod integration is enabled"))
 		} else {
 			allErrs = append(allErrs, field.Required(podOptionsNamespaceSelectorPath, "cannot be empty when pod integration is enabled"))
@@ -338,7 +338,7 @@ func validateResourceTransformations(c *configapi.Configuration) field.ErrorList
 func validateManagedJobsNamespaceSelector(c *configapi.Configuration) field.ErrorList {
 	var allErrs field.ErrorList
 
-	if !features.Enabled(features.ManagedJobsNamespaceSelector) {
+	if !over_features.Enabled(over_features.ManagedJobsNamespaceSelector) {
 		return allErrs
 	}
 
@@ -372,9 +372,9 @@ func ValidateFeatureGates(featureGateCLI string, featureGateMap map[string]bool)
 	if featureGateCLI != "" && featureGateMap != nil {
 		return errors.New("feature gates for CLI and configuration cannot both specified")
 	}
-	TASProfilesEnabled := []bool{features.Enabled(features.TASProfileMixed),
-		features.Enabled(features.TASProfileLeastFreeCapacity),
-		features.Enabled(features.TASProfileMostFreeCapacity),
+	TASProfilesEnabled := []bool{over_features.Enabled(over_features.TASProfileMixed),
+		over_features.Enabled(over_features.TASProfileLeastFreeCapacity),
+		over_features.Enabled(over_features.TASProfileMostFreeCapacity),
 	}
 	enabledProfilesCount := 0
 	for _, enabled := range TASProfilesEnabled {
@@ -385,7 +385,7 @@ func ValidateFeatureGates(featureGateCLI string, featureGateMap map[string]bool)
 	if enabledProfilesCount > 1 {
 		return errors.New("cannot use more than one TAS profiles")
 	}
-	if !features.Enabled(features.TopologyAwareScheduling) && enabledProfilesCount > 0 {
+	if !over_features.Enabled(over_features.TopologyAwareScheduling) && enabledProfilesCount > 0 {
 		return errors.New("cannot use a TAS profile with TAS disabled")
 	}
 

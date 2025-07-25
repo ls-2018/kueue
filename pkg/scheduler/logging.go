@@ -6,7 +6,7 @@ import (
 
 	"sigs.k8s.io/kueue/pkg/cache"
 	"sigs.k8s.io/kueue/pkg/scheduler/preemption"
-	"sigs.k8s.io/kueue/pkg/util/slices"
+	"sigs.k8s.io/kueue/pkg/util/over_slices"
 )
 
 func logAdmissionAttemptIfVerbose(log logr.Logger, e *entry) {
@@ -34,5 +34,5 @@ func logSnapshotIfVerbose(log logr.Logger, s *cache.Snapshot) {
 }
 
 func getWorkloadReferences(targets []*preemption.Target) []klog.ObjectRef {
-	return slices.Map(targets, func(t **preemption.Target) klog.ObjectRef { return klog.KObj((*t).WorkloadInfo.Obj) })
+	return over_slices.Map(targets, func(t **preemption.Target) klog.ObjectRef { return klog.KObj((*t).WorkloadInfo.Obj) })
 }

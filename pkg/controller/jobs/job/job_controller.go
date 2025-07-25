@@ -22,11 +22,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	kueue "sigs.k8s.io/kueue/apis/kueue/v1beta1"
-	"sigs.k8s.io/kueue/pkg/controller/core/over_indexer"
 	"sigs.k8s.io/kueue/pkg/controller/jobframework"
-	"sigs.k8s.io/kueue/pkg/features"
+	"sigs.k8s.io/kueue/pkg/controller/over_core/over_indexer"
+	"sigs.k8s.io/kueue/pkg/over_features"
 	"sigs.k8s.io/kueue/pkg/over_podset"
-	clientutil "sigs.k8s.io/kueue/pkg/util/client"
+	clientutil "sigs.k8s.io/kueue/pkg/util/over_client"
 )
 
 var (
@@ -216,8 +216,8 @@ func (j *Job) Suspend() {
 }
 func (j *Job) CanDefaultManagedBy() bool {
 	jobSpecManagedBy := j.Spec.ManagedBy
-	return features.Enabled(features.MultiKueueBatchJobWithManagedBy) &&
-		features.Enabled(features.MultiKueue) &&
+	return over_features.Enabled(over_features.MultiKueueBatchJobWithManagedBy) &&
+		over_features.Enabled(over_features.MultiKueue) &&
 		(jobSpecManagedBy == nil || *jobSpecManagedBy == batchv1.JobControllerName)
 }
 
@@ -309,7 +309,7 @@ func (j *Job) PodSets() ([]kueue.PodSet, error) {
 		Count:    j.podsCount(),
 		MinCount: j.minPodsCount(),
 	}
-	if features.Enabled(features.TopologyAwareScheduling) {
+	if over_features.Enabled(over_features.TopologyAwareScheduling) {
 		podSet.TopologyRequest = jobframework.NewPodSetTopologyRequest(&j.Spec.Template.ObjectMeta).PodIndexLabel(ptr.To(batchv1.JobCompletionIndexAnnotation)).Build()
 	}
 	return []kueue.PodSet{

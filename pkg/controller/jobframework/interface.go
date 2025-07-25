@@ -4,8 +4,8 @@ import (
 	"context"
 	"strconv"
 
-	"sigs.k8s.io/kueue/pkg/util/admissioncheck"
-	"sigs.k8s.io/kueue/pkg/util/maps"
+	"sigs.k8s.io/kueue/pkg/util/over_admissioncheck"
+	"sigs.k8s.io/kueue/pkg/util/over_maps"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -159,33 +159,22 @@ func QueueName(jobOrPod GenericJob) kueue.LocalQueueName {
 	return QueueNameForObject(jobOrPod.Object())
 }
 
-// MultiKueueAdapter interface needed for MultiKueue job delegation.
 // MultiKueueAdapter 接口是 MultiKueue 作业委托所需的。
 type MultiKueueAdapter interface {
-	// SyncJob creates the Job object in the worker cluster using remote client, if not already created.
-	// Copy the status from the remote job if already exists.
 	// SyncJob 使用远程 client 在工作集群中创建 Job 对象（如果尚未创建）。
 	// 如果远程作业已存在，则复制其状态。
 	SyncJob(ctx context.Context, localClient client.Client, remoteClient client.Client, key types.NamespacedName, workloadName, origin string) error
 	// DeleteRemoteObject deletes the Job in the worker cluster.
 	// DeleteRemoteObject 删除工作集群中的 Job。
 	DeleteRemoteObject(ctx context.Context, remoteClient client.Client, key types.NamespacedName) error
-	// IsJobManagedByKueue returns:
-	// - a bool indicating if the job object identified by key is managed by kueue and can be delegated.
-	// - a reason indicating why the job is not managed by Kueue
-	// - any API error encountered during the check
 	// IsJobManagedByKueue 返回：
 	// - 一个 bool，指示由 key 标识的作业对象是否由 kueue 管理并可被委托。
 	// - 一个字符串，说明作业未被 Kueue 管理的原因
 	// - 检查过程中遇到的任何 API 错误
 	IsJobManagedByKueue(ctx context.Context, localClient client.Client, key types.NamespacedName) (bool, string, error)
-	// KeepAdmissionCheckPending returns true if the state of the multikueue admission check should be
-	// kept Pending while the job runs in a worker. This might be needed to keep the managers job
-	// suspended and not start the execution locally.
 	// KeepAdmissionCheckPending 如果 multikueue admission check 的状态在作业在 worker 上运行时应保持 Pending，则返回 true。
 	// 这可能需要让 manager 的作业保持挂起，不在本地启动执行。
 	KeepAdmissionCheckPending() bool
-	// GVK returns GVK (Group Version Kind) for the job.
 	// GVK 返回作业的 GVK（Group Version Kind）。
 	GVK() schema.GroupVersionKind
 }
@@ -196,12 +185,8 @@ type MultiKueueAdapter interface {
 // MultiKueueWatcher 可选接口，可由 MultiKueueAdapter 实现以接收来自 worker 集群的作业相关 watch 事件。
 // 如果未实现，MultiKueue 只会接收与作业 workload 相关的事件。
 type MultiKueueWatcher interface {
-	// GetEmptyList returns an empty list of objects
 	// GetEmptyList 返回一个空对象列表。
 	GetEmptyList() client.ObjectList
-	// WorkloadKeyFor returns the key of the workload of interest
-	// - the object name for workloads
-	// - the prebuilt workload for job types
 	// WorkloadKeyFor 返回感兴趣的 workload 的 key
 	// - 对于 workload 是对象名
 	// - 对于作业类型是预构建的 workload
@@ -221,9 +206,9 @@ func NewWorkload(name string, obj client.Object, podSets []kueue.PodSet, labelKe
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        name,
 			Namespace:   obj.GetNamespace(),
-			Labels:      maps.FilterKeys(obj.GetLabels(), labelKeysToCopy),
+			Labels:      over_maps.FilterKeys(obj.GetLabels(), labelKeysToCopy),
 			Finalizers:  []string{kueue.ResourceInUseFinalizerName},
-			Annotations: admissioncheck.FilterProvReqAnnotations(obj.GetAnnotations()),
+			Annotations: over_admissioncheck.FilterProvReqAnnotations(obj.GetAnnotations()),
 		},
 		Spec: kueue.WorkloadSpec{
 			QueueName:                   QueueNameForObject(obj),

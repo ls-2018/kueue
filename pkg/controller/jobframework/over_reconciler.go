@@ -30,19 +30,19 @@ import (
 	kueuealpha "sigs.k8s.io/kueue/apis/kueue/v1alpha1"
 	kueue "sigs.k8s.io/kueue/apis/kueue/v1beta1"
 	"sigs.k8s.io/kueue/pkg/cache"
-	"sigs.k8s.io/kueue/pkg/controller/core/over_indexer"
 	controllerconsts "sigs.k8s.io/kueue/pkg/controller/over_constants"
-	"sigs.k8s.io/kueue/pkg/features"
-	"sigs.k8s.io/kueue/pkg/metrics"
+	"sigs.k8s.io/kueue/pkg/controller/over_core/over_indexer"
 	"sigs.k8s.io/kueue/pkg/over_constants"
+	"sigs.k8s.io/kueue/pkg/over_features"
+	"sigs.k8s.io/kueue/pkg/over_metrics"
 	"sigs.k8s.io/kueue/pkg/over_podset"
-	"sigs.k8s.io/kueue/pkg/queue"
-	clientutil "sigs.k8s.io/kueue/pkg/util/client"
-	"sigs.k8s.io/kueue/pkg/util/equality"
-	"sigs.k8s.io/kueue/pkg/util/kubeversion"
-	"sigs.k8s.io/kueue/pkg/util/maps"
-	utilpriority "sigs.k8s.io/kueue/pkg/util/priority"
-	"sigs.k8s.io/kueue/pkg/util/slices"
+	"sigs.k8s.io/kueue/pkg/over_queue"
+	clientutil "sigs.k8s.io/kueue/pkg/util/over_client"
+	"sigs.k8s.io/kueue/pkg/util/over_equality"
+	"sigs.k8s.io/kueue/pkg/util/over_kubeversion"
+	"sigs.k8s.io/kueue/pkg/util/over_maps"
+	utilpriority "sigs.k8s.io/kueue/pkg/util/over_priority"
+	"sigs.k8s.io/kueue/pkg/util/over_slices"
 	"sigs.k8s.io/kueue/pkg/workload"
 )
 
@@ -80,13 +80,13 @@ type Options struct {
 	ManageJobsWithoutQueueName   bool
 	ManagedJobsNamespaceSelector labels.Selector
 	WaitForPodsReady             bool
-	KubeServerVersion            *kubeversion.ServerVersionFetcher
+	KubeServerVersion            *over_kubeversion.ServerVersionFetcher
 	IntegrationOptions           map[string]any // IntegrationOptions key is "$GROUP/$VERSION, Kind=$KIND".
 	EnabledFrameworks            sets.Set[string]
 	EnabledExternalFrameworks    sets.Set[string]
 	ManagerName                  string
 	LabelKeysToCopy              []string
-	Queues                       *queue.Manager
+	Queues                       *over_queue.Manager
 	Cache                        *cache.Cache
 	Clock                        clock.Clock
 	WorkloadRetentionPolicy      WorkloadRetentionPolicy
@@ -110,7 +110,7 @@ func WithWaitForPodsReady(w *configapi.WaitForPodsReady) Option {
 	}
 }
 
-func WithKubeServerVersion(v *kubeversion.ServerVersionFetcher) Option {
+func WithKubeServerVersion(v *over_kubeversion.ServerVersionFetcher) Option {
 	return func(o *Options) {
 		o.KubeServerVersion = v
 	}
@@ -162,7 +162,7 @@ func WithLabelKeysToCopy(n []string) Option {
 }
 
 // WithQueues 设置队列管理器。
-func WithQueues(q *queue.Manager) Option {
+func WithQueues(q *over_queue.Manager) Option {
 	return func(o *Options) {
 		o.Queues = q
 	}
@@ -193,7 +193,7 @@ func EnsurePrebuiltWorkloadOwnership(ctx context.Context, c client.Client, wl *k
 		}
 
 		if errs := validation.IsValidLabelValue(string(object.GetUID())); len(errs) == 0 {
-			wl.Labels = maps.MergeKeepFirst(map[string]string{controllerconsts.JobUIDLabel: string(object.GetUID())}, wl.Labels)
+			wl.Labels = over_maps.MergeKeepFirst(map[string]string{controllerconsts.JobUIDLabel: string(object.GetUID())}, wl.Labels)
 		}
 
 		if err := c.Update(ctx, wl); err != nil {
@@ -213,7 +213,7 @@ func expectedRunningPodSets(ctx context.Context, c client.Client, wl *kueue.Work
 	if err != nil {
 		return nil
 	}
-	infoMap := slices.ToRefMap(info, func(psi *over_podset.PodSetInfo) kueue.PodSetReference { return psi.Name })
+	infoMap := over_slices.ToRefMap(info, func(psi *over_podset.PodSetInfo) kueue.PodSetReference { return psi.Name })
 	runningPodSets := wl.Spec.DeepCopy().PodSets
 	canBePartiallyAdmitted := workload.CanBePartiallyAdmitted(wl)
 	for i := range runningPodSets {
@@ -273,7 +273,7 @@ func getPodSetsInfoFromStatus(ctx context.Context, c client.Client, w *kueue.Wor
 		if err != nil {
 			return nil, err
 		}
-		if features.Enabled(features.TopologyAwareScheduling) {
+		if over_features.Enabled(over_features.TopologyAwareScheduling) {
 			info.Annotations[kueuealpha.WorkloadAnnotation] = w.Name
 		}
 
@@ -372,7 +372,7 @@ type genericReconciler struct {
 
 // clearMinCountsIfFeatureDisabled 如果未启用 PartialAdmission 特性，则将所有 podSet 的 minCount 设为 nil。
 func clearMinCountsIfFeatureDisabled(in []kueue.PodSet) []kueue.PodSet {
-	if features.Enabled(features.PartialAdmission) || len(in) == 0 {
+	if over_features.Enabled(over_features.PartialAdmission) || len(in) == 0 {
 		return in
 	}
 	for i := range in {
@@ -548,17 +548,17 @@ func EquivalentToWorkload(ctx context.Context, c client.Client, jobOrPod Generic
 	jobPodSets := clearMinCountsIfFeatureDisabled(getPodSets) // ✅
 
 	if runningPodSets := expectedRunningPodSets(ctx, c, wl); runningPodSets != nil { // todo
-		if equality.ComparePodSetSlices(jobPodSets, runningPodSets, workload.IsAdmitted(wl)) {
+		if over_equality.ComparePodSetSlices(jobPodSets, runningPodSets, workload.IsAdmitted(wl)) {
 			return true, nil
 		}
 		// If the workload is admitted but the job is suspended, do the check
 		// against the non-running info.
 		// This might allow some violating jobs to pass equivalency checks, but their
 		// workloads would be invalidated in the next sync after unsuspending.
-		return jobOrPod.IsSuspended() && equality.ComparePodSetSlices(jobPodSets, wl.Spec.PodSets, workload.IsAdmitted(wl)), nil
+		return jobOrPod.IsSuspended() && over_equality.ComparePodSetSlices(jobPodSets, wl.Spec.PodSets, workload.IsAdmitted(wl)), nil
 	}
 
-	return equality.ComparePodSetSlices(jobPodSets, wl.Spec.PodSets, workload.IsAdmitted(wl)), nil
+	return over_equality.ComparePodSetSlices(jobPodSets, wl.Spec.PodSets, workload.IsAdmitted(wl)), nil
 }
 
 func FindMatchingWorkloads(ctx context.Context, c client.Client, jobOrPod GenericJob) (match *kueue.Workload, toDelete []*kueue.Workload, err error) {
@@ -638,7 +638,7 @@ func GetPodSetsInfoFromWorkload(wl *kueue.Workload) []over_podset.PodSetInfo {
 	if wl == nil {
 		return nil
 	}
-	return slices.Map(wl.Spec.PodSets, over_podset.FromPodSet)
+	return over_slices.Map(wl.Spec.PodSets, over_podset.FromPodSet)
 }
 
 func (r *JobReconciler) updateWorkloadToMatchJob(ctx context.Context, jobOrPod GenericJob, object client.Object, wl *kueue.Workload) (*kueue.Workload, error) {
@@ -1163,7 +1163,7 @@ func (r *JobReconciler) ReconcileGenericJob(ctx context.Context, req ctrl.Reques
 
 	// when manageJobsWithoutQueueName is enabled, standalone jobs without queue names
 	// are still not managed if they don't match the namespace selector.
-	if features.Enabled(features.ManagedJobsNamespaceSelector) && r.manageJobsWithoutQueueName && QueueName(jobOrPod) == "" {
+	if over_features.Enabled(over_features.ManagedJobsNamespaceSelector) && r.manageJobsWithoutQueueName && QueueName(jobOrPod) == "" {
 		ns := corev1.Namespace{}
 		err := r.client.Get(ctx, client.ObjectKey{Name: jobOrPod.Object().GetNamespace()}, &ns)
 		if err != nil {
@@ -1294,13 +1294,13 @@ func (r *JobReconciler) ReconcileGenericJob(ctx context.Context, req ctrl.Reques
 			if condition.Status == metav1.ConditionTrue {
 				cqName := wl.Status.Admission.ClusterQueue
 				queuedUntilReadyWaitTime := workload.QueuedWaitTime(wl, r.clock)
-				metrics.ReadyWaitTime(cqName, queuedUntilReadyWaitTime)
+				over_metrics.ReadyWaitTime(cqName, queuedUntilReadyWaitTime)
 				admittedCond := apimeta.FindStatusCondition(wl.Status.Conditions, kueue.WorkloadAdmitted)
 				admittedUntilReadyWaitTime := condition.LastTransitionTime.Sub(admittedCond.LastTransitionTime.Time)
-				metrics.AdmittedUntilReadyWaitTime(cqName, admittedUntilReadyWaitTime)
-				if features.Enabled(features.LocalQueueMetrics) {
-					metrics.LocalQueueReadyWaitTime(metrics.LQRefFromWorkload(wl), queuedUntilReadyWaitTime)
-					metrics.LocalQueueAdmittedUntilReadyWaitTime(metrics.LQRefFromWorkload(wl), admittedUntilReadyWaitTime)
+				over_metrics.AdmittedUntilReadyWaitTime(cqName, admittedUntilReadyWaitTime)
+				if over_features.Enabled(over_features.LocalQueueMetrics) {
+					over_metrics.LocalQueueReadyWaitTime(over_metrics.LQRefFromWorkload(wl), queuedUntilReadyWaitTime)
+					over_metrics.LocalQueueAdmittedUntilReadyWaitTime(over_metrics.LQRefFromWorkload(wl), admittedUntilReadyWaitTime)
 				}
 			}
 			return ctrl.Result{}, nil
@@ -1329,7 +1329,7 @@ func (r *JobReconciler) ReconcileGenericJob(ctx context.Context, req ctrl.Reques
 			}
 		}
 
-		if features.Enabled(features.ObjectRetentionPolicies) {
+		if over_features.Enabled(over_features.ObjectRetentionPolicies) {
 			requeueAfter, err := r.handleWorkloadAfterDeactivatedPolicy(ctx, jobOrPod, wl) // ✅
 			return ctrl.Result{RequeueAfter: requeueAfter}, err
 		}

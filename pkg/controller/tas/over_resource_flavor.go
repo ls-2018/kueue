@@ -22,14 +22,14 @@ import (
 	configapi "sigs.k8s.io/kueue/apis/config/v1beta1"
 	kueue "sigs.k8s.io/kueue/apis/kueue/v1beta1"
 	"sigs.k8s.io/kueue/pkg/cache"
-	"sigs.k8s.io/kueue/pkg/controller/core"
+	"sigs.k8s.io/kueue/pkg/controller/over_core"
 	"sigs.k8s.io/kueue/pkg/over_constants"
-	"sigs.k8s.io/kueue/pkg/queue"
+	"sigs.k8s.io/kueue/pkg/over_queue"
 )
 
 type rfReconciler struct {
 	log      logr.Logger
-	queues   *queue.Manager
+	queues   *over_queue.Manager
 	cache    *cache.Cache
 	client   client.Client
 	recorder record.EventRecorder
@@ -42,7 +42,7 @@ var _ predicate.TypedPredicate[*kueue.ResourceFlavor] = (*rfReconciler)(nil)
 // +kubebuilder:rbac:groups=kueue.x-k8s.io,resources=topologies,verbs=get;list;watch
 // +kubebuilder:rbac:groups=kueue.x-k8s.io,resources=resourceflavors,verbs=get;list;watch
 
-func newRfReconciler(c client.Client, queues *queue.Manager, cache *cache.Cache, recorder record.EventRecorder) *rfReconciler {
+func newRfReconciler(c client.Client, queues *over_queue.Manager, cache *cache.Cache, recorder record.EventRecorder) *rfReconciler {
 	return &rfReconciler{
 		log:      ctrl.Log.WithName(TASResourceFlavorController),
 		client:   c,
@@ -69,7 +69,7 @@ func (r *rfReconciler) setupWithManager(mgr ctrl.Manager, cache *cache.Cache, cf
 			NeedLeaderElection:      ptr.To(false),
 			MaxConcurrentReconciles: mgr.GetControllerOptions().GroupKindConcurrency[kueue.GroupVersion.WithKind("ResourceFlavor").GroupKind().String()],
 		}).
-		Complete(core.WithLeadingManager(mgr, r, &kueue.ResourceFlavor{}, cfg))
+		Complete(over_core.WithLeadingManager(mgr, r, &kueue.ResourceFlavor{}, cfg))
 }
 
 var _ handler.EventHandler = (*nodeHandler)(nil)

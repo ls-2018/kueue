@@ -20,14 +20,14 @@ import (
 	podconstants "sigs.k8s.io/kueue/pkg/controller/jobs/pod/over_constants"
 	controllerconstants "sigs.k8s.io/kueue/pkg/controller/over_constants"
 	"sigs.k8s.io/kueue/pkg/over_constants"
-	"sigs.k8s.io/kueue/pkg/queue"
+	"sigs.k8s.io/kueue/pkg/over_queue"
 )
 
 type Webhook struct {
 	client                       client.Client
 	manageJobsWithoutQueueName   bool
 	managedJobsNamespaceSelector labels.Selector
-	queues                       *queue.Manager
+	queues                       *over_queue.Manager
 }
 
 func SetupWebhook(mgr ctrl.Manager, opts ...jobframework.Option) error {

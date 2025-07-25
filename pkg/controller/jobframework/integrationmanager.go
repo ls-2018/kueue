@@ -138,15 +138,6 @@ func (m *integrationManager) registerExternal(kindArg string) error {
 	return nil
 }
 
-func (m *integrationManager) forEach(f func(name string, cb IntegrationCallbacks) error) error {
-	for _, name := range m.names {
-		if err := f(name, m.integrations[name]); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 func (m *integrationManager) get(name string) (IntegrationCallbacks, bool) {
 	cb, f := m.integrations[name]
 	return cb, f
@@ -264,25 +255,6 @@ func GetIntegrationsList() []string {
 	return manager.getList()
 }
 
-// GetMultiKueueAdapters returns the map containing the MultiKueue adapters for the
-// registered and enabled integrations.
-// An error is returned if more then one adapter is registers for one object type.
-func GetMultiKueueAdapters(enabledIntegrations sets.Set[string]) (map[string]MultiKueueAdapter, error) {
-	ret := map[string]MultiKueueAdapter{}
-	if err := manager.forEach(func(intName string, cb IntegrationCallbacks) error {
-		if cb.MultiKueueAdapter != nil && enabledIntegrations.Has(intName) {
-			gvk := cb.MultiKueueAdapter.GVK().String()
-			if _, found := ret[gvk]; found {
-				return fmt.Errorf("multiple adapters for GVK: %q", gvk)
-			}
-			ret[gvk] = cb.MultiKueueAdapter
-		}
-		return nil
-	}); err != nil {
-		return nil, err
-	}
-	return ret, nil
-}
 func (m *integrationManager) getJobTypeForOwner(ownerRef *metav1.OwnerReference) runtime.Object {
 	for jobKey := range m.getEnabledIntegrations() {
 		cbs, found := m.integrations[jobKey]
@@ -316,6 +288,35 @@ func ownerReferenceMatchingGVK(ownerRef *metav1.OwnerReference, gvk schema.Group
 func getEmptyOwnerObject(owner *metav1.OwnerReference) client.Object {
 	if jt := manager.getJobTypeForOwner(owner); jt != nil {
 		return jt.DeepCopyObject().(client.Object)
+	}
+	return nil
+}
+
+// GetMultiKueueAdapters returns the map containing the MultiKueue adapters for the
+// registered and enabled integrations.
+// An error is returned if more then one adapter is registers for one object type.
+func GetMultiKueueAdapters(enabledIntegrations sets.Set[string]) (map[string]MultiKueueAdapter, error) {
+	ret := map[string]MultiKueueAdapter{}
+	if err := manager.forEach(func(intName string, cb IntegrationCallbacks) error {
+		if cb.MultiKueueAdapter != nil && enabledIntegrations.Has(intName) {
+			gvk := cb.MultiKueueAdapter.GVK().String()
+			if _, found := ret[gvk]; found {
+				return fmt.Errorf("multiple adapters for GVK: %q", gvk)
+			}
+			ret[gvk] = cb.MultiKueueAdapter
+		}
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return ret, nil
+}
+
+func (m *integrationManager) forEach(f func(name string, cb IntegrationCallbacks) error) error {
+	for _, name := range m.names {
+		if err := f(name, m.integrations[name]); err != nil {
+			return err
+		}
 	}
 	return nil
 }

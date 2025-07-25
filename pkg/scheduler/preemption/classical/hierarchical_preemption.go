@@ -5,8 +5,8 @@ import (
 
 	kueue "sigs.k8s.io/kueue/apis/kueue/v1beta1"
 	"sigs.k8s.io/kueue/pkg/cache"
-	"sigs.k8s.io/kueue/pkg/resources"
-	"sigs.k8s.io/kueue/pkg/util/priority"
+	"sigs.k8s.io/kueue/pkg/over_resources"
+	"sigs.k8s.io/kueue/pkg/util/over_priority"
 	"sigs.k8s.io/kueue/pkg/workload"
 )
 
@@ -51,8 +51,8 @@ func (m preemptionVariant) PreemptionReason() string {
 type HierarchicalPreemptionCtx struct {
 	Wl                *kueue.Workload
 	Cq                *cache.ClusterQueueSnapshot
-	FrsNeedPreemption sets.Set[resources.FlavorResource]
-	Requests          resources.FlavorResourceQuantities
+	FrsNeedPreemption sets.Set[over_resources.FlavorResource]
+	Requests          over_resources.FlavorResourceQuantities
 	WorkloadOrdering  workload.Ordering
 }
 
@@ -70,8 +70,8 @@ func classifyPreemptionVariant(ctx *HierarchicalPreemptionCtx, wl *workload.Info
 	if !WorkloadUsesResources(wl, ctx.FrsNeedPreemption) {
 		return Never // 如果候选 workload 不使用需要抢占的资源，则不可被抢占
 	}
-	incomingPriority := priority.Priority(ctx.Wl)  // 获取新 workload 的优先级
-	candidatePriority := priority.Priority(wl.Obj) // 获取候选 workload 的优先级
+	incomingPriority := over_priority.Priority(ctx.Wl)  // 获取新 workload 的优先级
+	candidatePriority := over_priority.Priority(wl.Obj) // 获取候选 workload 的优先级
 	if !satisfiesPreemptionPolicy(ctx, wl, incomingPriority, candidatePriority) {
 		return Never // 不满足抢占策略，不可被抢占
 	}
@@ -200,7 +200,7 @@ func collectCandidatesInSubtree(ctx *HierarchicalPreemptionCtx, currentCohort *c
 // FindHeightOfLowestSubtreeThatFits 返回一个最低子树的高度，该子树在 cohort 中适合额外的 val 资源 fr。
 // 如果没有这样的子树，则返回整个 cohort 层次结构的高度。注意，高度为 0 的平凡子树只有一个节点。
 // 它还返回该子树是否小于整个 cohort 树。
-func FindHeightOfLowestSubtreeThatFits(c *cache.ClusterQueueSnapshot, fr resources.FlavorResource, val int64) (int, bool) {
+func FindHeightOfLowestSubtreeThatFits(c *cache.ClusterQueueSnapshot, fr over_resources.FlavorResource, val int64) (int, bool) {
 	if !c.BorrowingWith(fr, val) || !c.HasParent() {
 		return 0, c.HasParent() // 不需要借用或无父节点，返回 0
 	}

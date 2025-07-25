@@ -11,7 +11,7 @@ import (
 	configv1alpha1 "k8s.io/component-base/config/v1alpha1"
 	"k8s.io/utils/ptr"
 
-	"sigs.k8s.io/kueue/pkg/features"
+	"sigs.k8s.io/kueue/pkg/over_features"
 )
 
 const (
@@ -148,7 +148,7 @@ func SetDefaults_Configuration(cfg *Configuration) {
 		}
 	}
 
-	if !features.Enabled(features.ManagedJobsNamespaceSelector) {
+	if !over_features.Enabled(over_features.ManagedJobsNamespaceSelector) {
 		// Backwards compatibility: default podOptions.NamespaceSelector if ManagedJobsNamespaceSelector disabled
 		if cfg.Integrations.PodOptions == nil {
 			cfg.Integrations.PodOptions = &PodIntegrationOptions{}

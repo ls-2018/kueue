@@ -18,8 +18,8 @@ import (
 	"sigs.k8s.io/kueue/pkg/controller/jobframework"
 	podconstants "sigs.k8s.io/kueue/pkg/controller/jobs/pod/over_constants"
 	"sigs.k8s.io/kueue/pkg/controller/over_constants"
-	"sigs.k8s.io/kueue/pkg/util/api"
-	clientutil "sigs.k8s.io/kueue/pkg/util/client"
+	"sigs.k8s.io/kueue/pkg/util/over_api"
+	clientutil "sigs.k8s.io/kueue/pkg/util/over_client"
 )
 
 type multiKueueAdapter struct{}
@@ -72,10 +72,6 @@ func (b *multiKueueAdapter) DeleteRemoteObject(ctx context.Context, remoteClient
 
 func (b *multiKueueAdapter) KeepAdmissionCheckPending() bool {
 	return true
-}
-
-func (b *multiKueueAdapter) IsJobManagedByKueue(ctx context.Context, c client.Client, key types.NamespacedName) (bool, string, error) {
-	return true, "", nil
 }
 
 func (b *multiKueueAdapter) GVK() schema.GroupVersionKind {
@@ -159,7 +155,7 @@ func syncLocalPodWithRemote(
 
 	// If the remote pod does not exist, create it
 	remotePod = corev1.Pod{
-		ObjectMeta: api.CloneObjectMetaForCreation(&localPod.ObjectMeta),
+		ObjectMeta: over_api.CloneObjectMetaForCreation(&localPod.ObjectMeta),
 		Spec:       *localPod.Spec.DeepCopy(),
 	}
 
@@ -176,4 +172,7 @@ func syncLocalPodWithRemote(
 	}
 
 	return nil
+}
+func (b *multiKueueAdapter) IsJobManagedByKueue(ctx context.Context, c client.Client, key types.NamespacedName) (bool, string, error) {
+	return true, "", nil
 }

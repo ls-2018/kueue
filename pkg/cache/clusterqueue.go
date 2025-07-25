@@ -17,14 +17,14 @@ import (
 	"k8s.io/utils/ptr"
 
 	kueue "sigs.k8s.io/kueue/apis/kueue/v1beta1"
-	"sigs.k8s.io/kueue/pkg/features"
-	"sigs.k8s.io/kueue/pkg/hierarchy"
-	"sigs.k8s.io/kueue/pkg/metrics"
-	"sigs.k8s.io/kueue/pkg/queue"
-	"sigs.k8s.io/kueue/pkg/resources"
-	"sigs.k8s.io/kueue/pkg/util/admissioncheck"
-	"sigs.k8s.io/kueue/pkg/util/api"
-	stringsutils "sigs.k8s.io/kueue/pkg/util/strings"
+	"sigs.k8s.io/kueue/pkg/over_features"
+	"sigs.k8s.io/kueue/pkg/over_hierarchy"
+	"sigs.k8s.io/kueue/pkg/over_metrics"
+	"sigs.k8s.io/kueue/pkg/over_queue"
+	"sigs.k8s.io/kueue/pkg/over_resources"
+	"sigs.k8s.io/kueue/pkg/util/over_admissioncheck"
+	"sigs.k8s.io/kueue/pkg/util/over_api"
+	stringsutils "sigs.k8s.io/kueue/pkg/util/over_strings"
 	"sigs.k8s.io/kueue/pkg/workload"
 )
 
@@ -54,11 +54,11 @@ type clusterQueue struct {
 	// deleted, or the resource groups are changed.
 	// 当某些已接收的 workloads 被删除或资源组发生变化时，AllocatableResourceGeneration 会增加。
 	AdmissionChecks               map[kueue.AdmissionCheckReference]sets.Set[kueue.ResourceFlavorReference]
-	Status                        metrics.ClusterQueueStatus
+	Status                        over_metrics.ClusterQueueStatus
 	AllocatableResourceGeneration int64 // 当删除某些已确认的工作负载或更改资源组时，将会增加。
-	AdmittedUsage                 resources.FlavorResourceQuantities
+	AdmittedUsage                 over_resources.FlavorResourceQuantities
 	// localQueues by (namespace/name).
-	localQueues                        map[queue.LocalQueueReference]*LocalQueue
+	localQueues                        map[over_queue.LocalQueueReference]*LocalQueue
 	podsReadyTracking                  bool
 	missingFlavors                     []kueue.ResourceFlavorReference
 	missingAdmissionChecks             []kueue.AdmissionCheckReference
@@ -72,7 +72,7 @@ type clusterQueue struct {
 	workloadInfoOptions                []workload.InfoOption
 
 	resourceNode ResourceNode
-	hierarchy.ClusterQueue[*cohort]
+	over_hierarchy.ClusterQueue[*cohort]
 
 	tasCache *tasCache
 
@@ -130,7 +130,7 @@ func (c *clusterQueue) updateClusterQueue(log logr.Logger, in *kueue.ClusterQueu
 
 	c.isStopped = ptr.Deref(in.Spec.StopPolicy, kueue.None) != kueue.None
 
-	c.AdmissionChecks = admissioncheck.NewAdmissionChecks(in)
+	c.AdmissionChecks = over_admissioncheck.NewAdmissionChecks(in)
 
 	if in.Spec.Preemption != nil {
 		c.Preemption = *in.Spec.Preemption
@@ -159,7 +159,7 @@ func (c *clusterQueue) updateClusterQueue(log logr.Logger, in *kueue.ClusterQueu
 }
 
 func (c *clusterQueue) updateQueueStatus(log logr.Logger) {
-	if features.Enabled(features.TopologyAwareScheduling) &&
+	if over_features.Enabled(over_features.TopologyAwareScheduling) &&
 		len(c.tasFlavors) > 0 &&
 		len(c.workloadsNotAccountedForTAS) > 0 &&
 		c.isTASSynced() {
@@ -190,7 +190,7 @@ func (c *clusterQueue) updateQueueStatus(log logr.Logger) {
 	if status != c.Status {
 		log.V(3).Info("Updating status in cache", "clusterQueue", c.Name, "newStatus", status, "oldStatus", c.Status)
 		c.Status = status
-		metrics.ReportClusterQueueStatus(c.Name, c.Status)
+		over_metrics.ReportClusterQueueStatus(c.Name, c.Status)
 	}
 }
 
@@ -237,7 +237,7 @@ func (c *clusterQueue) inactiveReason() (string, string) {
 			messages = append(messages, fmt.Sprintf("Cannot specify MultiKueue AdmissionCheck per flavor, found: %s", stringsutils.Join(c.perFlavorMultiKueueAdmissionChecks, ",")))
 		}
 
-		if features.Enabled(features.TopologyAwareScheduling) && len(c.tasFlavors) > 0 {
+		if over_features.Enabled(over_features.TopologyAwareScheduling) && len(c.tasFlavors) > 0 {
 			if len(c.multiKueueAdmissionChecks) > 0 {
 				reasons = append(reasons, kueue.ClusterQueueActiveReasonNotSupportedWithTopologyAwareScheduling)
 				messages = append(messages, "TAS is not supported with MultiKueue admission check")
@@ -254,13 +254,13 @@ func (c *clusterQueue) inactiveReason() (string, string) {
 			return kueue.ClusterQueueActiveReasonUnknown, "Can't admit new workloads."
 		}
 
-		return reasons[0], api.TruncateConditionMessage(fmt.Sprintf("Can't admit new workloads: %v.", strings.Join(messages, ", ")))
+		return reasons[0], over_api.TruncateConditionMessage(fmt.Sprintf("Can't admit new workloads: %v.", strings.Join(messages, ", ")))
 	}
 	return kueue.ClusterQueueActiveReasonReady, "Can admit new workloads"
 }
 
 func (c *clusterQueue) isTASViolated() bool {
-	if !features.Enabled(features.TopologyAwareScheduling) || len(c.tasFlavors) == 0 {
+	if !over_features.Enabled(over_features.TopologyAwareScheduling) || len(c.tasFlavors) == 0 {
 		return false
 	}
 	if !c.isTASSynced() {
@@ -397,14 +397,14 @@ func (c *clusterQueue) deleteWorkload(log logr.Logger, w *kueue.Workload) {
 }
 
 func (c *clusterQueue) reportActiveWorkloads() {
-	metrics.AdmittedActiveWorkloads.WithLabelValues(string(c.Name)).Set(float64(c.admittedWorkloadsCount))
-	metrics.ReservingActiveWorkloads.WithLabelValues(string(c.Name)).Set(float64(len(c.Workloads)))
+	over_metrics.AdmittedActiveWorkloads.WithLabelValues(string(c.Name)).Set(float64(c.admittedWorkloadsCount))
+	over_metrics.ReservingActiveWorkloads.WithLabelValues(string(c.Name)).Set(float64(len(c.Workloads)))
 }
 
 func (q *LocalQueue) reportActiveWorkloads() {
-	namespace, name := queue.MustParseLocalQueueReference(q.key)
-	metrics.LocalQueueAdmittedActiveWorkloads.WithLabelValues(string(name), namespace).Set(float64(q.admittedWorkloads))
-	metrics.LocalQueueReservingActiveWorkloads.WithLabelValues(string(name), namespace).Set(float64(q.reservingWorkloads))
+	namespace, name := over_queue.MustParseLocalQueueReference(q.key)
+	over_metrics.LocalQueueAdmittedActiveWorkloads.WithLabelValues(string(name), namespace).Set(float64(q.admittedWorkloads))
+	over_metrics.LocalQueueReservingActiveWorkloads.WithLabelValues(string(name), namespace).Set(float64(q.reservingWorkloads))
 }
 
 // updateWorkloadUsage updates the usage of the ClusterQueue for the workload
@@ -426,7 +426,7 @@ func (c *clusterQueue) updateWorkloadUsage(log logr.Logger, wi *workload.Info, o
 		updateFlavorUsage(frUsage, c.AdmittedUsage, op)
 		c.admittedWorkloadsCount += op.asSignedOne()
 	}
-	qKey := queue.KeyFromWorkload(wi.Obj)
+	qKey := over_queue.KeyFromWorkload(wi.Obj)
 	if lq, ok := c.localQueues[qKey]; ok {
 		updateFlavorUsage(frUsage, lq.totalReserved, op)
 		lq.reservingWorkloads += op.asSignedOne()
@@ -434,14 +434,14 @@ func (c *clusterQueue) updateWorkloadUsage(log logr.Logger, wi *workload.Info, o
 			lq.updateAdmittedUsage(frUsage, op)
 			lq.admittedWorkloads += op.asSignedOne()
 		}
-		if features.Enabled(features.LocalQueueMetrics) {
+		if over_features.Enabled(over_features.LocalQueueMetrics) {
 			lq.reportActiveWorkloads()
 		}
 	}
 }
 
 func (c *clusterQueue) updateWorkloadTASUsage(log logr.Logger, wi *workload.Info, op usageOp) {
-	if !features.Enabled(features.TopologyAwareScheduling) || !wi.IsUsingTAS() {
+	if !over_features.Enabled(over_features.TopologyAwareScheduling) || !wi.IsUsingTAS() {
 		return
 	}
 	key := workload.Key(wi.Obj)
@@ -473,7 +473,7 @@ func (c *clusterQueue) updateWorkloadTASUsage(log logr.Logger, wi *workload.Info
 	c.workloadsNotAccountedForTAS.Delete(key)
 }
 
-func updateFlavorUsage(newUsage resources.FlavorResourceQuantities, oldUsage resources.FlavorResourceQuantities, op usageOp) {
+func updateFlavorUsage(newUsage over_resources.FlavorResourceQuantities, oldUsage over_resources.FlavorResourceQuantities, op usageOp) {
 	for fr, q := range newUsage {
 		oldUsage[fr] += q * int64(op.asSignedOne())
 	}
@@ -489,7 +489,7 @@ func (c *clusterQueue) addLocalQueue(q *kueue.LocalQueue) error {
 	qImpl := &LocalQueue{
 		key:                qKey,
 		reservingWorkloads: 0,
-		totalReserved:      make(resources.FlavorResourceQuantities),
+		totalReserved:      make(over_resources.FlavorResourceQuantities),
 	}
 	qImpl.resetFlavorsAndResources(c.resourceNode.Usage, c.AdmittedUsage)
 	for _, wl := range c.Workloads {
@@ -504,7 +504,7 @@ func (c *clusterQueue) addLocalQueue(q *kueue.LocalQueue) error {
 		}
 	}
 	c.localQueues[qKey] = qImpl
-	if features.Enabled(features.LocalQueueMetrics) {
+	if over_features.Enabled(over_features.LocalQueueMetrics) {
 		qImpl.reportActiveWorkloads()
 	}
 	return nil
@@ -512,9 +512,9 @@ func (c *clusterQueue) addLocalQueue(q *kueue.LocalQueue) error {
 
 func (c *clusterQueue) deleteLocalQueue(q *kueue.LocalQueue) {
 	qKey := queueKey(q)
-	if features.Enabled(features.LocalQueueMetrics) {
-		namespace, lqName := queue.MustParseLocalQueueReference(qKey)
-		metrics.ClearLocalQueueCacheMetrics(metrics.LocalQueueReference{
+	if over_features.Enabled(over_features.LocalQueueMetrics) {
+		namespace, lqName := over_queue.MustParseLocalQueueReference(qKey)
+		over_metrics.ClearLocalQueueCacheMetrics(over_metrics.LocalQueueReference{
 			Name:      lqName,
 			Namespace: namespace,
 		})
@@ -522,7 +522,7 @@ func (c *clusterQueue) deleteLocalQueue(q *kueue.LocalQueue) {
 	delete(c.localQueues, qKey)
 }
 
-func (q *LocalQueue) resetFlavorsAndResources(cqUsage resources.FlavorResourceQuantities, cqAdmittedUsage resources.FlavorResourceQuantities) {
+func (q *LocalQueue) resetFlavorsAndResources(cqUsage over_resources.FlavorResourceQuantities, cqAdmittedUsage over_resources.FlavorResourceQuantities) {
 	// Clean up removed flavors or resources.
 	q.Lock()
 	defer q.Unlock()
@@ -530,8 +530,8 @@ func (q *LocalQueue) resetFlavorsAndResources(cqUsage resources.FlavorResourceQu
 	q.admittedUsage = resetUsage(q.admittedUsage, cqAdmittedUsage)
 }
 
-func resetUsage(lqUsage resources.FlavorResourceQuantities, cqUsage resources.FlavorResourceQuantities) resources.FlavorResourceQuantities {
-	usedFlavorResources := make(resources.FlavorResourceQuantities, len(cqUsage))
+func resetUsage(lqUsage over_resources.FlavorResourceQuantities, cqUsage over_resources.FlavorResourceQuantities) over_resources.FlavorResourceQuantities {
+	usedFlavorResources := make(over_resources.FlavorResourceQuantities, len(cqUsage))
 	for fr := range cqUsage {
 		usedFlavorResources[fr] = lqUsage[fr]
 	}

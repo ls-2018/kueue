@@ -23,9 +23,9 @@ import (
 
 	"sigs.k8s.io/kueue/pkg/controller/jobframework"
 	podcontroller "sigs.k8s.io/kueue/pkg/controller/jobs/pod/over_constants"
-	clientutil "sigs.k8s.io/kueue/pkg/util/client"
-	"sigs.k8s.io/kueue/pkg/util/parallelize"
-	utilpod "sigs.k8s.io/kueue/pkg/util/pod"
+	clientutil "sigs.k8s.io/kueue/pkg/util/over_client"
+	"sigs.k8s.io/kueue/pkg/util/over_parallelize"
+	utilpod "sigs.k8s.io/kueue/pkg/util/over_pod"
 )
 
 const (
@@ -80,7 +80,7 @@ func (r *Reconciler) fetchAndFinalizePods(ctx context.Context, req reconcile.Req
 }
 
 func (r *Reconciler) finalizePods(ctx context.Context, sts *appsv1.StatefulSet, pods []corev1.Pod) error {
-	return parallelize.Until(ctx, len(pods), func(i int) error {
+	return over_parallelize.Until(ctx, len(pods), func(i int) error {
 		return r.finalizePod(ctx, sts, &pods[i])
 	})
 }

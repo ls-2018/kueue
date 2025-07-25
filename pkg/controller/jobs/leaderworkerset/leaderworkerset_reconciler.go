@@ -22,12 +22,12 @@ import (
 	leaderworkersetv1 "sigs.k8s.io/lws/api/leaderworkerset/v1"
 
 	kueue "sigs.k8s.io/kueue/apis/kueue/v1beta1"
-	"sigs.k8s.io/kueue/pkg/controller/core/over_indexer"
 	"sigs.k8s.io/kueue/pkg/controller/jobframework"
 	podcontroller "sigs.k8s.io/kueue/pkg/controller/jobs/pod"
-	"sigs.k8s.io/kueue/pkg/features"
-	"sigs.k8s.io/kueue/pkg/util/parallelize"
-	utilslices "sigs.k8s.io/kueue/pkg/util/slices"
+	"sigs.k8s.io/kueue/pkg/controller/over_core/over_indexer"
+	"sigs.k8s.io/kueue/pkg/over_features"
+	"sigs.k8s.io/kueue/pkg/util/over_parallelize"
+	utilslices "sigs.k8s.io/kueue/pkg/util/over_slices"
 	"sigs.k8s.io/kueue/pkg/workload"
 )
 
@@ -95,13 +95,13 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 	eg, ctx := errgroup.WithContext(ctx)
 
 	eg.Go(func() error {
-		return parallelize.Until(ctx, len(toCreate), func(i int) error {
+		return over_parallelize.Until(ctx, len(toCreate), func(i int) error {
 			return r.createPrebuiltWorkload(ctx, lws, toCreate[i])
 		})
 	})
 
 	eg.Go(func() error {
-		return parallelize.Until(ctx, len(toFinalize), func(i int) error {
+		return over_parallelize.Until(ctx, len(toFinalize), func(i int) error {
 			return r.removeOwnerReference(ctx, lws, toFinalize[i])
 		})
 	})
@@ -186,7 +186,7 @@ func (r *Reconciler) podSets(lws *leaderworkersetv1.LeaderWorkerSet) []kueue.Pod
 				Spec: *lws.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec.DeepCopy(),
 			},
 		}
-		if features.Enabled(features.TopologyAwareScheduling) {
+		if over_features.Enabled(over_features.TopologyAwareScheduling) {
 			podSet.TopologyRequest = jobframework.NewPodSetTopologyRequest(
 				&lws.Spec.LeaderWorkerTemplate.LeaderTemplate.ObjectMeta).Build()
 		}
@@ -211,7 +211,7 @@ func (r *Reconciler) podSets(lws *leaderworkersetv1.LeaderWorkerSet) []kueue.Pod
 		},
 	}
 
-	if features.Enabled(features.TopologyAwareScheduling) {
+	if over_features.Enabled(over_features.TopologyAwareScheduling) {
 		podSet.TopologyRequest = jobframework.NewPodSetTopologyRequest(
 			&lws.Spec.LeaderWorkerTemplate.WorkerTemplate.ObjectMeta).PodIndexLabel(
 			ptr.To(leaderworkersetv1.WorkerIndexLabelKey)).Build()

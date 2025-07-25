@@ -10,7 +10,7 @@ import (
 
 	kueue "sigs.k8s.io/kueue/apis/kueue/v1beta1"
 	"sigs.k8s.io/kueue/pkg/cache"
-	"sigs.k8s.io/kueue/pkg/resources"
+	"sigs.k8s.io/kueue/pkg/over_resources"
 	"sigs.k8s.io/kueue/pkg/workload"
 )
 
@@ -23,13 +23,13 @@ import (
 // NoCandidateForHierarchicalReclaim：是否没有分层回收候选
 // hierarchicalReclaimCtx：分层抢占上下文
 type candidateIterator struct {
-	candidates                        []*candidateElem                   // 候选 workload 元素列表
-	runIndex                          int                                // 当前遍历到的索引
-	frsNeedPreemption                 sets.Set[resources.FlavorResource] // 需要抢占的资源集合
-	snapshot                          *cache.Snapshot                    // 集群快照
-	NoCandidateFromOtherQueues        bool                               // 是否没有来自其他队列的候选
-	NoCandidateForHierarchicalReclaim bool                               // 是否没有分层回收候选
-	hierarchicalReclaimCtx            *HierarchicalPreemptionCtx         // 分层抢占上下文
+	candidates                        []*candidateElem                        // 候选 workload 元素列表
+	runIndex                          int                                     // 当前遍历到的索引
+	frsNeedPreemption                 sets.Set[over_resources.FlavorResource] // 需要抢占的资源集合
+	snapshot                          *cache.Snapshot                         // 集群快照
+	NoCandidateFromOtherQueues        bool                                    // 是否没有来自其他队列的候选
+	NoCandidateForHierarchicalReclaim bool                                    // 是否没有分层回收候选
+	hierarchicalReclaimCtx            *HierarchicalPreemptionCtx              // 分层抢占上下文
 }
 
 // candidateElem 表示一个候选 workload 及其抢占变体
@@ -68,7 +68,7 @@ func splitEvicted(workloads []*candidateElem) ([]*candidateElem, []*candidateEle
 // 2. 借用资源
 // 这两个运行是独立的，这意味着相同的候选 workload 可能会在两个运行中返回，
 // 但请注意，借用资源的候选 workload 是未借用资源的候选 workload 的子集。
-func NewCandidateIterator(hierarchicalReclaimCtx *HierarchicalPreemptionCtx, frsNeedPreemption sets.Set[resources.FlavorResource], snapshot *cache.Snapshot, clock clock.Clock, ordering func([]*workload.Info, kueue.ClusterQueueReference, time.Time) func(int, int) bool) *candidateIterator {
+func NewCandidateIterator(hierarchicalReclaimCtx *HierarchicalPreemptionCtx, frsNeedPreemption sets.Set[over_resources.FlavorResource], snapshot *cache.Snapshot, clock clock.Clock, ordering func([]*workload.Info, kueue.ClusterQueueReference, time.Time) func(int, int) bool) *candidateIterator {
 	sameQueueCandidates := collectSameQueueCandidates(hierarchicalReclaimCtx)                                                           // 收集同队列候选
 	hierarchyCandidates, priorityCandidates := collectCandidatesForHierarchicalReclaim(hierarchicalReclaimCtx)                          // 收集分层回收候选
 	sort.Slice(sameQueueCandidates, candidateElemsOrdering(sameQueueCandidates, hierarchicalReclaimCtx.Cq.Name, clock.Now(), ordering)) // 对同队列候选排序
@@ -141,10 +141,10 @@ func (c *candidateIterator) Reset() {
 }
 
 // WorkloadUsesResources 检查 workload 是否使用了需要抢占的资源
-func WorkloadUsesResources(wl *workload.Info, frsNeedPreemption sets.Set[resources.FlavorResource]) bool {
+func WorkloadUsesResources(wl *workload.Info, frsNeedPreemption sets.Set[over_resources.FlavorResource]) bool {
 	for _, ps := range wl.TotalRequests { // 遍历 workload 的所有资源请求
 		for res, flv := range ps.Flavors { // 遍历每个资源和其 flavor
-			if frsNeedPreemption.Has(resources.FlavorResource{Flavor: flv, Resource: res}) { // 判断是否需要抢占
+			if frsNeedPreemption.Has(over_resources.FlavorResource{Flavor: flv, Resource: res}) { // 判断是否需要抢占
 				return true // 需要抢占
 			}
 		}

@@ -16,8 +16,8 @@ import (
 
 	kueuealpha "sigs.k8s.io/kueue/apis/kueue/v1alpha1"
 	kueue "sigs.k8s.io/kueue/apis/kueue/v1beta1"
-	"sigs.k8s.io/kueue/pkg/features"
-	utilmaps "sigs.k8s.io/kueue/pkg/util/maps"
+	"sigs.k8s.io/kueue/pkg/over_features"
+	utilmaps "sigs.k8s.io/kueue/pkg/util/over_maps"
 )
 
 var (
@@ -46,7 +46,7 @@ func FromAssignment(ctx context.Context, client client.Client, assignment *kueue
 		Labels:       make(map[string]string),
 		Annotations:  make(map[string]string),
 	}
-	if features.Enabled(features.TopologyAwareScheduling) && assignment.TopologyAssignment != nil {
+	if over_features.Enabled(over_features.TopologyAwareScheduling) && assignment.TopologyAssignment != nil {
 		info.Labels[kueuealpha.TASLabel] = "true"
 		info.SchedulingGates = append(info.SchedulingGates, corev1.PodSchedulingGate{
 			Name: kueuealpha.TopologySchedulingGate,

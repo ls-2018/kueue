@@ -4,14 +4,14 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	kueue "sigs.k8s.io/kueue/apis/kueue/v1beta1"
-	"sigs.k8s.io/kueue/pkg/hierarchy"
-	"sigs.k8s.io/kueue/pkg/resources"
+	"sigs.k8s.io/kueue/pkg/over_hierarchy"
+	"sigs.k8s.io/kueue/pkg/over_resources"
 )
 
 type CohortSnapshot struct {
 	Name         kueue.CohortReference
 	ResourceNode ResourceNode
-	hierarchy.Cohort[*ClusterQueueSnapshot, *CohortSnapshot]
+	over_hierarchy.Cohort[*ClusterQueueSnapshot, *CohortSnapshot]
 	FairWeight resource.Quantity
 }
 
@@ -72,6 +72,6 @@ func (c *CohortSnapshot) fairWeight() *resource.Quantity {
 	return &c.FairWeight
 }
 
-func (c *CohortSnapshot) BorrowingWith(fr resources.FlavorResource, val int64) bool {
+func (c *CohortSnapshot) BorrowingWith(fr over_resources.FlavorResource, val int64) bool {
 	return c.ResourceNode.Usage[fr]+val > c.ResourceNode.SubtreeQuota[fr]
 }

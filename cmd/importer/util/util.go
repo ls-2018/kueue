@@ -16,8 +16,8 @@ import (
 	"sigs.k8s.io/yaml"
 
 	kueue "sigs.k8s.io/kueue/apis/kueue/v1beta1"
-	utilpod "sigs.k8s.io/kueue/pkg/util/pod"
-	utilslices "sigs.k8s.io/kueue/pkg/util/slices"
+	utilpod "sigs.k8s.io/kueue/pkg/util/over_pod"
+	utilslices "sigs.k8s.io/kueue/pkg/util/over_slices"
 )
 
 const (

@@ -19,8 +19,8 @@ import (
 
 	kueue "sigs.k8s.io/kueue/apis/kueue/v1beta1"
 	"sigs.k8s.io/kueue/pkg/cache"
-	"sigs.k8s.io/kueue/pkg/features"
-	"sigs.k8s.io/kueue/pkg/resources"
+	"sigs.k8s.io/kueue/pkg/over_features"
+	"sigs.k8s.io/kueue/pkg/over_resources"
 	"sigs.k8s.io/kueue/pkg/scheduler/preemption/classical"
 	preemptioncommon "sigs.k8s.io/kueue/pkg/scheduler/preemption/common"
 	"sigs.k8s.io/kueue/pkg/workload"
@@ -60,7 +60,7 @@ func (a *Assignment) ComputeTASNetUsage(prevAdmission *kueue.Admission) workload
 			if prevAdmission != nil && prevAdmission.PodSetAssignments[i].TopologyAssignment != nil {
 				continue
 			}
-			singlePodRequests := resources.NewRequests(psa.Requests).ScaledDown(int64(psa.Count))
+			singlePodRequests := over_resources.NewRequests(psa.Requests).ScaledDown(int64(psa.Count))
 			for _, flv := range psa.Flavors {
 				if _, ok := result[flv.Name]; !ok {
 					result[flv.Name] = make(workload.TASFlavorUsage, 0)
@@ -119,8 +119,8 @@ func (a *Assignment) ToAPI() []kueue.PodSetAssignment {
 }
 
 // TotalRequestsFor - 返回该 workload 的总配额需求，考虑部分准入时的缩放。
-func (a *Assignment) TotalRequestsFor(wl *workload.Info) resources.FlavorResourceQuantities {
-	usage := make(resources.FlavorResourceQuantities)
+func (a *Assignment) TotalRequestsFor(wl *workload.Info) over_resources.FlavorResourceQuantities {
+	usage := make(over_resources.FlavorResourceQuantities)
 	for i, ps := range wl.TotalRequests {
 		// 如果是部分准入，则缩放数量
 		aps := a.PodSets[i]
@@ -129,7 +129,7 @@ func (a *Assignment) TotalRequestsFor(wl *workload.Info) resources.FlavorResourc
 		}
 		for res, q := range ps.Requests {
 			flv := aps.Flavors[res].Name
-			usage[resources.FlavorResource{Flavor: flv, Resource: res}] += q
+			usage[over_resources.FlavorResource{Flavor: flv, Resource: res}] += q
 		}
 	}
 	return usage
@@ -301,7 +301,7 @@ type FlavorAssignment struct {
 }
 
 type preemptionOracle interface {
-	SimulatePreemption(log logr.Logger, cq *cache.ClusterQueueSnapshot, wl workload.Info, fr resources.FlavorResource, quantity int64) preemptioncommon.PreemptionPossibility
+	SimulatePreemption(log logr.Logger, cq *cache.ClusterQueueSnapshot, wl workload.Info, fr over_resources.FlavorResource, quantity int64) preemptioncommon.PreemptionPossibility
 }
 
 type FlavorAssigner struct {
@@ -339,14 +339,14 @@ func (psa *PodSetAssignment) append(flavors ResourceAssignment, status *Status) 
 	}
 }
 
-func (a *Assignment) append(requests resources.Requests, psAssignment *PodSetAssignment) {
+func (a *Assignment) append(requests over_resources.Requests, psAssignment *PodSetAssignment) {
 	flavorIdx := make(map[corev1.ResourceName]int, len(psAssignment.Flavors))
 	a.PodSets = append(a.PodSets, *psAssignment)
 	for resource, flvAssignment := range psAssignment.Flavors {
 		if flvAssignment.borrow > a.Borrowing {
 			a.Borrowing = flvAssignment.borrow
 		}
-		fr := resources.FlavorResource{Flavor: flvAssignment.Name, Resource: resource}
+		fr := over_resources.FlavorResource{Flavor: flvAssignment.Name, Resource: resource}
 		a.Usage.Quota[fr] += requests[resource]
 		flavorIdx[resource] = flvAssignment.TriedFlavorIdx
 	}
@@ -354,8 +354,8 @@ func (a *Assignment) append(requests resources.Requests, psAssignment *PodSetAss
 }
 
 // filterRequestedResources 过滤请求资源，仅保留 allowList 中的资源。
-func filterRequestedResources(req resources.Requests, allowList sets.Set[corev1.ResourceName]) resources.Requests {
-	filtered := make(resources.Requests)
+func filterRequestedResources(req over_resources.Requests, allowList sets.Set[corev1.ResourceName]) over_resources.Requests {
+	filtered := make(over_resources.Requests)
 	for n, v := range req {
 		if allowList.Has(n) {
 			filtered[n] = v
@@ -414,7 +414,7 @@ func flavorSelector(spec *corev1.PodSpec, allowedKeys sets.Set[string]) nodeaffi
 // 依据 ClusterQueue 和 cohort 中剩余配额。
 // 如果适合，还会返回是否需要借用。同样，在抢占时也会返回是否需要借用的信息。
 // 如果 flavor 不能立即满足限制（等待或抢占可能有帮助），则返回包含原因的 Status。
-func (a *FlavorAssigner) fitsResourceQuota(log logr.Logger, fr resources.FlavorResource, val int64, rQuota cache.ResourceQuota) (mode granularMode, brow int, s *Status) {
+func (a *FlavorAssigner) fitsResourceQuota(log logr.Logger, fr over_resources.FlavorResource, val int64, rQuota cache.ResourceQuota) (mode granularMode, brow int, s *Status) {
 	var status Status
 
 	available := a.cq.Available(fr)            // ✅
@@ -423,7 +423,7 @@ func (a *FlavorAssigner) fitsResourceQuota(log logr.Logger, fr resources.FlavorR
 	// No Fit
 	if val > maxCapacity {
 		status.appendf("insufficient quota for %s in flavor %s, request > maximum capacity (%s > %s)",
-			fr.Resource, fr.Flavor, resources.ResourceQuantityString(fr.Resource, val), resources.ResourceQuantityString(fr.Resource, maxCapacity))
+			fr.Resource, fr.Flavor, over_resources.ResourceQuantityString(fr.Resource, val), over_resources.ResourceQuantityString(fr.Resource, maxCapacity))
 		return noFit, 0, &status
 	}
 
@@ -434,7 +434,7 @@ func (a *FlavorAssigner) fitsResourceQuota(log logr.Logger, fr resources.FlavorR
 	}
 
 	// Preempt
-	status.appendf("insufficient unused quota for %s in flavor %s, %s more needed", fr.Resource, fr.Flavor, resources.ResourceQuantityString(fr.Resource, val-available))
+	status.appendf("insufficient unused quota for %s in flavor %s, %s more needed", fr.Resource, fr.Flavor, over_resources.ResourceQuantityString(fr.Resource, val-available))
 
 	if val <= rQuota.Nominal || mayReclaimInHierarchy || a.canPreemptWhileBorrowing() {
 		mode := fromPreemptionPossibility(a.oracle.SimulatePreemption(log, a.cq, *a.wl, fr, val))
@@ -497,9 +497,9 @@ func shouldTryNextFlavor(representativeMode granularMode, flavorFungibility kueu
 func (a *FlavorAssigner) findFlavorForPodSetResource(
 	log logr.Logger,
 	psID int,
-	requests resources.Requests,
+	requests over_resources.Requests,
 	resName corev1.ResourceName,
-	assignmentUsage resources.FlavorResourceQuantities,
+	assignmentUsage over_resources.FlavorResourceQuantities,
 ) (ResourceAssignment, *Status) {
 	resourceGroup := a.cq.RGByResource(resName)
 	if resourceGroup == nil {
@@ -529,7 +529,7 @@ func (a *FlavorAssigner) findFlavorForPodSetResource(
 			status.appendf("flavor %s not found", fName)
 			continue
 		}
-		if features.Enabled(features.TopologyAwareScheduling) {
+		if over_features.Enabled(over_features.TopologyAwareScheduling) {
 			// 检查podSet的拓扑 与 flavor 的拓扑是否一致
 			if message := checkPodSetAndFlavorMatchForTAS(a.cq, ps, flavor); message != nil {
 				log.Error(nil, *message)
@@ -560,9 +560,9 @@ func (a *FlavorAssigner) findFlavorForPodSetResource(
 		// 计算该分配的代表性模式，即所有请求中最差的模式。
 		representativeMode := fit
 		for rName, val := range requests { // 判断这个flavor 是否满足资源需求
-			resQuota := a.cq.QuotaFor(resources.FlavorResource{Flavor: fName, Resource: rName})
+			resQuota := a.cq.QuotaFor(over_resources.FlavorResource{Flavor: fName, Resource: rName})
 			// 考虑前面 pod set 的 flavor 使用量。
-			fr := resources.FlavorResource{Flavor: fName, Resource: rName}
+			fr := over_resources.FlavorResource{Flavor: fName, Resource: rName}
 			// borrow 最大借几层
 			mode, borrow, s := a.fitsResourceQuota(log, fr, val+assignmentUsage[fr], resQuota)
 			if s != nil {
@@ -584,7 +584,7 @@ func (a *FlavorAssigner) findFlavorForPodSetResource(
 			}
 		}
 
-		if features.Enabled(features.FlavorFungibility) {
+		if over_features.Enabled(over_features.FlavorFungibility) {
 			//todo  太复杂了
 			if !shouldTryNextFlavor(representativeMode, a.cq.FlavorFungibility, needsBorrowing) {
 				bestAssignment = assignments
@@ -605,7 +605,7 @@ func (a *FlavorAssigner) findFlavorForPodSetResource(
 		}
 	}
 
-	if features.Enabled(features.FlavorFungibility) {
+	if over_features.Enabled(over_features.FlavorFungibility) {
 		for _, assignment := range bestAssignment {
 			if attemptedFlavorIdx == len(resourceGroup.Flavors)-1 {
 				// 已到最后一个 flavor，下次从第一个 flavor 开始尝试
@@ -634,7 +634,7 @@ func (a *FlavorAssigner) assignFlavors(log logr.Logger, counts []int32) Assignme
 	assignment := Assignment{ // 转让的资源
 		PodSets: make([]PodSetAssignment, 0, len(requests)),
 		Usage: workload.Usage{
-			Quota: make(resources.FlavorResourceQuantities),
+			Quota: make(over_resources.FlavorResourceQuantities),
 		},
 		LastState: workload.AssignmentClusterQueueState{
 			LastTriedFlavorIdx:     make([]map[corev1.ResourceName]int, 0, len(requests)),
@@ -654,7 +654,7 @@ func (a *FlavorAssigner) assignFlavors(log logr.Logger, counts []int32) Assignme
 			Count:    podSet.Count,
 		}
 
-		if features.Enabled(features.TopologyAwareScheduling) {
+		if over_features.Enabled(over_features.TopologyAwareScheduling) {
 			//当工作负载被分配时，会进行相应的填充操作。   尊重现有的分配设置。 如果这是调度器的第二次运行，则 PodSet 分配可能已经设置好。
 			for resName, fName := range podSet.Flavors {
 				psAssignment.Flavors[resName] = &FlavorAssignment{
@@ -693,7 +693,7 @@ func (a *FlavorAssigner) assignFlavors(log logr.Logger, counts []int32) Assignme
 		return assignment
 	}
 
-	if features.Enabled(features.TopologyAwareScheduling) {
+	if over_features.Enabled(over_features.TopologyAwareScheduling) {
 		tasRequests := assignment.WorkloadsTopologyRequests(a.wl, a.cq)
 		if assignment.RepresentativeMode() == Fit {
 			result := a.cq.FindTopologyAssignmentsForWorkload(tasRequests, false, a.wl.Obj)

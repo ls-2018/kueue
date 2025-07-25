@@ -26,13 +26,13 @@ import (
 	config "sigs.k8s.io/kueue/apis/config/v1beta1"
 	kueuealpha "sigs.k8s.io/kueue/apis/kueue/v1alpha1"
 	kueue "sigs.k8s.io/kueue/apis/kueue/v1beta1"
-	"sigs.k8s.io/kueue/pkg/features"
-	"sigs.k8s.io/kueue/pkg/metrics"
 	"sigs.k8s.io/kueue/pkg/over_constants"
-	"sigs.k8s.io/kueue/pkg/resources"
-	"sigs.k8s.io/kueue/pkg/util/api"
+	"sigs.k8s.io/kueue/pkg/over_features"
+	"sigs.k8s.io/kueue/pkg/over_metrics"
+	"sigs.k8s.io/kueue/pkg/over_resources"
+	"sigs.k8s.io/kueue/pkg/util/over_api"
 	utilptr "sigs.k8s.io/kueue/pkg/util/over_ptr"
-	utilslices "sigs.k8s.io/kueue/pkg/util/slices"
+	utilslices "sigs.k8s.io/kueue/pkg/util/over_slices"
 )
 
 const (
@@ -134,14 +134,14 @@ type Info struct {
 
 type PodSetResources struct {
 	Name                   kueue.PodSetReference
-	Requests               resources.Requests //总资源   pod * count
+	Requests               over_resources.Requests //总资源   pod * count
 	Count                  int32
 	TopologyRequest        *TopologyRequest
 	DelayedTopologyRequest *kueue.DelayedTopologyRequestState
 	Flavors                map[corev1.ResourceName]kueue.ResourceFlavorReference // 当工作负载被分配时，这些区域就会被填满。
 }
 
-func (p *PodSetResources) SinglePodRequests() resources.Requests {
+func (p *PodSetResources) SinglePodRequests() over_resources.Requests {
 	return p.Requests.ScaledDown(int64(p.Count))
 }
 
@@ -152,12 +152,12 @@ type TopologyRequest struct {
 
 type TopologyDomainRequests struct {
 	Values            []string
-	SinglePodRequests resources.Requests
+	SinglePodRequests over_resources.Requests
 	// Count 表示此 TopologyDomain 中请求的 pod 数量。
 	Count int32
 }
 
-func (t *TopologyDomainRequests) TotalRequests() resources.Requests {
+func (t *TopologyDomainRequests) TotalRequests() over_resources.Requests {
 	return t.SinglePodRequests.ScaledUp(int64(t.Count))
 }
 
@@ -175,15 +175,15 @@ func (i *Info) Usage() Usage {
 
 // FlavorResourceUsage 返回工作负载的总资源使用量，
 // 每种 flavor（如果已分配，否则 flavor 显示为空字符串），每种资源。
-func (i *Info) FlavorResourceUsage() resources.FlavorResourceQuantities {
-	total := make(resources.FlavorResourceQuantities)
+func (i *Info) FlavorResourceUsage() over_resources.FlavorResourceQuantities {
+	total := make(over_resources.FlavorResourceQuantities)
 	if i == nil {
 		return total
 	}
 	for _, psReqs := range i.TotalRequests {
 		for res, q := range psReqs.Requests {
 			flv := psReqs.Flavors[res]
-			total[resources.FlavorResource{Flavor: flv, Resource: res}] += q
+			total[over_resources.FlavorResource{Flavor: flv, Resource: res}] += q
 		}
 	}
 	return total
@@ -220,7 +220,7 @@ func (i *Info) IsUsingTAS() bool {
 
 // TASUsage 返回工作负载请求的拓扑使用量
 func (i *Info) TASUsage() TASUsage {
-	if !features.Enabled(features.TopologyAwareScheduling) || !i.IsUsingTAS() {
+	if !over_features.Enabled(over_features.TopologyAwareScheduling) || !i.IsUsingTAS() {
 		return nil
 	}
 	result := make(TASUsage, 0)
@@ -264,7 +264,7 @@ func UpdateStatus(ctx context.Context,
 		Status:             conditionStatus,
 		LastTransitionTime: now,
 		Reason:             reason,
-		Message:            api.TruncateConditionMessage(message),
+		Message:            over_api.TruncateConditionMessage(message),
 		ObservedGeneration: wl.Generation,
 	}
 
@@ -281,7 +281,7 @@ func UnsetQuotaReservationWithCondition(wl *kueue.Workload, reason, message stri
 		Type:               kueue.WorkloadQuotaReserved,
 		Status:             metav1.ConditionFalse,
 		Reason:             reason,
-		Message:            api.TruncateConditionMessage(message),
+		Message:            over_api.TruncateConditionMessage(message),
 		ObservedGeneration: wl.Generation,
 	}
 	changed := apimeta.SetStatusCondition(&wl.Status.Conditions, condition)
@@ -329,7 +329,7 @@ func SetRequeuedCondition(wl *kueue.Workload, reason, message string, status boo
 	condition := metav1.Condition{
 		Type:               kueue.WorkloadRequeued,
 		Reason:             reason,
-		Message:            api.TruncateConditionMessage(message),
+		Message:            over_api.TruncateConditionMessage(message),
 		ObservedGeneration: wl.Generation,
 	}
 	if status {
@@ -357,7 +357,7 @@ func SetQuotaReservation(w *kueue.Workload, admission *kueue.Admission, clock cl
 		Type:               kueue.WorkloadQuotaReserved,
 		Status:             metav1.ConditionTrue,
 		Reason:             "QuotaReserved",
-		Message:            api.TruncateConditionMessage(message),
+		Message:            over_api.TruncateConditionMessage(message),
 		ObservedGeneration: w.Generation,
 	}
 	apimeta.SetStatusCondition(&w.Status.Conditions, admittedCond)
@@ -366,14 +366,14 @@ func SetQuotaReservation(w *kueue.Workload, admission *kueue.Admission, clock cl
 	if evictedCond := apimeta.FindStatusCondition(w.Status.Conditions, kueue.WorkloadEvicted); evictedCond != nil {
 		evictedCond.Status = metav1.ConditionFalse
 		evictedCond.Reason = "QuotaReserved"
-		evictedCond.Message = api.TruncateConditionMessage("Previously: " + evictedCond.Message)
+		evictedCond.Message = over_api.TruncateConditionMessage("Previously: " + evictedCond.Message)
 		evictedCond.LastTransitionTime = metav1.NewTime(clock.Now())
 	}
 	// 重置 Preempted 条件（如果存在）。
 	if preemptedCond := apimeta.FindStatusCondition(w.Status.Conditions, kueue.WorkloadPreempted); preemptedCond != nil {
 		preemptedCond.Status = metav1.ConditionFalse
 		preemptedCond.Reason = "QuotaReserved"
-		preemptedCond.Message = api.TruncateConditionMessage("Previously: " + preemptedCond.Message)
+		preemptedCond.Message = over_api.TruncateConditionMessage("Previously: " + preemptedCond.Message)
 		preemptedCond.LastTransitionTime = metav1.NewTime(clock.Now())
 	}
 }
@@ -417,7 +417,7 @@ func SetPreemptedCondition(w *kueue.Workload, reason string, message string) {
 		Type:    kueue.WorkloadPreempted,
 		Status:  metav1.ConditionTrue,
 		Reason:  reason,
-		Message: api.TruncateConditionMessage(message),
+		Message: over_api.TruncateConditionMessage(message),
 	}
 	apimeta.SetStatusCondition(&w.Status.Conditions, condition)
 }
@@ -438,7 +438,7 @@ func SetEvictedCondition(w *kueue.Workload, reason string, message string) {
 		Type:               kueue.WorkloadEvicted,
 		Status:             metav1.ConditionTrue,
 		Reason:             reason,
-		Message:            api.TruncateConditionMessage(message),
+		Message:            over_api.TruncateConditionMessage(message),
 		ObservedGeneration: w.Generation,
 	}
 	apimeta.SetStatusCondition(&w.Status.Conditions, condition)
@@ -485,7 +485,7 @@ func (o Ordering) GetQueueOrderTimestamp(w *kueue.Workload) *metav1.Time {
 	if evictedCond, evictedByCheck := IsEvictedByAdmissionCheck(w); evictedByCheck {
 		return &evictedCond.LastTransitionTime
 	}
-	if !features.Enabled(features.PrioritySortingWithinCohort) {
+	if !over_features.Enabled(over_features.PrioritySortingWithinCohort) {
 		if preemptedCond := apimeta.FindStatusCondition(w.Status.Conditions, kueue.WorkloadPreempted); preemptedCond != nil &&
 			preemptedCond.Status == metav1.ConditionTrue &&
 			preemptedCond.Reason == kueue.InCohortReclaimWhileBorrowingReason {
@@ -584,9 +584,9 @@ func RemoveFinalizer(ctx context.Context, c client.Client, wl *kueue.Workload) e
 }
 
 func ReportEvictedWorkload(recorder record.EventRecorder, wl *kueue.Workload, cqName kueue.ClusterQueueReference, reason, message string) {
-	metrics.ReportEvictedWorkloads(cqName, reason)
-	if features.Enabled(features.LocalQueueMetrics) {
-		metrics.ReportLocalQueueEvictedWorkloads(metrics.LQRefFromWorkload(wl), reason)
+	over_metrics.ReportEvictedWorkloads(cqName, reason)
+	if over_features.Enabled(over_features.LocalQueueMetrics) {
+		over_metrics.ReportLocalQueueEvictedWorkloads(over_metrics.LQRefFromWorkload(wl), reason)
 	}
 	recorder.Event(wl, corev1.EventTypeNormal, fmt.Sprintf("%sDueTo%s", kueue.WorkloadEvicted, reason), message)
 }
@@ -646,11 +646,6 @@ func SetSchedulingStatsEviction(wl *kueue.Workload, newEvictionState kueue.Workl
 // IsAdmitted 返回工作负载是否 准入。
 func IsAdmitted(w *kueue.Workload) bool {
 	return apimeta.IsStatusConditionTrue(w.Status.Conditions, kueue.WorkloadAdmitted)
-}
-
-// HasQuotaReservation 检查工作负载是否基于条件进行准入。
-func HasQuotaReservation(w *kueue.Workload) bool {
-	return apimeta.IsStatusConditionTrue(w.Status.Conditions, kueue.WorkloadQuotaReserved)
 }
 
 // BaseSSAWorkload 会根据输入的工作负载创建一个新的对象，该对象仅包含识别原始对象所必需的字段。此对象可用于作为服务器端应用的基础。
@@ -713,10 +708,10 @@ func totalRequestsFromPodSets(wl *kueue.Workload, info *InfoOptions) []PodSetRes
 		}
 		specRequests := resourcehelpers.PodRequests(&corev1.Pod{Spec: ps.Template.Spec}, resourcehelpers.PodResourcesOptions{})
 		effectiveRequests := dropExcludedResources(specRequests, info.excludedResourcePrefixes) // 实际上的
-		if features.Enabled(features.ConfigurableResourceTransformations) {
+		if over_features.Enabled(over_features.ConfigurableResourceTransformations) {
 			effectiveRequests = applyResourceTransformations(effectiveRequests, info.resourceTransformations)
 		}
-		setRes.Requests = resources.NewRequests(effectiveRequests)
+		setRes.Requests = over_resources.NewRequests(effectiveRequests)
 		setRes.Requests.Mul(int64(count))
 		res = append(res, setRes)
 	}
@@ -804,9 +799,9 @@ func totalRequestsFromAdmission(wl *kueue.Workload) []PodSetResources {
 			Name:     psa.Name,
 			Flavors:  psa.Flavors,
 			Count:    ptr.Deref(psa.Count, totalCounts[psa.Name]),
-			Requests: resources.NewRequests(psa.ResourceUsage),
+			Requests: over_resources.NewRequests(psa.ResourceUsage),
 		}
-		if features.Enabled(features.TopologyAwareScheduling) && psa.TopologyAssignment != nil {
+		if over_features.Enabled(over_features.TopologyAwareScheduling) && psa.TopologyAssignment != nil {
 			setRes.TopologyRequest = &TopologyRequest{
 				Levels: psa.TopologyAssignment.Levels,
 			}
@@ -818,7 +813,7 @@ func totalRequestsFromAdmission(wl *kueue.Workload) []PodSetResources {
 				})
 			}
 		}
-		if features.Enabled(features.TopologyAwareScheduling) && psa.DelayedTopologyRequest != nil {
+		if over_features.Enabled(over_features.TopologyAwareScheduling) && psa.DelayedTopologyRequest != nil {
 			setRes.DelayedTopologyRequest = ptr.To(*psa.DelayedTopologyRequest)
 		}
 
@@ -858,7 +853,7 @@ func (p *PodSetResources) ScaledTo(newCount int32) *PodSetResources {
 
 // NextFlavorToTryForPodSetResource 下一个要尝试的用于 PodSet 资源的 flavor
 func (s *AssignmentClusterQueueState) NextFlavorToTryForPodSetResource(ps int, res corev1.ResourceName) int {
-	if !features.Enabled(features.FlavorFungibility) {
+	if !over_features.Enabled(over_features.FlavorFungibility) {
 		return 0
 	}
 	if s == nil || ps >= len(s.LastTriedFlavorIdx) {
@@ -1015,4 +1010,9 @@ func AdmissionChecksStatusPatch(w *kueue.Workload, wlCopy *kueue.Workload, c clo
 // ApplyAdmissionStatusPatch 应用工作负载准入相关状态字段的补丁，使用 SSA。
 func ApplyAdmissionStatusPatch(ctx context.Context, c client.Client, patch *kueue.Workload) error {
 	return c.Status().Patch(ctx, patch, client.Apply, client.FieldOwner(over_constants.AdmissionName), client.ForceOwnership)
+}
+
+// HasQuotaReservation 检查工作负载是否基于条件进行准入。
+func HasQuotaReservation(w *kueue.Workload) bool {
+	return apimeta.IsStatusConditionTrue(w.Status.Conditions, kueue.WorkloadQuotaReserved)
 }

@@ -21,8 +21,8 @@ import (
 	podconstants "sigs.k8s.io/kueue/pkg/controller/jobs/pod/over_constants"
 	controllerconstants "sigs.k8s.io/kueue/pkg/controller/over_constants"
 	"sigs.k8s.io/kueue/pkg/over_constants"
-	clientutil "sigs.k8s.io/kueue/pkg/util/client"
-	utilpod "sigs.k8s.io/kueue/pkg/util/pod"
+	clientutil "sigs.k8s.io/kueue/pkg/util/over_client"
+	utilpod "sigs.k8s.io/kueue/pkg/util/over_pod"
 )
 
 type PodReconciler struct {

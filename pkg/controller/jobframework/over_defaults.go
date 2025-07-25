@@ -13,18 +13,18 @@ import (
 	kueue "sigs.k8s.io/kueue/apis/kueue/v1beta1"
 	"sigs.k8s.io/kueue/pkg/cache"
 	"sigs.k8s.io/kueue/pkg/controller/over_constants"
-	"sigs.k8s.io/kueue/pkg/features"
-	"sigs.k8s.io/kueue/pkg/queue"
+	"sigs.k8s.io/kueue/pkg/over_features"
+	"sigs.k8s.io/kueue/pkg/over_queue"
 )
 
-func ApplyDefaultForManagedBy(jobOrPod GenericJob, queues *queue.Manager, cache *cache.Cache, log logr.Logger) {
+func ApplyDefaultForManagedBy(jobOrPod GenericJob, queues *over_queue.Manager, cache *cache.Cache, log logr.Logger) {
 	if managedJob, ok := jobOrPod.(JobWithManagedBy); ok {
 		if managedJob.CanDefaultManagedBy() { // 是否被 k8s 管理
 			localQueueName, found := jobOrPod.Object().GetLabels()[over_constants.QueueLabel]
 			if !found {
 				return
 			} //ToDo 启用了 default queue   会加上这个label
-			clusterQueueName, ok := queues.ClusterQueueFromLocalQueue(queue.NewLocalQueueReference(jobOrPod.Object().GetNamespace(), kueue.LocalQueueName(localQueueName)))
+			clusterQueueName, ok := queues.ClusterQueueFromLocalQueue(over_queue.NewLocalQueueReference(jobOrPod.Object().GetNamespace(), kueue.LocalQueueName(localQueueName)))
 			if !ok {
 				log.V(5).Info("Cluster queue for local queue not found", "localQueueName", localQueueName)
 				return
@@ -41,7 +41,7 @@ func ApplyDefaultForManagedBy(jobOrPod GenericJob, queues *queue.Manager, cache 
 }
 
 func ApplyDefaultLocalQueue(jobObj client.Object, defaultQueueExist func(string) bool) {
-	if !features.Enabled(features.LocalQueueDefaulting) || !defaultQueueExist(jobObj.GetNamespace()) {
+	if !over_features.Enabled(over_features.LocalQueueDefaulting) || !defaultQueueExist(jobObj.GetNamespace()) {
 		return
 	}
 	if QueueNameForObject(jobObj) == "" {
@@ -86,7 +86,7 @@ func WorkloadShouldBeSuspended(ctx context.Context, jobObj client.Object, k8sCli
 
 	// Logic for managing jobs without queue names.
 	if manageJobsWithoutQueueName {
-		if features.Enabled(features.ManagedJobsNamespaceSelector) && managedJobsNamespaceSelector != nil {
+		if over_features.Enabled(over_features.ManagedJobsNamespaceSelector) && managedJobsNamespaceSelector != nil {
 			// Default suspend the job if the namespace selector matches
 			ns := corev1.Namespace{}
 			err := k8sClient.Get(ctx, client.ObjectKey{Name: jobObj.GetNamespace()}, &ns)

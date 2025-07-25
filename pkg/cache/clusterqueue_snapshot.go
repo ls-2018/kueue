@@ -9,10 +9,10 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	kueue "sigs.k8s.io/kueue/apis/kueue/v1beta1"
-	"sigs.k8s.io/kueue/pkg/features"
-	"sigs.k8s.io/kueue/pkg/hierarchy"
-	"sigs.k8s.io/kueue/pkg/metrics"
-	"sigs.k8s.io/kueue/pkg/resources"
+	"sigs.k8s.io/kueue/pkg/over_features"
+	"sigs.k8s.io/kueue/pkg/over_hierarchy"
+	"sigs.k8s.io/kueue/pkg/over_metrics"
+	"sigs.k8s.io/kueue/pkg/over_resources"
 	utiltas "sigs.k8s.io/kueue/pkg/util/tas"
 	"sigs.k8s.io/kueue/pkg/workload"
 )
@@ -22,22 +22,22 @@ import (
 // 命名空间选择器、抢占策略、权重、AdmissionChecks 等信息。
 // 通过快照可以模拟资源的增减、判断资源可用性等。
 type ClusterQueueSnapshot struct {
-	Name                                    kueue.ClusterQueueReference                                               // ClusterQueue 的唯一标识引用
-	ResourceGroups                          []ResourceGroup                                                           // 该队列可用的资源组列表
-	Workloads                               map[string]*workload.Info                                                 // 当前在队列中的工作负载信息，key 为 workload 名称
-	WorkloadsNotReady                       sets.Set[string]                                                          // 尚未就绪的工作负载名称集合
-	NamespaceSelector                       labels.Selector                                                           // 命名空间选择器，决定哪些命名空间可用此队列
-	Preemption                              kueue.ClusterQueuePreemption                                              // 抢占策略配置
-	FairWeight                              resource.Quantity                                                         // 队列的公平调度权重
-	FlavorFungibility                       kueue.FlavorFungibility                                                   // Flavor 可替代性配置
-	AdmissionChecks                         map[kueue.AdmissionCheckReference]sets.Set[kueue.ResourceFlavorReference] // AdmissionChecks 及其适用的 ResourceFlavor 集合
-	Status                                  metrics.ClusterQueueStatus                                                // 队列当前状态
-	AllocatableResourceGeneration           int64                                                                     // 可分配资源的版本号（变更时递增）
-	ResourceNode                            ResourceNode                                                              // 1、flavorName+ResourceName: quota
-	hierarchy.ClusterQueue[*CohortSnapshot]                                                                           // 队列的层级结构信息
-	TASFlavors                              map[kueue.ResourceFlavorReference]*TASFlavorSnapshot                      // TAS 相关的 ResourceFlavor 快照
-	tasOnly                                 bool                                                                      // 是否仅 TAS 模式
-	flavorsForProvReqACs                    sets.Set[kueue.ResourceFlavorReference]                                   // 需要 AdmissionCheck 的 ResourceFlavor 集合
+	Name                                         kueue.ClusterQueueReference                                               // ClusterQueue 的唯一标识引用
+	ResourceGroups                               []ResourceGroup                                                           // 该队列可用的资源组列表
+	Workloads                                    map[string]*workload.Info                                                 // 当前在队列中的工作负载信息，key 为 workload 名称
+	WorkloadsNotReady                            sets.Set[string]                                                          // 尚未就绪的工作负载名称集合
+	NamespaceSelector                            labels.Selector                                                           // 命名空间选择器，决定哪些命名空间可用此队列
+	Preemption                                   kueue.ClusterQueuePreemption                                              // 抢占策略配置
+	FairWeight                                   resource.Quantity                                                         // 队列的公平调度权重
+	FlavorFungibility                            kueue.FlavorFungibility                                                   // Flavor 可替代性配置
+	AdmissionChecks                              map[kueue.AdmissionCheckReference]sets.Set[kueue.ResourceFlavorReference] // AdmissionChecks 及其适用的 ResourceFlavor 集合
+	Status                                       over_metrics.ClusterQueueStatus                                           // 队列当前状态
+	AllocatableResourceGeneration                int64                                                                     // 可分配资源的版本号（变更时递增）
+	ResourceNode                                 ResourceNode                                                              // 1、flavorName+ResourceName: quota
+	over_hierarchy.ClusterQueue[*CohortSnapshot]                                                                           // 队列的层级结构信息
+	TASFlavors                                   map[kueue.ResourceFlavorReference]*TASFlavorSnapshot                      // TAS 相关的 ResourceFlavor 快照
+	tasOnly                                      bool                                                                      // 是否仅 TAS 模式
+	flavorsForProvReqACs                         sets.Set[kueue.ResourceFlavorReference]                                   // 需要 AdmissionCheck 的 ResourceFlavor 集合
 }
 
 // RGByResource returns the ResourceGroup which contains capacity
@@ -106,22 +106,22 @@ func (c *ClusterQueueSnapshot) Fits(usage workload.Usage) bool {
 }
 
 // Borrowing 判断当前资源 flavor 是否处于借用状态。
-func (c *ClusterQueueSnapshot) Borrowing(fr resources.FlavorResource) bool {
+func (c *ClusterQueueSnapshot) Borrowing(fr over_resources.FlavorResource) bool {
 	return c.BorrowingWith(fr, 0)
 }
 
 // BorrowingWith 判断加上 val 后资源 flavor 是否处于借用状态。
-func (c *ClusterQueueSnapshot) BorrowingWith(fr resources.FlavorResource, val int64) bool {
+func (c *ClusterQueueSnapshot) BorrowingWith(fr over_resources.FlavorResource, val int64) bool {
 	return c.ResourceNode.Usage[fr]+val > c.QuotaFor(fr).Nominal
 }
 
 // Available 返回当前可用容量（包括本地和 Cohort 借用的容量），如果处于债务状态则返回 0。
-func (c *ClusterQueueSnapshot) Available(fr resources.FlavorResource) int64 {
+func (c *ClusterQueueSnapshot) Available(fr over_resources.FlavorResource) int64 {
 	return max(0, available(c, fr)) // ✅
 }
 
 // PotentialAvailable 返回该 ClusterQueue 理论上可接纳的最大 workload。
-func (c *ClusterQueueSnapshot) PotentialAvailable(fr resources.FlavorResource) int64 {
+func (c *ClusterQueueSnapshot) PotentialAvailable(fr over_resources.FlavorResource) int64 {
 	return potentialAvailable(c, fr) // ✅
 }
 
@@ -181,7 +181,7 @@ func (c *ClusterQueueSnapshot) PathParentToRoot() iter.Seq[*CohortSnapshot] {
 }
 
 // QuotaFor 返回指定资源 flavor 的配额。
-func (c *ClusterQueueSnapshot) QuotaFor(fr resources.FlavorResource) ResourceQuota {
+func (c *ClusterQueueSnapshot) QuotaFor(fr over_resources.FlavorResource) ResourceQuota {
 	return c.ResourceNode.Quotas[fr]
 }
 
@@ -203,7 +203,7 @@ func (c *ClusterQueueSnapshot) AddUsage(usage workload.Usage) {
 
 // updateTASUsage 更新 TAS 相关的资源使用量。
 func (c *ClusterQueueSnapshot) updateTASUsage(usage workload.TASUsage, op usageOp) {
-	if features.Enabled(features.TopologyAwareScheduling) {
+	if over_features.Enabled(over_features.TopologyAwareScheduling) {
 		for tasFlavor, tasUsage := range usage {
 			if tasFlvCache := c.TASFlavors[tasFlavor]; tasFlvCache != nil {
 				for _, tr := range tasUsage {

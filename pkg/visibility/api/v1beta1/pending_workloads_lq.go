@@ -14,13 +14,13 @@ import (
 	kueue "sigs.k8s.io/kueue/apis/kueue/v1beta1"
 	visibility "sigs.k8s.io/kueue/apis/visibility/v1beta1"
 	"sigs.k8s.io/kueue/pkg/over_constants"
-	"sigs.k8s.io/kueue/pkg/queue"
+	"sigs.k8s.io/kueue/pkg/over_queue"
 
 	_ "k8s.io/metrics/pkg/apis/metrics/install"
 )
 
 type pendingWorkloadsInLqREST struct {
-	queueMgr *queue.Manager
+	queueMgr *over_queue.Manager
 	log      logr.Logger
 }
 
@@ -28,7 +28,7 @@ var _ rest.Storage = &pendingWorkloadsInLqREST{}
 var _ rest.GetterWithOptions = &pendingWorkloadsInLqREST{}
 var _ rest.Scoper = &pendingWorkloadsInLqREST{}
 
-func NewPendingWorkloadsInLqREST(kueueMgr *queue.Manager) *pendingWorkloadsInLqREST {
+func NewPendingWorkloadsInLqREST(kueueMgr *over_queue.Manager) *pendingWorkloadsInLqREST {
 	return &pendingWorkloadsInLqREST{
 		queueMgr: kueueMgr,
 		log:      ctrl.Log.WithName("pending-workload-in-lq"),
@@ -55,7 +55,7 @@ func (m *pendingWorkloadsInLqREST) Get(ctx context.Context, name string, opts ru
 
 	namespace := genericapirequest.NamespaceValue(ctx)
 	lqName := kueue.LocalQueueName(name)
-	cqName, ok := m.queueMgr.ClusterQueueFromLocalQueue(queue.NewLocalQueueReference(namespace, lqName))
+	cqName, ok := m.queueMgr.ClusterQueueFromLocalQueue(over_queue.NewLocalQueueReference(namespace, lqName))
 	if !ok {
 		return nil, errors.NewNotFound(visibility.Resource("localqueue"), name)
 	}

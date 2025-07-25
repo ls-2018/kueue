@@ -12,9 +12,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	kueue "sigs.k8s.io/kueue/apis/kueue/v1beta1"
-	"sigs.k8s.io/kueue/pkg/controller/core/over_indexer"
-	"sigs.k8s.io/kueue/pkg/util/limitrange"
-	"sigs.k8s.io/kueue/pkg/util/resource"
+	"sigs.k8s.io/kueue/pkg/controller/over_core/over_indexer"
+	"sigs.k8s.io/kueue/pkg/util/over_limitrange"
+	"sigs.k8s.io/kueue/pkg/util/over_resource"
 )
 
 var (
@@ -36,11 +36,11 @@ func handleLimitsToRequests(wl *kueue.Workload) {
 func UseLimitsAsMissingRequestsInPod(pod *corev1.PodSpec) {
 	for ci := range pod.InitContainers {
 		res := &pod.InitContainers[ci].Resources
-		res.Requests = resource.MergeResourceListKeepFirst(res.Requests, res.Limits)
+		res.Requests = over_resource.MergeResourceListKeepFirst(res.Requests, res.Limits)
 	}
 	for ci := range pod.Containers {
 		res := &pod.Containers[ci].Resources
-		res.Requests = resource.MergeResourceListKeepFirst(res.Requests, res.Limits)
+		res.Requests = over_resource.MergeResourceListKeepFirst(res.Requests, res.Limits)
 	}
 }
 
@@ -54,7 +54,7 @@ func ValidateResources(wi *Info) field.ErrorList {
 		podSpecPath := PodSetsPath.Index(i).Child("template").Child("spec")
 		for i := range ps.Template.Spec.InitContainers {
 			c := ps.Template.Spec.InitContainers[i]
-			if resNames := resource.GetGreaterKeys(c.Resources.Requests, c.Resources.Limits); len(resNames) > 0 {
+			if resNames := over_resource.GetGreaterKeys(c.Resources.Requests, c.Resources.Limits); len(resNames) > 0 {
 				allErrors = append(
 					allErrors,
 					field.Invalid(podSpecPath.Child("initContainers").Index(i), resNames, RequestsMustNotExceedLimitMessage),
@@ -64,7 +64,7 @@ func ValidateResources(wi *Info) field.ErrorList {
 
 		for i := range ps.Template.Spec.Containers {
 			c := ps.Template.Spec.Containers[i]
-			if resNames := resource.GetGreaterKeys(c.Resources.Requests, c.Resources.Limits); len(resNames) > 0 {
+			if resNames := over_resource.GetGreaterKeys(c.Resources.Requests, c.Resources.Limits); len(resNames) > 0 {
 				allErrors = append(
 					allErrors,
 					field.Invalid(podSpecPath.Child("containers").Index(i), resNames, RequestsMustNotExceedLimitMessage),
@@ -87,7 +87,7 @@ func ValidateLimitRange(ctx context.Context, c client.Client, wi *Info) field.Er
 	if len(limitRanges.Items) == 0 {
 		return nil
 	}
-	summary := limitrange.Summarize(limitRanges.Items...)
+	summary := over_limitrange.Summarize(limitRanges.Items...)
 
 	// verify
 	for i := range wi.Obj.Spec.PodSets {
@@ -144,7 +144,7 @@ func handlePodLimitRange(ctx context.Context, cl client.Client, wl *kueue.Worklo
 	if len(limitRanges.Items) == 0 {
 		return nil
 	}
-	summary := limitrange.Summarize(limitRanges.Items...)
+	summary := over_limitrange.Summarize(limitRanges.Items...)
 	containerLimits, found := summary[corev1.LimitTypeContainer]
 	if !found {
 		return nil
@@ -154,13 +154,13 @@ func handlePodLimitRange(ctx context.Context, cl client.Client, wl *kueue.Worklo
 		pod := &wl.Spec.PodSets[pi].Template.Spec
 		for ci := range pod.InitContainers {
 			res := &pod.InitContainers[ci].Resources
-			res.Limits = resource.MergeResourceListKeepFirst(res.Limits, containerLimits.Default)
-			res.Requests = resource.MergeResourceListKeepFirst(res.Requests, containerLimits.DefaultRequest)
+			res.Limits = over_resource.MergeResourceListKeepFirst(res.Limits, containerLimits.Default)
+			res.Requests = over_resource.MergeResourceListKeepFirst(res.Requests, containerLimits.DefaultRequest)
 		}
 		for ci := range pod.Containers {
 			res := &pod.Containers[ci].Resources
-			res.Limits = resource.MergeResourceListKeepFirst(res.Limits, containerLimits.Default)
-			res.Requests = resource.MergeResourceListKeepFirst(res.Requests, containerLimits.DefaultRequest)
+			res.Limits = over_resource.MergeResourceListKeepFirst(res.Limits, containerLimits.Default)
+			res.Requests = over_resource.MergeResourceListKeepFirst(res.Requests, containerLimits.DefaultRequest)
 		}
 	}
 	return nil

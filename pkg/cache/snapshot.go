@@ -13,14 +13,14 @@ import (
 	"k8s.io/klog/v2"
 
 	kueue "sigs.k8s.io/kueue/apis/kueue/v1beta1"
-	"sigs.k8s.io/kueue/pkg/features"
-	"sigs.k8s.io/kueue/pkg/hierarchy"
-	utilmaps "sigs.k8s.io/kueue/pkg/util/maps"
+	"sigs.k8s.io/kueue/pkg/over_features"
+	"sigs.k8s.io/kueue/pkg/over_hierarchy"
+	utilmaps "sigs.k8s.io/kueue/pkg/util/over_maps"
 	"sigs.k8s.io/kueue/pkg/workload"
 )
 
 type Snapshot struct {
-	hierarchy.Manager[*ClusterQueueSnapshot, *CohortSnapshot]
+	over_hierarchy.Manager[*ClusterQueueSnapshot, *CohortSnapshot]
 	ResourceFlavors          map[kueue.ResourceFlavorReference]*kueue.ResourceFlavor
 	InactiveClusterQueueSets sets.Set[kueue.ClusterQueueReference]
 }
@@ -68,7 +68,7 @@ func (s *Snapshot) Log(log logr.Logger) {
 	}
 
 	// Dump TAS snapshots if the feature is enabled
-	if features.Enabled(features.TopologyAwareScheduling) {
+	if over_features.Enabled(over_features.TopologyAwareScheduling) {
 		for cqName, cq := range s.ClusterQueues() {
 			for tasFlavor, tasSnapshot := range cq.TASFlavors {
 				freeCapacityPerDomain, err := tasSnapshot.SerializeFreeCapacityPerDomain()
@@ -106,12 +106,12 @@ func (c *Cache) Snapshot(ctx context.Context) (*Snapshot, error) {
 	defer c.RUnlock()
 
 	snap := Snapshot{
-		Manager:                  hierarchy.NewManager(newCohortSnapshot),
+		Manager:                  over_hierarchy.NewManager(newCohortSnapshot),
 		ResourceFlavors:          make(map[kueue.ResourceFlavorReference]*kueue.ResourceFlavor, len(c.resourceFlavors)),
 		InactiveClusterQueueSets: sets.New[kueue.ClusterQueueReference](),
 	}
 	for _, cohort := range c.hm.Cohorts() {
-		if hierarchy.HasCycle(cohort) {
+		if over_hierarchy.HasCycle(cohort) {
 			continue
 		}
 		snap.AddCohort(cohort.Name)
@@ -122,7 +122,7 @@ func (c *Cache) Snapshot(ctx context.Context) (*Snapshot, error) {
 		}
 	}
 	tasSnapshots := make(map[kueue.ResourceFlavorReference]*TASFlavorSnapshot)
-	if features.Enabled(features.TopologyAwareScheduling) {
+	if over_features.Enabled(over_features.TopologyAwareScheduling) {
 		for flavor, cache := range c.tasCache.Clone() {
 			s, err := cache.snapshot(ctx)
 			if err != nil {
@@ -133,7 +133,7 @@ func (c *Cache) Snapshot(ctx context.Context) (*Snapshot, error) {
 		}
 	}
 	for _, cq := range c.hm.ClusterQueues() {
-		if !cq.Active() || (cq.HasParent() && hierarchy.HasCycle(cq.Parent())) {
+		if !cq.Active() || (cq.HasParent() && over_hierarchy.HasCycle(cq.Parent())) {
 			snap.InactiveClusterQueueSets.Insert(cq.Name)
 			continue
 		}
@@ -142,7 +142,7 @@ func (c *Cache) Snapshot(ctx context.Context) (*Snapshot, error) {
 		if cq.HasParent() {
 			snap.UpdateClusterQueueEdge(cq.Name, cq.Parent().Name)
 		}
-		if features.Enabled(features.TopologyAwareScheduling) {
+		if over_features.Enabled(over_features.TopologyAwareScheduling) {
 			for tasFlv, s := range tasSnapshots {
 				if cq.flavorInUse(tasFlv) {
 					cqSnapshot.TASFlavors[tasFlv] = s
@@ -183,6 +183,6 @@ func snapshotClusterQueue(c *clusterQueue) *ClusterQueueSnapshot {
 func newCohortSnapshot(name kueue.CohortReference) *CohortSnapshot {
 	return &CohortSnapshot{
 		Name:   name,
-		Cohort: hierarchy.NewCohort[*ClusterQueueSnapshot](),
+		Cohort: over_hierarchy.NewCohort[*ClusterQueueSnapshot](),
 	}
 }

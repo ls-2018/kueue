@@ -4,7 +4,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"math"
-	"sigs.k8s.io/kueue/pkg/resources"
+	"sigs.k8s.io/kueue/pkg/over_resources"
 
 	kueue "sigs.k8s.io/kueue/apis/kueue/v1beta1"
 )
@@ -50,7 +50,7 @@ func parseFairWeight(fs *kueue.FairSharing) resource.Quantity {
 // 表示所有资源中超出 nominal quota 的使用量与 cohort 可借用资源的最大比值，并除以权重。
 // 如果为 0，表示 ClusterQueue 的使用量低于 nominal quota。函数还返回导致该值的资源名。
 // 当 FairSharing 权重为 0 且 ClusterQueue 或 Cohort 处于借用状态时，返回 math.MaxInt。
-func dominantResourceShare(node dominantResourceShareNode, wlReq resources.FlavorResourceQuantities) (int, corev1.ResourceName) {
+func dominantResourceShare(node dominantResourceShareNode, wlReq over_resources.FlavorResourceQuantities) (int, corev1.ResourceName) {
 	if !node.HasParent() {
 		return 0, ""
 	}

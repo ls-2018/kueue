@@ -6,8 +6,8 @@ import (
 	"k8s.io/utils/ptr"
 
 	kueue "sigs.k8s.io/kueue/apis/kueue/v1beta1"
-	"sigs.k8s.io/kueue/pkg/features"
-	"sigs.k8s.io/kueue/pkg/resources"
+	"sigs.k8s.io/kueue/pkg/over_features"
+	"sigs.k8s.io/kueue/pkg/over_resources"
 )
 
 type ResourceGroup struct {
@@ -32,25 +32,25 @@ type ResourceQuota struct { // 分类为 cq 的资源; cohort 可以使用的资
 	LendingLimit   *int64 // 借出
 }
 
-func createResourceQuotas(kueueRgs []kueue.ResourceGroup) map[resources.FlavorResource]ResourceQuota {
+func createResourceQuotas(kueueRgs []kueue.ResourceGroup) map[over_resources.FlavorResource]ResourceQuota {
 	frCount := 0
 	for _, rg := range kueueRgs {
 		frCount += len(rg.Flavors) * len(rg.CoveredResources)
 	}
-	quotas := make(map[resources.FlavorResource]ResourceQuota, frCount)
+	quotas := make(map[over_resources.FlavorResource]ResourceQuota, frCount)
 	for _, kueueRg := range kueueRgs {
 		for _, kueueFlavor := range kueueRg.Flavors {
 			for _, kueueQuota := range kueueFlavor.Resources {
 				quota := ResourceQuota{
-					Nominal: resources.ResourceValue(kueueQuota.Name, kueueQuota.NominalQuota),
+					Nominal: over_resources.ResourceValue(kueueQuota.Name, kueueQuota.NominalQuota),
 				}
 				if kueueQuota.BorrowingLimit != nil {
-					quota.BorrowingLimit = ptr.To(resources.ResourceValue(kueueQuota.Name, *kueueQuota.BorrowingLimit))
+					quota.BorrowingLimit = ptr.To(over_resources.ResourceValue(kueueQuota.Name, *kueueQuota.BorrowingLimit))
 				}
-				if features.Enabled(features.LendingLimit) && kueueQuota.LendingLimit != nil {
-					quota.LendingLimit = ptr.To(resources.ResourceValue(kueueQuota.Name, *kueueQuota.LendingLimit))
+				if over_features.Enabled(over_features.LendingLimit) && kueueQuota.LendingLimit != nil {
+					quota.LendingLimit = ptr.To(over_resources.ResourceValue(kueueQuota.Name, *kueueQuota.LendingLimit))
 				}
-				quotas[resources.FlavorResource{Flavor: kueueFlavor.Name, Resource: kueueQuota.Name}] = quota
+				quotas[over_resources.FlavorResource{Flavor: kueueFlavor.Name, Resource: kueueQuota.Name}] = quota
 			}
 		}
 	}

@@ -32,15 +32,15 @@ import (
 	kueue "sigs.k8s.io/kueue/apis/kueue/v1beta1"
 	"sigs.k8s.io/kueue/pkg/controller/jobframework"
 	podconstants "sigs.k8s.io/kueue/pkg/controller/jobs/pod/over_constants"
-	"sigs.k8s.io/kueue/pkg/features"
 	"sigs.k8s.io/kueue/pkg/over_constants"
+	"sigs.k8s.io/kueue/pkg/over_features"
 	"sigs.k8s.io/kueue/pkg/over_podset"
-	clientutil "sigs.k8s.io/kueue/pkg/util/client"
-	"sigs.k8s.io/kueue/pkg/util/expectations"
-	"sigs.k8s.io/kueue/pkg/util/maps"
-	"sigs.k8s.io/kueue/pkg/util/parallelize"
-	utilpod "sigs.k8s.io/kueue/pkg/util/pod"
-	utilslices "sigs.k8s.io/kueue/pkg/util/slices"
+	clientutil "sigs.k8s.io/kueue/pkg/util/over_client"
+	"sigs.k8s.io/kueue/pkg/util/over_expectations"
+	"sigs.k8s.io/kueue/pkg/util/over_maps"
+	"sigs.k8s.io/kueue/pkg/util/over_parallelize"
+	utilpod "sigs.k8s.io/kueue/pkg/util/over_pod"
+	utilslices "sigs.k8s.io/kueue/pkg/util/over_slices"
 )
 
 const (
@@ -95,7 +95,7 @@ func init() {
 
 type Reconciler struct {
 	*jobframework.JobReconciler
-	expectationsStore *expectations.Store
+	expectationsStore *over_expectations.Store
 }
 
 func NewJob() jobframework.GenericJob {
@@ -110,7 +110,7 @@ type Pod struct {
 	unretriableGroup      *bool
 	list                  corev1.PodList
 	absentPods            int
-	excessPodExpectations *expectations.Store
+	excessPodExpectations *over_expectations.Store
 	satisfiedExcessPods   bool
 	clock                 clock.Clock
 }
@@ -125,7 +125,7 @@ var (
 )
 
 type options struct {
-	excessPodExpectations *expectations.Store
+	excessPodExpectations *over_expectations.Store
 	clock                 clock.Clock
 }
 
@@ -464,7 +464,7 @@ func (p *Pod) removeExcessPods(ctx context.Context, c client.Client, r record.Ev
 	p.excessPodExpectations.ExpectUIDs(log, p.key, extraPodsUIDs)
 
 	// Finalize and delete the active pods created last
-	err := parallelize.Until(ctx, len(extraPods), func(i int) error {
+	err := over_parallelize.Until(ctx, len(extraPods), func(i int) error {
 		pod := extraPods[i]
 		if err := clientutil.Patch(ctx, c, &pod, false, func() (bool, error) {
 			removed := controllerutil.RemoveFinalizer(&pod, podconstants.PodFinalizer)
@@ -503,7 +503,7 @@ func (p *Pod) finalizePods(ctx context.Context, c client.Client, extraPods []cor
 	extraPodsUIDs := utilslices.Map(extraPods, func(p *corev1.Pod) types.UID { return p.UID })
 	p.excessPodExpectations.ExpectUIDs(log, p.key, extraPodsUIDs)
 
-	err := parallelize.Until(ctx, len(extraPods), func(i int) error {
+	err := over_parallelize.Until(ctx, len(extraPods), func(i int) error {
 		pod := extraPods[i]
 		var removed bool
 		if err := clientutil.Patch(ctx, c, &pod, false, func() (bool, error) {
@@ -556,7 +556,7 @@ func (p *Pod) getWorkloadLabels(labelKeysToCopy []string) (map[string]string, er
 		return nil, nil
 	}
 	if !p.isGroup {
-		return maps.FilterKeys(p.Object().GetLabels(), labelKeysToCopy), nil
+		return over_maps.FilterKeys(p.Object().GetLabels(), labelKeysToCopy), nil
 	}
 	workloadLabels := make(map[string]string, len(labelKeysToCopy))
 	for _, pod := range p.list.Items {
@@ -820,11 +820,11 @@ func (p *Pod) Suspend() {
 func NewReconciler(c client.Client, record record.EventRecorder, opts ...jobframework.Option) jobframework.JobReconcilerInterface {
 	return &Reconciler{
 		JobReconciler:     jobframework.NewReconciler(c, record, opts...),
-		expectationsStore: expectations.NewStore("finalizedPods"),
+		expectationsStore: over_expectations.NewStore("finalizedPods"),
 	}
 }
 
-func WithExcessPodExpectations(store *expectations.Store) PodOption {
+func WithExcessPodExpectations(store *over_expectations.Store) PodOption {
 	return func(o *options) {
 		o.excessPodExpectations = store
 	}
@@ -984,7 +984,7 @@ func (p *Pod) Finalize(ctx context.Context, c client.Client) error {
 		}
 	}
 
-	return parallelize.Until(ctx, len(podsInGroup.Items), func(i int) error {
+	return over_parallelize.Until(ctx, len(podsInGroup.Items), func(i int) error {
 		pod := &podsInGroup.Items[i]
 		return clientutil.Patch(ctx, c, pod, false, func() (bool, error) {
 			return controllerutil.RemoveFinalizer(pod, podconstants.PodFinalizer), nil
@@ -1045,7 +1045,7 @@ func (p *Pod) ConstructComposableWorkload(ctx context.Context, c client.Client, 
 	if err != nil {
 		return nil, err
 	}
-	wl.Labels = maps.MergeKeepFirst(wl.Labels, labelsToCopy)
+	wl.Labels = over_maps.MergeKeepFirst(wl.Labels, labelsToCopy)
 	return wl, nil
 }
 
@@ -1120,7 +1120,7 @@ func constructPodSet(p *corev1.Pod) kueue.PodSet {
 			Spec: *p.Spec.DeepCopy(),
 		},
 	}
-	if features.Enabled(features.TopologyAwareScheduling) {
+	if over_features.Enabled(over_features.TopologyAwareScheduling) {
 		podSet.TopologyRequest = jobframework.NewPodSetTopologyRequest(&p.ObjectMeta).PodIndexLabel(ptr.To(kueuealpha.PodGroupPodIndexLabel)).Build()
 	}
 	return podSet
@@ -1302,7 +1302,7 @@ func (p *Pod) Run(ctx context.Context, c client.Client, podSetsInfo []over_podse
 		return nil
 	}
 
-	return parallelize.Until(ctx, len(p.list.Items), func(i int) error {
+	return over_parallelize.Until(ctx, len(p.list.Items), func(i int) error {
 		pod := &p.list.Items[i]
 
 		if !isGated(pod) {

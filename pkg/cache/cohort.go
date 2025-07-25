@@ -7,13 +7,13 @@ import (
 
 	kueuealpha "sigs.k8s.io/kueue/apis/kueue/v1alpha1"
 	kueue "sigs.k8s.io/kueue/apis/kueue/v1beta1"
-	"sigs.k8s.io/kueue/pkg/hierarchy"
+	"sigs.k8s.io/kueue/pkg/over_hierarchy"
 )
 
 // cohort 是一组可以相互借用资源的 ClusterQueue。
 type cohort struct {
 	Name kueue.CohortReference
-	hierarchy.Cohort[*clusterQueue, *cohort]
+	over_hierarchy.Cohort[*clusterQueue, *cohort]
 	resourceNode ResourceNode
 	FairWeight   resource.Quantity
 }
@@ -21,7 +21,7 @@ type cohort struct {
 func newCohort(name kueue.CohortReference) *cohort {
 	return &cohort{
 		Name:         name,
-		Cohort:       hierarchy.NewCohort[*clusterQueue, *cohort](),
+		Cohort:       over_hierarchy.NewCohort[*clusterQueue, *cohort](),
 		resourceNode: NewResourceNode(),
 	}
 }
@@ -60,7 +60,7 @@ func (c *cohort) parentHRN() hierarchicalResourceNode {
 
 // implement hierarchy.CycleCheckable interface
 
-func (c *cohort) CCParent() hierarchy.CycleCheckable {
+func (c *cohort) CCParent() over_hierarchy.CycleCheckable {
 	return c.Parent()
 }
 

@@ -10,8 +10,8 @@ import (
 
 	kueue "sigs.k8s.io/kueue/apis/kueue/v1beta1"
 	"sigs.k8s.io/kueue/pkg/cache"
-	"sigs.k8s.io/kueue/pkg/features"
-	"sigs.k8s.io/kueue/pkg/util/priority"
+	"sigs.k8s.io/kueue/pkg/over_features"
+	"sigs.k8s.io/kueue/pkg/util/over_priority"
 	"sigs.k8s.io/kueue/pkg/workload"
 )
 
@@ -133,9 +133,9 @@ func (e *entryComparer) less(a, b *entry, parentCohort kueue.CohortReference) bo
 	}
 
 	// 2: 优先级
-	if features.Enabled(features.PrioritySortingWithinCohort) {
-		p1 := priority.Priority(a.Obj)
-		p2 := priority.Priority(b.Obj)
+	if over_features.Enabled(over_features.PrioritySortingWithinCohort) {
+		p1 := over_priority.Priority(a.Obj)
+		p2 := over_priority.Priority(b.Obj)
 		if p1 != p2 {
 			return p1 > p2
 		}

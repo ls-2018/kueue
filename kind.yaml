@@ -8,11 +8,19 @@ nodes:
         protocol: TCP
   - role: worker
     labels:
+      cloud.provider.com/topology-block: block-1
+      cloud.provider.com/topology-rack: rack-1
   - role: worker
     labels:
-      instance-type: spot
-      zone: a
-  - role: worker
-    labels:
-      instance-type: spot
-      zone: b
+      cloud.provider.com/topology-block: block-1
+      cloud.provider.com/topology-rack: rack-2
+#  - role: worker
+#    labels:
+#      instance-type: spot
+#      cloud.provider.com/topology-block: block-2
+#      cloud.provider.com/topology-rack: rack-1
+#  - role: worker
+#    labels:
+#      instance-type: spot
+#      cloud.provider.com/topology-block: block-2
+#      cloud.provider.com/topology-rack: rack-2

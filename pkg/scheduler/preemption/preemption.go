@@ -23,13 +23,13 @@ import (
 	kueue "sigs.k8s.io/kueue/apis/kueue/v1beta1"
 	"sigs.k8s.io/kueue/pkg/cache"
 	"sigs.k8s.io/kueue/pkg/controller/over_constants"
-	"sigs.k8s.io/kueue/pkg/metrics"
-	"sigs.k8s.io/kueue/pkg/resources"
+	"sigs.k8s.io/kueue/pkg/over_metrics"
+	"sigs.k8s.io/kueue/pkg/over_resources"
 	"sigs.k8s.io/kueue/pkg/scheduler/flavorassigner"
 	"sigs.k8s.io/kueue/pkg/scheduler/preemption/classical"
 	"sigs.k8s.io/kueue/pkg/scheduler/preemption/fairsharing"
+	"sigs.k8s.io/kueue/pkg/util/over_priority"
 	"sigs.k8s.io/kueue/pkg/util/over_routine"
-	"sigs.k8s.io/kueue/pkg/util/priority"
 	"sigs.k8s.io/kueue/pkg/workload"
 )
 
@@ -57,13 +57,13 @@ type Preemptor struct {
 // 包含日志、抢占者、快照、资源需求等
 // 便于在抢占流程中传递和复用
 type preemptionCtx struct {
-	log               logr.Logger                        // 日志对象
-	preemptor         workload.Info                      // 当前抢占者的工作负载信息
-	preemptorCQ       *cache.ClusterQueueSnapshot        // 抢占者所在的ClusterQueue快照
-	snapshot          *cache.Snapshot                    // 全局快照
-	workloadUsage     workload.Usage                     // 工作负载资源使用情况
-	tasRequests       cache.WorkloadTASRequests          // 工作负载的拓扑请求
-	frsNeedPreemption sets.Set[resources.FlavorResource] // 需要抢占的资源集合
+	log               logr.Logger                             // 日志对象
+	preemptor         workload.Info                           // 当前抢占者的工作负载信息
+	preemptorCQ       *cache.ClusterQueueSnapshot             // 抢占者所在的ClusterQueue快照
+	snapshot          *cache.Snapshot                         // 全局快照
+	workloadUsage     workload.Usage                          // 工作负载资源使用情况
+	tasRequests       cache.WorkloadTASRequests               // 工作负载的拓扑请求
+	frsNeedPreemption sets.Set[over_resources.FlavorResource] // 需要抢占的资源集合
 }
 
 // OverrideApply 用于替换抢占执行函数，便于测试或自定义
@@ -145,7 +145,7 @@ func (p *Preemptor) IssuePreemptions(ctx context.Context, preemptor *workload.In
 
 			log.V(3).Info("已抢占", "targetWorkload", klog.KObj(target.WorkloadInfo.Obj), "preemptingWorkload", klog.KObj(preemptor.Obj), "reason", target.Reason, "message", message, "targetClusterQueue", klog.KRef("", string(target.WorkloadInfo.ClusterQueue))) // 记录日志
 			p.recorder.Eventf(target.WorkloadInfo.Obj, corev1.EventTypeNormal, "Preempted", message)                                                                                                                                                               // 记录事件
-			metrics.ReportPreemption(preemptor.ClusterQueue, target.Reason, target.WorkloadInfo.ClusterQueue)                                                                                                                                                      // 上报指标
+			over_metrics.ReportPreemption(preemptor.ClusterQueue, target.Reason, target.WorkloadInfo.ClusterQueue)                                                                                                                                                 // 上报指标
 		} else {
 			log.V(3).Info("抢占中", "targetWorkload", klog.KObj(target.WorkloadInfo.Obj), "preemptingWorkload", klog.KObj(preemptor.Obj)) // 已在抢占中
 		}
@@ -163,7 +163,7 @@ func (p *Preemptor) applyPreemptionWithSSA(ctx context.Context, w *kueue.Workloa
 	reportWorkloadEvictedOnce := workload.WorkloadEvictionStateInc(w, kueue.WorkloadEvictedByPreemption, "") // 增加抢占状态
 	workload.SetPreemptedCondition(w, reason, message)                                                       // 设置抢占原因
 	if reportWorkloadEvictedOnce {
-		metrics.ReportEvictedWorkloadsOnce(w.Status.Admission.ClusterQueue, kueue.WorkloadEvictedByPreemption, "") // 上报指标
+		over_metrics.ReportEvictedWorkloadsOnce(w.Status.Admission.ClusterQueue, kueue.WorkloadEvictedByPreemption, "") // 上报指标
 	}
 	return workload.ApplyAdmissionStatus(ctx, p.client, w, true, p.clock) // 应用 admission 状态
 }
@@ -206,12 +206,12 @@ func runSecondFsStrategy(retryCandidates []*workload.Info, preemptionCtx *preemp
 	return false, targets
 }
 
-func flavorResourcesNeedPreemption(assignment flavorassigner.Assignment) sets.Set[resources.FlavorResource] {
-	resPerFlavor := sets.New[resources.FlavorResource]()
+func flavorResourcesNeedPreemption(assignment flavorassigner.Assignment) sets.Set[over_resources.FlavorResource] {
+	resPerFlavor := sets.New[over_resources.FlavorResource]()
 	for _, ps := range assignment.PodSets {
 		for res, flvAssignment := range ps.Flavors {
 			if flvAssignment.Mode == flavorassigner.Preempt {
-				resPerFlavor.Insert(resources.FlavorResource{Flavor: flvAssignment.Name, Resource: res})
+				resPerFlavor.Insert(over_resources.FlavorResource{Flavor: flvAssignment.Name, Resource: res})
 			}
 		}
 	}
@@ -220,9 +220,9 @@ func flavorResourcesNeedPreemption(assignment flavorassigner.Assignment) sets.Se
 
 // findCandidates获取在ClusterQueue和cohort中需要抢占的候选者，
 // 这些候选者尊重抢占策略，并使用工作负载需要使用的资源。
-func (p *Preemptor) findCandidates(wl *kueue.Workload, cq *cache.ClusterQueueSnapshot, frsNeedPreemption sets.Set[resources.FlavorResource]) []*workload.Info {
+func (p *Preemptor) findCandidates(wl *kueue.Workload, cq *cache.ClusterQueueSnapshot, frsNeedPreemption sets.Set[over_resources.FlavorResource]) []*workload.Info {
 	var candidates []*workload.Info
-	wlPriority := priority.Priority(wl)
+	wlPriority := over_priority.Priority(wl)
 	preemptorTS := p.workloadOrdering.GetQueueOrderTimestamp(wl)
 
 	if cq.Preemption.WithinClusterQueue != kueue.PreemptionPolicyNever {
@@ -230,7 +230,7 @@ func (p *Preemptor) findCandidates(wl *kueue.Workload, cq *cache.ClusterQueueSna
 		considerSamePrio := cq.Preemption.WithinClusterQueue == kueue.PreemptionPolicyLowerOrNewerEqualPriority
 
 		for _, candidateWl := range cq.Workloads {
-			candidatePriority := priority.Priority(candidateWl.Obj)
+			candidatePriority := over_priority.Priority(candidateWl.Obj)
 			if candidatePriority > wlPriority {
 				continue
 			}
@@ -257,15 +257,15 @@ func (p *Preemptor) findCandidates(wl *kueue.Workload, cq *cache.ClusterQueueSna
 				switch cq.Preemption.ReclaimWithinCohort {
 				case kueue.PreemptionPolicyAny:
 				case kueue.PreemptionPolicyLowerPriority:
-					if priority.Priority(candidateWl.Obj) >= priority.Priority(wl) {
+					if over_priority.Priority(candidateWl.Obj) >= over_priority.Priority(wl) {
 						continue
 					}
 				case kueue.PreemptionPolicyLowerOrNewerEqualPriority:
-					if priority.Priority(candidateWl.Obj) > priority.Priority(wl) {
+					if over_priority.Priority(candidateWl.Obj) > over_priority.Priority(wl) {
 						continue
 					}
 
-					if priority.Priority(candidateWl.Obj) == priority.Priority(wl) && !preemptorTS.Before(p.workloadOrdering.GetQueueOrderTimestamp(candidateWl.Obj)) {
+					if over_priority.Priority(candidateWl.Obj) == over_priority.Priority(wl) && !preemptorTS.Before(p.workloadOrdering.GetQueueOrderTimestamp(candidateWl.Obj)) {
 						continue
 					}
 				}
@@ -280,7 +280,7 @@ func (p *Preemptor) findCandidates(wl *kueue.Workload, cq *cache.ClusterQueueSna
 	return candidates
 }
 
-func cqIsBorrowing(cq *cache.ClusterQueueSnapshot, frsNeedPreemption sets.Set[resources.FlavorResource]) bool {
+func cqIsBorrowing(cq *cache.ClusterQueueSnapshot, frsNeedPreemption sets.Set[over_resources.FlavorResource]) bool {
 	if !cq.HasParent() {
 		return false
 	}
@@ -320,8 +320,8 @@ func CandidatesOrdering(candidates []*workload.Info, cq kueue.ClusterQueueRefere
 		if aInCQ != bInCQ {
 			return !aInCQ
 		}
-		pa := priority.Priority(a.Obj)
-		pb := priority.Priority(b.Obj)
+		pa := over_priority.Priority(a.Obj)
+		pb := over_priority.Priority(b.Obj)
 		if pa != pb {
 			return pa < pb
 		}

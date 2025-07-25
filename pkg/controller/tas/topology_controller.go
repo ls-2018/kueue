@@ -23,9 +23,9 @@ import (
 	kueuealpha "sigs.k8s.io/kueue/apis/kueue/v1alpha1"
 	kueue "sigs.k8s.io/kueue/apis/kueue/v1beta1"
 	"sigs.k8s.io/kueue/pkg/cache"
-	"sigs.k8s.io/kueue/pkg/controller/core"
+	"sigs.k8s.io/kueue/pkg/controller/over_core"
 	"sigs.k8s.io/kueue/pkg/over_constants"
-	"sigs.k8s.io/kueue/pkg/queue"
+	"sigs.k8s.io/kueue/pkg/over_queue"
 )
 
 const (
@@ -35,7 +35,7 @@ const (
 type topologyReconciler struct {
 	log              logr.Logger
 	client           client.Client
-	queues           *queue.Manager
+	queues           *over_queue.Manager
 	cache            *cache.Cache
 	topologyUpdateCh chan event.GenericEvent
 }
@@ -43,7 +43,7 @@ type topologyReconciler struct {
 var _ reconcile.Reconciler = (*topologyReconciler)(nil)
 var _ predicate.TypedPredicate[*kueuealpha.Topology] = (*topologyReconciler)(nil)
 
-func newTopologyReconciler(c client.Client, queues *queue.Manager, cache *cache.Cache) *topologyReconciler {
+func newTopologyReconciler(c client.Client, queues *over_queue.Manager, cache *cache.Cache) *topologyReconciler {
 	return &topologyReconciler{
 		log:              ctrl.Log.WithName(TASTopologyController),
 		client:           c,
@@ -67,7 +67,7 @@ func (r *topologyReconciler) setupWithManager(mgr ctrl.Manager, cfg *configapi.C
 			MaxConcurrentReconciles: mgr.GetControllerOptions().GroupKindConcurrency[kueuealpha.GroupVersion.WithKind("Topology").GroupKind().String()],
 		}).
 		Watches(&kueue.ResourceFlavor{}, &resourceFlavorHandler{}).
-		Complete(core.WithLeadingManager(mgr, r, &kueuealpha.Topology{}, cfg))
+		Complete(over_core.WithLeadingManager(mgr, r, &kueuealpha.Topology{}, cfg))
 }
 
 // +kubebuilder:rbac:groups=kueue.x-k8s.io,resources=topologies,verbs=get;list;watch;update

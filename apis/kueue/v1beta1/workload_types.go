@@ -471,14 +471,10 @@ type PodSetRequest struct {
 }
 
 const (
-	// WorkloadAdmitted 表示工作负载已保留配额，且 ClusterQueue 中定义的所有接纳检查均已满足。
-	WorkloadAdmitted = "Admitted"
-	// WorkloadQuotaReserved 表示工作负载已保留配额。
-	WorkloadQuotaReserved = "QuotaReserved"
-	// WorkloadFinished 表示与 ResourceClaim 关联的工作负载运行完成（失败或成功）。
-	WorkloadFinished = "Finished"
-	// WorkloadPodsReady 表示至少 `.spec.podSets[*].count` Pods 已就绪或成功。
-	WorkloadPodsReady = "PodsReady"
+	WorkloadAdmitted      = "Admitted"      // 表示工作负载已保留配额，且 ClusterQueue 中定义的所有接纳检查均已满足。
+	WorkloadQuotaReserved = "QuotaReserved" // 表示工作负载已保留配额
+	WorkloadFinished      = "Finished"      // 表示与 ResourceClaim 关联的工作负载运行完成（失败或成功）。
+	WorkloadPodsReady     = "PodsReady"     // 表示至少 `.spec.podSets[*].count` Pods 已就绪或成功。
 
 	// WorkloadEvicted 表示工作负载被驱逐。可能的原因是：
 	// - "Preempted": 工作负载被抢占

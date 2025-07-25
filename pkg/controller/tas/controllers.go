@@ -5,11 +5,11 @@ import (
 
 	configapi "sigs.k8s.io/kueue/apis/config/v1beta1"
 	"sigs.k8s.io/kueue/pkg/cache"
-	"sigs.k8s.io/kueue/pkg/features"
-	"sigs.k8s.io/kueue/pkg/queue"
+	"sigs.k8s.io/kueue/pkg/over_features"
+	"sigs.k8s.io/kueue/pkg/over_queue"
 )
 
-func SetupControllers(mgr ctrl.Manager, queues *queue.Manager, cache *cache.Cache, cfg *configapi.Configuration) (string, error) {
+func SetupControllers(mgr ctrl.Manager, queues *over_queue.Manager, cache *cache.Cache, cfg *configapi.Configuration) (string, error) {
 	recorder := mgr.GetEventRecorderFor(TASResourceFlavorController)
 	topologyRec := newTopologyReconciler(mgr.GetClient(), queues, cache)
 	if ctrlName, err := topologyRec.setupWithManager(mgr, cfg); err != nil {
@@ -23,7 +23,7 @@ func SetupControllers(mgr ctrl.Manager, queues *queue.Manager, cache *cache.Cach
 	if ctrlName, err := topologyUngater.setupWithManager(mgr, cfg); err != nil {
 		return ctrlName, err
 	}
-	if features.Enabled(features.TASFailedNodeReplacement) {
+	if over_features.Enabled(over_features.TASFailedNodeReplacement) {
 		nodeFailureReconciler := newNodeFailureReconciler(mgr.GetClient(), recorder)
 		if ctrlName, err := nodeFailureReconciler.SetupWithManager(mgr, cfg); err != nil {
 			return ctrlName, err

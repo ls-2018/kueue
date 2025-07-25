@@ -22,10 +22,10 @@ import (
 	"sigs.k8s.io/kueue/pkg/controller/jobframework/webhook"
 	podconstants "sigs.k8s.io/kueue/pkg/controller/jobs/pod/over_constants"
 	ctrlconstants "sigs.k8s.io/kueue/pkg/controller/over_constants"
-	"sigs.k8s.io/kueue/pkg/features"
 	"sigs.k8s.io/kueue/pkg/over_constants"
-	"sigs.k8s.io/kueue/pkg/queue"
-	utilpod "sigs.k8s.io/kueue/pkg/util/pod"
+	"sigs.k8s.io/kueue/pkg/over_features"
+	"sigs.k8s.io/kueue/pkg/over_queue"
+	utilpod "sigs.k8s.io/kueue/pkg/util/over_pod"
 )
 
 var (
@@ -43,7 +43,7 @@ var (
 
 type PodWebhook struct {
 	client                       client.Client
-	queues                       *queue.Manager
+	queues                       *over_queue.Manager
 	manageJobsWithoutQueueName   bool
 	managedJobsNamespaceSelector labels.Selector
 	namespaceSelector            *metav1.LabelSelector
@@ -120,7 +120,7 @@ func (w *PodWebhook) Default(ctx context.Context, obj runtime.Object) error {
 		if err != nil {
 			return fmt.Errorf("failed to get namespace: %w", err)
 		}
-		if features.Enabled(features.ManagedJobsNamespaceSelector) && !w.managedJobsNamespaceSelector.Matches(labels.Set(ns.GetLabels())) {
+		if over_features.Enabled(over_features.ManagedJobsNamespaceSelector) && !w.managedJobsNamespaceSelector.Matches(labels.Set(ns.GetLabels())) {
 			return nil
 		}
 
@@ -153,7 +153,7 @@ func (w *PodWebhook) Default(ctx context.Context, obj runtime.Object) error {
 		}
 
 		// Local queue defaulting
-		if features.Enabled(features.LocalQueueDefaulting) &&
+		if over_features.Enabled(over_features.LocalQueueDefaulting) &&
 			jobframework.QueueNameForObject(pod.Object()) == "" &&
 			w.queues.DefaultLocalQueueExist(pod.pod.GetNamespace()) {
 			if pod.pod.Labels == nil {
@@ -175,7 +175,7 @@ func (w *PodWebhook) Default(ctx context.Context, obj runtime.Object) error {
 		controllerutil.AddFinalizer(pod.Object(), podconstants.PodFinalizer)
 		gate(&pod.pod)
 
-		if features.Enabled(features.TopologyAwareScheduling) {
+		if over_features.Enabled(over_features.TopologyAwareScheduling) {
 			if val, ok := pod.pod.Annotations[kueuealpha.PodGroupPodIndexLabelAnnotation]; ok {
 				if pod.pod.Labels == nil {
 					pod.pod.Labels = make(map[string]string, 1)
