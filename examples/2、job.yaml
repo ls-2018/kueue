@@ -1,0 +1,27 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: sample-job
+  namespace: default
+  labels:
+    kueue.x-k8s.io/priority-class: sample-priority
+    kueue.x-k8s.io/queue-name: user-queue2
+spec:
+  parallelism: 1
+  completions: 1
+  suspend: true
+  template:
+    metadata:
+      annotations:
+        kueue.x-k8s.io/podset-preferred-topology: "cloud.provider.com/topology-block"
+    spec:
+      containers:
+        - name: dummy-job
+          image: registry.cn-hangzhou.aliyuncs.com/acejilam/busybox
+          command: [ "/bin/sh" ]
+          args: [ "-c", "sleep 60" ]
+          resources:
+            requests:
+              cpu: "2"
+              memory: "2Gi"
+      restartPolicy: Never

@@ -1,19 +1,3 @@
-/*
-Copyright The Kubernetes Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package job
 
 import (
@@ -91,14 +75,6 @@ type parentWorkloadHandler struct {
 	client client.Client
 }
 
-func (h *parentWorkloadHandler) Create(ctx context.Context, e event.CreateEvent, q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
-	h.queueReconcileForChildJob(ctx, e.Object, q)
-}
-
-func (h *parentWorkloadHandler) Update(ctx context.Context, e event.UpdateEvent, q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
-	h.queueReconcileForChildJob(ctx, e.ObjectNew, q)
-}
-
 func (h *parentWorkloadHandler) Delete(context.Context, event.DeleteEvent, workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 }
 
@@ -126,12 +102,14 @@ func (h *parentWorkloadHandler) queueReconcileForChildJob(ctx context.Context, o
 	}
 	for _, childJob := range childJobs.Items {
 		log.V(5).Info("Queueing reconcile for child job", "job", klog.KObj(&childJob))
-		q.Add(reconcile.Request{
+
+		a := reconcile.Request{
 			NamespacedName: types.NamespacedName{
 				Name:      childJob.Name,
 				Namespace: w.Namespace,
 			},
-		})
+		}
+		q.Add(a)
 	}
 }
 
@@ -158,8 +136,97 @@ func (j *Job) IsActive() bool {
 	return j.Status.Active != 0
 }
 
+func (j *Job) GVK() schema.GroupVersionKind {
+	return gvk
+}
+
+func (j *Job) PodLabelSelector() string {
+	return fmt.Sprintf("%s=%s", batchv1.JobNameLabel, j.Name)
+}
+
+// The following labels are managed internally by batch/job controller, we should not
+// propagate them to the workload.
+var (
+	// the legacy names are no longer defined in the api, only in k/2/apis/batch
+	legacyJobNameLabel       = "job-name"
+	legacyControllerUIDLabel = "controller-uid"
+	ManagedLabels            = []string{legacyJobNameLabel, legacyControllerUIDLabel, batchv1.JobNameLabel, batchv1.ControllerUidLabel}
+)
+
+func cleanManagedLabels(pt *corev1.PodTemplateSpec) *corev1.PodTemplateSpec {
+	for _, managedLabel := range ManagedLabels {
+		delete(pt.Labels, managedLabel)
+	}
+	return pt
+}
+
+func (j *Job) RunWithPodSetsInfo(podSetsInfo []podset.PodSetInfo) error {
+	j.Spec.Suspend = ptr.To(false)
+	if len(podSetsInfo) != 1 {
+		return podset.BadPodSetsInfoLenError(1, len(podSetsInfo))
+	}
+
+	info := podSetsInfo[0]
+
+	if j.minPodsCount() != nil {
+		j.Spec.Parallelism = ptr.To(info.Count)
+		if j.syncCompletionWithParallelism() {
+			j.Spec.Completions = j.Spec.Parallelism
+		}
+	}
+	return podset.Merge(&j.Spec.Template.ObjectMeta, &j.Spec.Template.Spec, info)
+}
+
+func (j *Job) Finished() (message string, success, finished bool) {
+	for _, c := range j.Status.Conditions {
+		if (c.Type == batchv1.JobComplete || c.Type == batchv1.JobFailed) && c.Status == corev1.ConditionTrue {
+			return c.Message, c.Type != batchv1.JobFailed, true
+		}
+	}
+
+	return "", true, false
+}
+
+func (j *Job) PodsReady() bool {
+	ready := ptr.Deref(j.Status.Ready, 0)
+	uncountedTerminatedSucceeded := 0
+	if j.Status.UncountedTerminatedPods != nil {
+		uncountedTerminatedSucceeded = len(j.Status.UncountedTerminatedPods.Succeeded)
+	}
+	return j.Status.Succeeded+ready+int32(uncountedTerminatedSucceeded) >= j.podsCount()
+}
+
+func (j *Job) ManagedBy() *string {
+	return j.Spec.ManagedBy
+}
+
+func (j *Job) SetManagedBy(managedBy *string) {
+	j.Spec.ManagedBy = managedBy
+}
+
+func SetupIndexes(ctx context.Context, fieldIndexer client.FieldIndexer) error {
+	if err := fieldIndexer.IndexField(ctx, &batchv1.Job{}, indexer.OwnerReferenceUID, indexer.IndexOwnerUID); err != nil {
+		return err
+	}
+	return jobframework.SetupWorkloadOwnerIndex(ctx, fieldIndexer, gvk)
+}
+
 func (j *Job) Suspend() {
 	j.Spec.Suspend = ptr.To(true)
+}
+func (j *Job) CanDefaultManagedBy() bool {
+	jobSpecManagedBy := j.Spec.ManagedBy
+	return features.Enabled(features.MultiKueueBatchJobWithManagedBy) &&
+		features.Enabled(features.MultiKueue) &&
+		(jobSpecManagedBy == nil || *jobSpecManagedBy == batchv1.JobControllerName)
+}
+
+func (h *parentWorkloadHandler) Create(ctx context.Context, e event.CreateEvent, q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+	h.queueReconcileForChildJob(ctx, e.Object, q)
+}
+
+func (h *parentWorkloadHandler) Update(ctx context.Context, e event.UpdateEvent, q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+	h.queueReconcileForChildJob(ctx, e.ObjectNew, q)
 }
 
 func (j *Job) Stop(ctx context.Context, c client.Client, podSetsInfo []podset.PodSetInfo, _ jobframework.StopReason, _ string) (bool, error) {
@@ -202,81 +269,6 @@ func (j *Job) Stop(ctx context.Context, c client.Client, podSetsInfo []podset.Po
 	return stoppedNow, nil
 }
 
-func (j *Job) GVK() schema.GroupVersionKind {
-	return gvk
-}
-
-func (j *Job) PodLabelSelector() string {
-	return fmt.Sprintf("%s=%s", batchv1.JobNameLabel, j.Name)
-}
-
-func (j *Job) ReclaimablePods() ([]kueue.ReclaimablePod, error) {
-	parallelism := ptr.Deref(j.Spec.Parallelism, 1)
-	if parallelism == 1 || j.Status.Succeeded == 0 {
-		return nil, nil
-	}
-
-	remaining := ptr.Deref(j.Spec.Completions, parallelism) - j.Status.Succeeded
-	if remaining >= parallelism {
-		return nil, nil
-	}
-
-	return []kueue.ReclaimablePod{{
-		Name:  kueue.DefaultPodSetName,
-		Count: parallelism - remaining,
-	}}, nil
-}
-
-// The following labels are managed internally by batch/job controller, we should not
-// propagate them to the workload.
-var (
-	// the legacy names are no longer defined in the api, only in k/2/apis/batch
-	legacyJobNameLabel       = "job-name"
-	legacyControllerUIDLabel = "controller-uid"
-	ManagedLabels            = []string{legacyJobNameLabel, legacyControllerUIDLabel, batchv1.JobNameLabel, batchv1.ControllerUidLabel}
-)
-
-func cleanManagedLabels(pt *corev1.PodTemplateSpec) *corev1.PodTemplateSpec {
-	for _, managedLabel := range ManagedLabels {
-		delete(pt.Labels, managedLabel)
-	}
-	return pt
-}
-
-func (j *Job) PodSets() ([]kueue.PodSet, error) {
-	podSet := kueue.PodSet{
-		Name:     kueue.DefaultPodSetName,
-		Template: *cleanManagedLabels(j.Spec.Template.DeepCopy()),
-		Count:    j.podsCount(),
-		MinCount: j.minPodsCount(),
-	}
-	if features.Enabled(features.TopologyAwareScheduling) {
-		podSet.TopologyRequest = jobframework.NewPodSetTopologyRequest(
-			&j.Spec.Template.ObjectMeta).PodIndexLabel(
-			ptr.To(batchv1.JobCompletionIndexAnnotation)).Build()
-	}
-	return []kueue.PodSet{
-		podSet,
-	}, nil
-}
-
-func (j *Job) RunWithPodSetsInfo(podSetsInfo []podset.PodSetInfo) error {
-	j.Spec.Suspend = ptr.To(false)
-	if len(podSetsInfo) != 1 {
-		return podset.BadPodSetsInfoLenError(1, len(podSetsInfo))
-	}
-
-	info := podSetsInfo[0]
-
-	if j.minPodsCount() != nil {
-		j.Spec.Parallelism = ptr.To(info.Count)
-		if j.syncCompletionWithParallelism() {
-			j.Spec.Completions = j.Spec.Parallelism
-		}
-	}
-	return podset.Merge(&j.Spec.Template.ObjectMeta, &j.Spec.Template.Spec, info)
-}
-
 func (j *Job) RestorePodSetsInfo(podSetsInfo []podset.PodSetInfo) bool {
 	if len(podSetsInfo) == 0 {
 		return false
@@ -301,38 +293,28 @@ func (j *Job) RestorePodSetsInfo(podSetsInfo []podset.PodSetInfo) bool {
 	return changed
 }
 
-func (j *Job) Finished() (message string, success, finished bool) {
-	for _, c := range j.Status.Conditions {
-		if (c.Type == batchv1.JobComplete || c.Type == batchv1.JobFailed) && c.Status == corev1.ConditionTrue {
-			return c.Message, c.Type != batchv1.JobFailed, true
+func (j *Job) syncCompletionWithParallelism() bool {
+	if strVal, found := j.GetAnnotations()[JobCompletionsEqualParallelismAnnotation]; found {
+		if bVal, err := strconv.ParseBool(strVal); err == nil {
+			return bVal
 		}
 	}
-
-	return "", true, false
+	return false
 }
 
-func (j *Job) PodsReady() bool {
-	ready := ptr.Deref(j.Status.Ready, 0)
-	uncountedTerminatedSucceeded := 0
-	if j.Status.UncountedTerminatedPods != nil {
-		uncountedTerminatedSucceeded = len(j.Status.UncountedTerminatedPods.Succeeded)
+func (j *Job) PodSets() ([]kueue.PodSet, error) {
+	podSet := kueue.PodSet{
+		Name:     kueue.DefaultPodSetName,
+		Template: *cleanManagedLabels(j.Spec.Template.DeepCopy()),
+		Count:    j.podsCount(),
+		MinCount: j.minPodsCount(),
 	}
-	return j.Status.Succeeded+ready+int32(uncountedTerminatedSucceeded) >= j.podsCount()
-}
-
-func (j *Job) CanDefaultManagedBy() bool {
-	jobSpecManagedBy := j.Spec.ManagedBy
-	return features.Enabled(features.MultiKueueBatchJobWithManagedBy) &&
-		features.Enabled(features.MultiKueue) &&
-		(jobSpecManagedBy == nil || *jobSpecManagedBy == batchv1.JobControllerName)
-}
-
-func (j *Job) ManagedBy() *string {
-	return j.Spec.ManagedBy
-}
-
-func (j *Job) SetManagedBy(managedBy *string) {
-	j.Spec.ManagedBy = managedBy
+	if features.Enabled(features.TopologyAwareScheduling) {
+		podSet.TopologyRequest = jobframework.NewPodSetTopologyRequest(&j.Spec.Template.ObjectMeta).PodIndexLabel(ptr.To(batchv1.JobCompletionIndexAnnotation)).Build()
+	}
+	return []kueue.PodSet{
+		podSet,
+	}, nil
 }
 
 func (j *Job) podsCount() int32 {
@@ -353,22 +335,33 @@ func (j *Job) minPodsCount() *int32 {
 	return nil
 }
 
-func (j *Job) syncCompletionWithParallelism() bool {
-	if strVal, found := j.GetAnnotations()[JobCompletionsEqualParallelismAnnotation]; found {
-		if bVal, err := strconv.ParseBool(strVal); err == nil {
-			return bVal
-		}
-	}
-	return false
-}
+// ReclaimablePods 用于计算当前 Job 中可以被回收（释放资源）的 Pod 数量。
+// 主要用于 Job 并发数大于 1 且部分 Pod 已经完成的场景，
+// 以便调度器或控制器可以回收多余的 Pod 资源。
+// 返回值为可回收 Pod 的列表（通常只包含一个元素），以及错误信息（本实现始终为 nil）。
+func (j *Job) ReclaimablePods() ([]kueue.ReclaimablePod, error) {
+	// 获取 Job 的并发数（Parallelism 字段），如果未设置则默认为 1。
+	parallelism := ptr.Deref(j.Spec.Parallelism, 1)
 
-func SetupIndexes(ctx context.Context, fieldIndexer client.FieldIndexer) error {
-	if err := fieldIndexer.IndexField(ctx, &batchv1.Job{}, indexer.OwnerReferenceUID, indexer.IndexOwnerUID); err != nil {
-		return err
+	// 如果并发数为 1，或者还没有成功完成的 Pod，则没有可回收的 Pod，直接返回 nil。
+	if parallelism == 1 || j.Status.Succeeded == 0 {
+		return nil, nil
 	}
-	return jobframework.SetupWorkloadOwnerIndex(ctx, fieldIndexer, gvk)
-}
 
-func GetWorkloadNameForJob(jobName string, jobUID types.UID) string {
-	return jobframework.GetWorkloadNameForOwnerWithGVK(jobName, jobUID, gvk)
+	// 计算还需要完成的 Pod 数量：
+	// Completions 表示 Job 需要完成的总 Pod 数，未设置时等于并发数。
+	// 用 Completions 减去已成功完成的 Pod 数，得到剩余需要完成的数量。
+	remaining := ptr.Deref(j.Spec.Completions, parallelism) - j.Status.Succeeded
+
+	// 如果剩余需要完成的 Pod 数量大于等于并发数，说明没有多余的 Pod 可以回收。
+	if remaining >= parallelism {
+		return nil, nil
+	}
+
+	// 否则，有多余的 Pod 可以回收，数量为 parallelism - remaining。
+	// 返回一个 kueue.ReclaimablePod 结构体，表示可回收的 PodSet 及数量。
+	return []kueue.ReclaimablePod{{
+		Name:  kueue.DefaultPodSetName,
+		Count: parallelism - remaining,
+	}}, nil
 }

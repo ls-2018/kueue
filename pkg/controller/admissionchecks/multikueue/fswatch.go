@@ -1,19 +1,3 @@
-/*
-Copyright The Kubernetes Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package multikueue
 
 import (
@@ -33,14 +17,14 @@ import (
 )
 
 var (
-	errNotStarted = errors.New("not started")
+	errNotStarted = errors.New("未启动")
 )
 
 type KubeConfigFSWatcher struct {
 	watcher       *fsnotify.Watcher
 	lock          sync.RWMutex
 	clusterToFile map[string]string
-	// a single file can be potentially used by multiple clusters
+	// 一个文件可能被多个集群使用
 	fileToClusters   map[string]set.Set[string]
 	parentDirToFiles map[string]set.Set[string]
 	reconcile        chan event.GenericEvent

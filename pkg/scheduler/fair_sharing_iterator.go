@@ -1,19 +1,3 @@
-/*
-Copyright The Kubernetes Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package scheduler
 
 import (
@@ -31,12 +15,8 @@ import (
 	"sigs.k8s.io/kueue/pkg/workload"
 )
 
-// fairSharingIterator orders candidates in a "fair" manner for
-// consideration by scheduling when FairSharing is enabled. See
-// runTournament for description of algorithm.
+// fairSharingIterator 在启用 FairSharing 时，以“公平”的方式对候选项进行排序以供调度考虑。算法描述见 runTournament。
 type fairSharingIterator struct {
-	// cqToEntry tracks ClusterQueues which still have workloads
-	// to schedule, and the corresponding workload entry.
 	cqToEntry     map[*cache.ClusterQueueSnapshot]*entry
 	entryComparer entryComparer
 	log           logr.Logger
@@ -56,14 +36,18 @@ func makeFairSharingIterator(ctx context.Context, entries []entry, workloadOrder
 	return &f
 }
 
-func (f *fairSharingIterator) hasNext() bool {
-	return len(f.cqToEntry) > 0
+// getCq 返回一个有待调度工作负载的 CQ。该函数是非确定性的。我们不保证不同 Cohort 间工作负载的调度顺序。Cohort 内的工作负载调度顺序几乎是确定性的（仅当 DRS、优先级和时间都相等时才非确定性）。
+func (f *fairSharingIterator) getCq() *cache.ClusterQueueSnapshot {
+	for cq := range f.cqToEntry {
+		return cq
+	}
+	return nil
 }
 
 func (f *fairSharingIterator) pop() *entry {
 	cq := f.getCq()
 
-	// CQ has no Cohort. We simply return its workload.
+	// CQ 没有 Cohort。我们直接返回其工作负载。
 	if !cq.HasParent() {
 		entry := f.cqToEntry[cq]
 		f.log.V(3).Info("Returning workload from ClusterQueue without Cohort",
@@ -73,8 +57,7 @@ func (f *fairSharingIterator) pop() *entry {
 		return entry
 	}
 
-	// CQ is part of a Cohort. We run a tournament, to select the
-	// most fair workload at each level.
+	// CQ 属于某个 Cohort。我们运行锦标赛算法，在每一层选择最公平的工作负载。
 	root := cq.Parent().Root()
 	log := f.log.WithValues("rootCohort", klog.KRef("", string(root.GetName())))
 
@@ -96,43 +79,21 @@ func (f *fairSharingIterator) pop() *entry {
 	return entry
 }
 
-// getCq returns a CQ with a workload pending scheduling. This
-// function is non-deterministic. We don't have any guarantees on
-// scheduling order of workloads in different Cohort. Workload
-// consideration is nearly deterministic within Cohort (only when DRS,
-// Priority, and time are equal it is non-deterministic).
-func (f *fairSharingIterator) getCq() *cache.ClusterQueueSnapshot {
-	for cq := range f.cqToEntry {
-		return cq
-	}
-	return nil
-}
-
-// runTournament is a recursive algorithm which nominates one workload
-// for each Cohort.  It compares the DominantResourceShare (DRS) value
-// of each of the Cohort's children nodes (CQs or Cohorts), including
-// in this DRS value the workload which that child node is
-// nominating. The node with the lowest DRS wins, with some additional
-// tiebreaks (see entryComparer.less).
+// runTournament 是一个递归算法，为每个 Cohort 提名一个工作负载。它比较每个 Cohort 子节点（CQ 或 Cohort）的 DominantResourceShare（DRS）值，包含该子节点所提名的工作负载。DRS 最低的节点获胜，存在额外的平局判定（见 entryComparer.less）。
 //
-// This process results in one workload (or zero if Cohort has no
-// remaining workloads to schedule this cycle) being bubbled up per
-// node, until exactly one workload remains at the root.
+// 该过程会为每个节点逐级选出一个工作负载（如果 Cohort 本轮没有剩余工作负载则为零），直到根节点只剩下一个工作负载。
 func runTournament(cohort *cache.CohortSnapshot, ec entryComparer, cqToEntry map[*cache.ClusterQueueSnapshot]*entry) *entry {
 	candidates := make([]*entry, 0, cohort.ChildCount())
 
-	// Run algorithm recursively for each of the child Cohorts.
+	// 对每个子 Cohort 递归运行算法。
 	for _, childCohort := range cohort.ChildCohorts() {
-		// The tournament returns 0 nodes, when the child
-		// Cohort has no workloads left to be scheduled this
-		// cycle.
+		// 当子 Cohort 本轮没有剩余工作负载时，tournament 返回 0 节点。
 		if candidate := runTournament(childCohort, ec, cqToEntry); candidate != nil {
 			candidates = append(candidates, candidate)
 		}
 	}
 
-	// Collect entries from CQ. If an entry was returned during a
-	// previous call to pop, it will not be in the cqToEntry map.
+	// 收集 CQ 的条目。如果条目已在上一次 pop 调用中返回，则不会在 cqToEntry 映射中。
 	for _, childCq := range cohort.ChildCQs() {
 		if candidate, ok := cqToEntry[childCq]; ok {
 			candidates = append(candidates, candidate)
@@ -143,8 +104,7 @@ func runTournament(cohort *cache.CohortSnapshot, ec entryComparer, cqToEntry map
 		return nil
 	}
 
-	// Compare DRS values for each workload, for each of the
-	// children of the current Cohort.
+	// 比较每个子节点的工作负载的 DRS。
 	best := candidates[0]
 	for _, current := range candidates[1:] {
 		if ec.less(current, best, cohort.GetName()) {
@@ -172,7 +132,7 @@ func (e *entryComparer) less(a, b *entry, parentCohort kueue.CohortReference) bo
 		return aDrs < bDrs
 	}
 
-	// 2: Priority
+	// 2: 优先级
 	if features.Enabled(features.PrioritySortingWithinCohort) {
 		p1 := priority.Priority(a.Obj)
 		p2 := priority.Priority(b.Obj)
@@ -187,11 +147,7 @@ func (e *entryComparer) less(a, b *entry, parentCohort kueue.CohortReference) bo
 	return aComparisonTimestamp.Before(bComparisonTimestamp)
 }
 
-// computeDRS calculates DominantResourceShare (DRS) for each node
-// after admission of workload, for all nodes on path from CQ to
-// root-1.  During the tournament, these values are used to compare
-// all children the parentCohort, to select the child with the lowest
-// DRS after admission of its nominated workload.
+// computeDRS 计算从 CQ 到 root-1 路径上每个节点在工作负载被接纳后的 DominantResourceShare（DRS）。在锦标赛过程中，这些值用于比较 parentCohort 的所有子节点，以选择在接纳其提名工作负载后 DRS 最低的子节点。
 func (e *entryComparer) computeDRS(rootCohort *cache.CohortSnapshot, cqToEntry map[*cache.ClusterQueueSnapshot]*entry) {
 	e.drsValues = make(map[drsKey]int)
 	for _, cq := range rootCohort.SubtreeClusterQueues() {
@@ -199,15 +155,13 @@ func (e *entryComparer) computeDRS(rootCohort *cache.CohortSnapshot, cqToEntry m
 		if !ok {
 			continue
 		}
-		// We add workload's usage to CQ, so that all
-		// subsequent DRS include the admission of workload.
+		// 将工作负载的用量加到 CQ 上，使后续 DRS 计算都包含该工作负载的接纳。
 		revert := cq.SimulateUsageAddition(entry.assignmentUsage())
 
-		// calculate DRS, with workload, for CQ.
+		// 计算 CQ 在包含工作负载后的 DRS。
 		dominantResourceShare := cq.DominantResourceShare()
 
-		// calculate DRS, with workload, for all Cohorts on
-		// path to root.
+		// 计算路径上所有 Cohort 在包含工作负载后的 DRS。
 		for ancestor := range cq.PathParentToRoot() {
 			e.drsValues[drsKey{parentCohort: ancestor.GetName(), workloadKey: workload.Key(entry.Obj)}] = dominantResourceShare
 			dominantResourceShare = ancestor.DominantResourceShare()
@@ -225,4 +179,7 @@ func (e *entryComparer) logDrsValuesWhenVerbose(log logr.Logger) {
 		}
 		logV.Info("DominantResourceShare values used during tournament", "drsValues", serializableDrs)
 	}
+}
+func (f *fairSharingIterator) hasNext() bool {
+	return len(f.cqToEntry) > 0
 }

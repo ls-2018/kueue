@@ -1,19 +1,3 @@
-/*
-Copyright The Kubernetes Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package core
 
 import (
@@ -661,6 +645,180 @@ func (r *WorkloadReconciler) triggerDeactivationOrBackoffRequeue(ctx context.Con
 	return false, nil
 }
 
+func (r *WorkloadReconciler) notifyWatchers(oldWl, newWl *kueue.Workload) {
+	for _, w := range r.watchers {
+		w.NotifyWorkloadUpdate(oldWl, newWl)
+	}
+}
+
+// SetupWithManager sets up the controller with the Manager.
+func (r *WorkloadReconciler) SetupWithManager(mgr ctrl.Manager, cfg *config.Configuration) error {
+	ruh := &resourceUpdatesHandler{r: r} // ✅
+	wqh := &workloadQueueHandler{r: r}   // ✅
+	return builder.TypedControllerManagedBy[reconcile.Request](mgr).
+		Named("workload_controller").
+		WatchesRawSource(source.TypedKind(
+			mgr.GetCache(),
+			&kueue.Workload{},
+			&handler.TypedEnqueueRequestForObject[*kueue.Workload]{},
+			r,
+		)).
+		WithOptions(controller.Options{
+			NeedLeaderElection:      ptr.To(false),
+			MaxConcurrentReconciles: mgr.GetControllerOptions().GroupKindConcurrency[kueue.GroupVersion.WithKind("Workload").GroupKind().String()],
+		}).
+		Watches(&corev1.LimitRange{}, ruh).
+		Watches(&nodev1.RuntimeClass{}, ruh).
+		Watches(&kueue.ClusterQueue{}, wqh).
+		Watches(&kueue.LocalQueue{}, wqh).
+		Complete(WithLeadingManager(mgr, r, &kueue.Workload{}, cfg))
+}
+
+// admittedNotReadyWorkload checks if a workload counts toward the PodsReady timeout
+// and calculates the remaining timeout duration.
+//
+// It returns two values:
+//  1. A underlyingCause that complements informarion carried by kueue.WorkloadEvictedByPodsReadyTimeout
+//
+// (e.g., WaitForStart, WaitForRecovery, or empty if not applicable).
+//
+//  2. The remaining time (in seconds) until the timeout is exceeded, based on
+//     the maximum of the LastTransitionTime for the Admitted and PodsReady conditions.
+//
+// If the workload is not admitted, PodsReady is true, or no timeout is configured,
+// it returns an empty underlyingCause and zero duration.
+func (r *WorkloadReconciler) admittedNotReadyWorkload(wl *kueue.Workload) (string, time.Duration) {
+	if r.waitForPodsReady == nil {
+		// the timeout is not configured for the workload controller
+		return "", 0
+	}
+	if !workload.IsAdmitted(wl) {
+		// the workload is not admitted so there is no need to time it out
+		return "", 0
+	}
+
+	podsReadyCond := apimeta.FindStatusCondition(wl.Status.Conditions, kueue.WorkloadPodsReady)
+	if podsReadyCond != nil && podsReadyCond.Status == metav1.ConditionTrue {
+		return "", 0
+	}
+
+	if podsReadyCond == nil || podsReadyCond.Reason == kueue.WorkloadWaitForStart || podsReadyCond.Reason == "PodsReady" {
+		admittedCond := apimeta.FindStatusCondition(wl.Status.Conditions, kueue.WorkloadAdmitted)
+		elapsedTime := r.clock.Since(admittedCond.LastTransitionTime.Time)
+		return kueue.WorkloadWaitForStart, max(r.waitForPodsReady.timeout-elapsedTime, 0)
+	} else if podsReadyCond.Reason == kueue.WorkloadWaitForRecovery && r.waitForPodsReady.recoveryTimeout != nil {
+		// A pod has failed and the workload is waiting for recovery
+		elapsedTime := r.clock.Since(podsReadyCond.LastTransitionTime.Time)
+		return kueue.WorkloadWaitForRecovery, max(*r.waitForPodsReady.recoveryTimeout-elapsedTime, 0)
+	}
+	return "", 0
+}
+
+type workloadQueueHandler struct {
+	r *WorkloadReconciler
+}
+
+var _ handler.EventHandler = (*workloadQueueHandler)(nil)
+
+// Create is called in response to a create event.
+func (w *workloadQueueHandler) Create(ctx context.Context, ev event.CreateEvent, wq workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+	if cq, isCq := ev.Object.(*kueue.ClusterQueue); isCq {
+		log := ctrl.LoggerFrom(ctx).WithValues("clusterQueue", klog.KObj(cq))
+		ctx = ctrl.LoggerInto(ctx, log)
+		w.queueReconcileForWorkloadsOfClusterQueue(ctx, cq.Name, wq)
+		return
+	}
+	if lq, isLq := ev.Object.(*kueue.LocalQueue); isLq {
+		log := ctrl.LoggerFrom(ctx).WithValues("localQueue", klog.KObj(lq))
+		ctx = ctrl.LoggerInto(ctx, log)
+		w.queueReconcileForWorkloadsOfLocalQueue(ctx, lq, wq)
+	}
+}
+
+// Update is called in response to an update event.
+func (w *workloadQueueHandler) Update(ctx context.Context, ev event.UpdateEvent, wq workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+	oldCq, oldIsCq := ev.ObjectOld.(*kueue.ClusterQueue)
+	newCq, newIsCq := ev.ObjectNew.(*kueue.ClusterQueue)
+	if oldIsCq && newIsCq {
+		log := ctrl.LoggerFrom(ctx).WithValues("clusterQueue", klog.KObj(ev.ObjectNew))
+		ctx = ctrl.LoggerInto(ctx, log)
+		log.V(5).Info("Workload cluster queue update event")
+
+		if !newCq.DeletionTimestamp.IsZero() ||
+			!utilslices.CmpNoOrder(oldCq.Spec.AdmissionChecks, newCq.Spec.AdmissionChecks) ||
+			!gocmp.Equal(oldCq.Spec.AdmissionChecksStrategy, newCq.Spec.AdmissionChecksStrategy) ||
+			!ptr.Equal(oldCq.Spec.StopPolicy, newCq.Spec.StopPolicy) {
+			w.queueReconcileForWorkloadsOfClusterQueue(ctx, newCq.Name, wq)
+		}
+		return
+	}
+
+	oldLq, oldIsLq := ev.ObjectOld.(*kueue.LocalQueue)
+	newLq, newIsLq := ev.ObjectNew.(*kueue.LocalQueue)
+	if oldIsLq && newIsLq {
+		log := ctrl.LoggerFrom(ctx).WithValues("localQueue", klog.KObj(ev.ObjectNew))
+		ctx = ctrl.LoggerInto(ctx, log)
+		log.V(5).Info("Workload cluster queue update event")
+
+		if !newLq.DeletionTimestamp.IsZero() || !ptr.Equal(oldLq.Spec.StopPolicy, newLq.Spec.StopPolicy) {
+			w.queueReconcileForWorkloadsOfLocalQueue(ctx, newLq, wq)
+		}
+	}
+}
+
+// Delete is called in response to a delete event.
+func (w *workloadQueueHandler) Delete(ctx context.Context, ev event.DeleteEvent, wq workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+	if cq, isCq := ev.Object.(*kueue.ClusterQueue); isCq {
+		w.queueReconcileForWorkloadsOfClusterQueue(ctx, cq.Name, wq)
+		return
+	}
+	if lq, isLq := ev.Object.(*kueue.LocalQueue); isLq {
+		log := ctrl.LoggerFrom(ctx).WithValues("localQueue", klog.KObj(lq))
+		ctx = ctrl.LoggerInto(ctx, log)
+		w.queueReconcileForWorkloadsOfLocalQueue(ctx, lq, wq)
+	}
+}
+
+// Generic is called in response to an event of an unknown type or a synthetic event triggered as a cron or
+// external trigger request.
+func (w *workloadQueueHandler) Generic(_ context.Context, _ event.GenericEvent, _ workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+	// nothing to do here
+}
+
+func (w *workloadQueueHandler) queueReconcileForWorkloadsOfClusterQueue(ctx context.Context, cqName string, wq workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+	log := ctrl.LoggerFrom(ctx)
+	lst := kueue.LocalQueueList{}
+	err := w.r.client.List(ctx, &lst, client.MatchingFields{indexer.QueueClusterQueueKey: cqName})
+	if err != nil {
+		log.Error(err, "Could not list cluster queues local queues")
+	}
+	for _, lq := range lst.Items {
+		log := log.WithValues("localQueue", klog.KObj(&lq))
+		ctx := ctrl.LoggerInto(ctx, log)
+		w.queueReconcileForWorkloadsOfLocalQueue(ctx, &lq, wq)
+	}
+}
+
+func (w *workloadQueueHandler) queueReconcileForWorkloadsOfLocalQueue(ctx context.Context, lq *kueue.LocalQueue, wq workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+	log := ctrl.LoggerFrom(ctx)
+	lst := kueue.WorkloadList{}
+	err := w.r.client.List(ctx, &lst, &client.ListOptions{Namespace: lq.Namespace}, client.MatchingFields{indexer.WorkloadQueueKey: lq.Name})
+	if err != nil {
+		log.Error(err, "Could not list cluster queues workloads")
+	}
+	for _, wl := range lst.Items {
+		log := log.WithValues("workload", klog.KObj(&wl))
+		req := reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Name:      wl.Name,
+				Namespace: wl.Namespace,
+			},
+		}
+		wq.Add(req)
+		log.V(5).Info("Queued reconcile for workload")
+	}
+}
+
 func (r *WorkloadReconciler) Create(e event.TypedCreateEvent[*kueue.Workload]) bool {
 	defer r.notifyWatchers(nil, e.Object)
 	status := workload.Status(e.Object)
@@ -673,7 +831,7 @@ func (r *WorkloadReconciler) Create(e event.TypedCreateEvent[*kueue.Workload]) b
 
 	ctx := ctrl.LoggerInto(context.Background(), log)
 	wlCopy := e.Object.DeepCopy()
-	workload.AdjustResources(ctx, r.client, wlCopy)
+	workload.AdjustResources(ctx, r.client, wlCopy) // ✅
 
 	if workload.IsActive(e.Object) && !workload.HasQuotaReservation(e.Object) {
 		if err := r.queues.AddOrUpdateWorkload(wlCopy); err != nil {
@@ -842,74 +1000,39 @@ func (r *WorkloadReconciler) Generic(e event.TypedGenericEvent[*kueue.Workload])
 	r.log.V(3).Info("Ignore Workload generic event", "workload", klog.KObj(e.Object))
 	return false
 }
-
-func (r *WorkloadReconciler) notifyWatchers(oldWl, newWl *kueue.Workload) {
-	for _, w := range r.watchers {
-		w.NotifyWorkloadUpdate(oldWl, newWl)
+func (h *resourceUpdatesHandler) queueReconcileForPending(ctx context.Context, _ workqueue.TypedRateLimitingInterface[reconcile.Request], opts ...client.ListOption) {
+	log := ctrl.LoggerFrom(ctx)
+	lst := kueue.WorkloadList{}
+	opts = append(opts, client.MatchingFields{indexer.WorkloadQuotaReservedKey: string(metav1.ConditionFalse)})
+	err := h.r.client.List(ctx, &lst, opts...)
+	if err != nil {
+		log.Error(err, "Could not list pending workloads")
+	}
+	log.V(4).Info("Updating pending workload requests", "count", len(lst.Items))
+	for _, w := range lst.Items {
+		wlCopy := w.DeepCopy()
+		log := log.WithValues("workload", klog.KObj(wlCopy))
+		log.V(5).Info("Queue reconcile for")
+		workload.AdjustResources(ctrl.LoggerInto(ctx, log), h.r.client, wlCopy)
+		if err = h.r.queues.AddOrUpdateWorkload(wlCopy); err != nil { // ✅
+			log.V(2).Info("ignored an error for now", "error", err)
+		}
 	}
 }
 
-// SetupWithManager sets up the controller with the Manager.
-func (r *WorkloadReconciler) SetupWithManager(mgr ctrl.Manager, cfg *config.Configuration) error {
-	ruh := &resourceUpdatesHandler{r: r}
-	wqh := &workloadQueueHandler{r: r}
-	return builder.TypedControllerManagedBy[reconcile.Request](mgr).
-		Named("workload_controller").
-		WatchesRawSource(source.TypedKind(
-			mgr.GetCache(),
-			&kueue.Workload{},
-			&handler.TypedEnqueueRequestForObject[*kueue.Workload]{},
-			r,
-		)).
-		WithOptions(controller.Options{
-			NeedLeaderElection:      ptr.To(false),
-			MaxConcurrentReconciles: mgr.GetControllerOptions().GroupKindConcurrency[kueue.GroupVersion.WithKind("Workload").GroupKind().String()],
-		}).
-		Watches(&corev1.LimitRange{}, ruh).
-		Watches(&nodev1.RuntimeClass{}, ruh).
-		Watches(&kueue.ClusterQueue{}, wqh).
-		Watches(&kueue.LocalQueue{}, wqh).
-		Complete(WithLeadingManager(mgr, r, &kueue.Workload{}, cfg))
-}
-
-// admittedNotReadyWorkload checks if a workload counts toward the PodsReady timeout
-// and calculates the remaining timeout duration.
-//
-// It returns two values:
-//  1. A underlyingCause that complements informarion carried by kueue.WorkloadEvictedByPodsReadyTimeout
-//
-// (e.g., WaitForStart, WaitForRecovery, or empty if not applicable).
-//
-//  2. The remaining time (in seconds) until the timeout is exceeded, based on
-//     the maximum of the LastTransitionTime for the Admitted and PodsReady conditions.
-//
-// If the workload is not admitted, PodsReady is true, or no timeout is configured,
-// it returns an empty underlyingCause and zero duration.
-func (r *WorkloadReconciler) admittedNotReadyWorkload(wl *kueue.Workload) (string, time.Duration) {
-	if r.waitForPodsReady == nil {
-		// the timeout is not configured for the workload controller
-		return "", 0
+func (h *resourceUpdatesHandler) handle(ctx context.Context, obj client.Object, q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+	switch v := obj.(type) {
+	case *corev1.LimitRange:
+		log := ctrl.LoggerFrom(ctx).WithValues("limitRange", klog.KObj(v))
+		ctx = ctrl.LoggerInto(ctx, log)
+		h.queueReconcileForPending(ctx, q, client.InNamespace(v.Namespace)) // ✅
+	case *nodev1.RuntimeClass:
+		log := ctrl.LoggerFrom(ctx).WithValues("runtimeClass", klog.KObj(v))
+		ctx = ctrl.LoggerInto(ctx, log)
+		h.queueReconcileForPending(ctx, q, client.MatchingFields{indexer.WorkloadRuntimeClassKey: v.Name}) // ✅
+	default:
+		panic(v)
 	}
-	if !workload.IsAdmitted(wl) {
-		// the workload is not admitted so there is no need to time it out
-		return "", 0
-	}
-
-	podsReadyCond := apimeta.FindStatusCondition(wl.Status.Conditions, kueue.WorkloadPodsReady)
-	if podsReadyCond != nil && podsReadyCond.Status == metav1.ConditionTrue {
-		return "", 0
-	}
-
-	if podsReadyCond == nil || podsReadyCond.Reason == kueue.WorkloadWaitForStart || podsReadyCond.Reason == "PodsReady" {
-		admittedCond := apimeta.FindStatusCondition(wl.Status.Conditions, kueue.WorkloadAdmitted)
-		elapsedTime := r.clock.Since(admittedCond.LastTransitionTime.Time)
-		return kueue.WorkloadWaitForStart, max(r.waitForPodsReady.timeout-elapsedTime, 0)
-	} else if podsReadyCond.Reason == kueue.WorkloadWaitForRecovery && r.waitForPodsReady.recoveryTimeout != nil {
-		// A pod has failed and the workload is waiting for recovery
-		elapsedTime := r.clock.Since(podsReadyCond.LastTransitionTime.Time)
-		return kueue.WorkloadWaitForRecovery, max(*r.waitForPodsReady.recoveryTimeout-elapsedTime, 0)
-	}
-	return "", 0
 }
 
 type resourceUpdatesHandler struct {
@@ -938,144 +1061,4 @@ func (h *resourceUpdatesHandler) Delete(ctx context.Context, e event.DeleteEvent
 }
 
 func (h *resourceUpdatesHandler) Generic(_ context.Context, _ event.GenericEvent, _ workqueue.TypedRateLimitingInterface[reconcile.Request]) {
-}
-
-func (h *resourceUpdatesHandler) handle(ctx context.Context, obj client.Object, q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
-	switch v := obj.(type) {
-	case *corev1.LimitRange:
-		log := ctrl.LoggerFrom(ctx).WithValues("limitRange", klog.KObj(v))
-		ctx = ctrl.LoggerInto(ctx, log)
-		h.queueReconcileForPending(ctx, q, client.InNamespace(v.Namespace))
-	case *nodev1.RuntimeClass:
-		log := ctrl.LoggerFrom(ctx).WithValues("runtimeClass", klog.KObj(v))
-		ctx = ctrl.LoggerInto(ctx, log)
-		h.queueReconcileForPending(ctx, q, client.MatchingFields{indexer.WorkloadRuntimeClassKey: v.Name})
-	default:
-		panic(v)
-	}
-}
-
-func (h *resourceUpdatesHandler) queueReconcileForPending(ctx context.Context, _ workqueue.TypedRateLimitingInterface[reconcile.Request], opts ...client.ListOption) {
-	log := ctrl.LoggerFrom(ctx)
-	lst := kueue.WorkloadList{}
-	opts = append(opts, client.MatchingFields{indexer.WorkloadQuotaReservedKey: string(metav1.ConditionFalse)})
-	err := h.r.client.List(ctx, &lst, opts...)
-	if err != nil {
-		log.Error(err, "Could not list pending workloads")
-	}
-	log.V(4).Info("Updating pending workload requests", "count", len(lst.Items))
-	for _, w := range lst.Items {
-		wlCopy := w.DeepCopy()
-		log := log.WithValues("workload", klog.KObj(wlCopy))
-		log.V(5).Info("Queue reconcile for")
-		workload.AdjustResources(ctrl.LoggerInto(ctx, log), h.r.client, wlCopy)
-		if err = h.r.queues.AddOrUpdateWorkload(wlCopy); err != nil {
-			log.V(2).Info("ignored an error for now", "error", err)
-		}
-	}
-}
-
-type workloadQueueHandler struct {
-	r *WorkloadReconciler
-}
-
-var _ handler.EventHandler = (*workloadQueueHandler)(nil)
-
-// Create is called in response to a create event.
-func (w *workloadQueueHandler) Create(ctx context.Context, ev event.CreateEvent, wq workqueue.TypedRateLimitingInterface[reconcile.Request]) {
-	if cq, isCq := ev.Object.(*kueue.ClusterQueue); isCq {
-		log := ctrl.LoggerFrom(ctx).WithValues("clusterQueue", klog.KObj(cq))
-		ctx = ctrl.LoggerInto(ctx, log)
-		w.queueReconcileForWorkloadsOfClusterQueue(ctx, cq.Name, wq)
-		return
-	}
-	if lq, isLq := ev.Object.(*kueue.LocalQueue); isLq {
-		log := ctrl.LoggerFrom(ctx).WithValues("localQueue", klog.KObj(lq))
-		ctx = ctrl.LoggerInto(ctx, log)
-		w.queueReconcileForWorkloadsOfLocalQueue(ctx, lq, wq)
-	}
-}
-
-// Update is called in response to an update event.
-func (w *workloadQueueHandler) Update(ctx context.Context, ev event.UpdateEvent, wq workqueue.TypedRateLimitingInterface[reconcile.Request]) {
-	oldCq, oldIsCq := ev.ObjectOld.(*kueue.ClusterQueue)
-	newCq, newIsCq := ev.ObjectNew.(*kueue.ClusterQueue)
-	if oldIsCq && newIsCq {
-		log := ctrl.LoggerFrom(ctx).WithValues("clusterQueue", klog.KObj(ev.ObjectNew))
-		ctx = ctrl.LoggerInto(ctx, log)
-		log.V(5).Info("Workload cluster queue update event")
-
-		if !newCq.DeletionTimestamp.IsZero() ||
-			!utilslices.CmpNoOrder(oldCq.Spec.AdmissionChecks, newCq.Spec.AdmissionChecks) ||
-			!gocmp.Equal(oldCq.Spec.AdmissionChecksStrategy, newCq.Spec.AdmissionChecksStrategy) ||
-			!ptr.Equal(oldCq.Spec.StopPolicy, newCq.Spec.StopPolicy) {
-			w.queueReconcileForWorkloadsOfClusterQueue(ctx, newCq.Name, wq)
-		}
-		return
-	}
-
-	oldLq, oldIsLq := ev.ObjectOld.(*kueue.LocalQueue)
-	newLq, newIsLq := ev.ObjectNew.(*kueue.LocalQueue)
-	if oldIsLq && newIsLq {
-		log := ctrl.LoggerFrom(ctx).WithValues("localQueue", klog.KObj(ev.ObjectNew))
-		ctx = ctrl.LoggerInto(ctx, log)
-		log.V(5).Info("Workload cluster queue update event")
-
-		if !newLq.DeletionTimestamp.IsZero() || !ptr.Equal(oldLq.Spec.StopPolicy, newLq.Spec.StopPolicy) {
-			w.queueReconcileForWorkloadsOfLocalQueue(ctx, newLq, wq)
-		}
-	}
-}
-
-// Delete is called in response to a delete event.
-func (w *workloadQueueHandler) Delete(ctx context.Context, ev event.DeleteEvent, wq workqueue.TypedRateLimitingInterface[reconcile.Request]) {
-	if cq, isCq := ev.Object.(*kueue.ClusterQueue); isCq {
-		w.queueReconcileForWorkloadsOfClusterQueue(ctx, cq.Name, wq)
-		return
-	}
-	if lq, isLq := ev.Object.(*kueue.LocalQueue); isLq {
-		log := ctrl.LoggerFrom(ctx).WithValues("localQueue", klog.KObj(lq))
-		ctx = ctrl.LoggerInto(ctx, log)
-		w.queueReconcileForWorkloadsOfLocalQueue(ctx, lq, wq)
-	}
-}
-
-// Generic is called in response to an event of an unknown type or a synthetic event triggered as a cron or
-// external trigger request.
-func (w *workloadQueueHandler) Generic(_ context.Context, _ event.GenericEvent, _ workqueue.TypedRateLimitingInterface[reconcile.Request]) {
-	// nothing to do here
-}
-
-func (w *workloadQueueHandler) queueReconcileForWorkloadsOfClusterQueue(ctx context.Context, cqName string, wq workqueue.TypedRateLimitingInterface[reconcile.Request]) {
-	log := ctrl.LoggerFrom(ctx)
-	lst := kueue.LocalQueueList{}
-	err := w.r.client.List(ctx, &lst, client.MatchingFields{indexer.QueueClusterQueueKey: cqName})
-	if err != nil {
-		log.Error(err, "Could not list cluster queues local queues")
-	}
-	for _, lq := range lst.Items {
-		log := log.WithValues("localQueue", klog.KObj(&lq))
-		ctx := ctrl.LoggerInto(ctx, log)
-		w.queueReconcileForWorkloadsOfLocalQueue(ctx, &lq, wq)
-	}
-}
-
-func (w *workloadQueueHandler) queueReconcileForWorkloadsOfLocalQueue(ctx context.Context, lq *kueue.LocalQueue, wq workqueue.TypedRateLimitingInterface[reconcile.Request]) {
-	log := ctrl.LoggerFrom(ctx)
-	lst := kueue.WorkloadList{}
-	err := w.r.client.List(ctx, &lst, &client.ListOptions{Namespace: lq.Namespace}, client.MatchingFields{indexer.WorkloadQueueKey: lq.Name})
-	if err != nil {
-		log.Error(err, "Could not list cluster queues workloads")
-	}
-	for _, wl := range lst.Items {
-		log := log.WithValues("workload", klog.KObj(&wl))
-		req := reconcile.Request{
-			NamespacedName: types.NamespacedName{
-				Name:      wl.Name,
-				Namespace: wl.Namespace,
-			},
-		}
-		wq.Add(req)
-		log.V(5).Info("Queued reconcile for workload")
-	}
 }

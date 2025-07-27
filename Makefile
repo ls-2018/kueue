@@ -28,9 +28,14 @@ GIT_TAG ?= $(shell git describe --tags --dirty --always)
 GIT_COMMIT ?= $(shell git rev-parse HEAD)
 # Image URL to use all building/pushing image targets
 HOST_IMAGE_PLATFORM ?= linux/$(shell go env GOARCH)
-PLATFORMS ?= linux/amd64,linux/arm64,linux/s390x,linux/ppc64le
-CLI_PLATFORMS ?= linux/amd64,linux/arm64,darwin/amd64,darwin/arm64
-VIZ_PLATFORMS ?= linux/amd64,linux/arm64,linux/s390x,linux/ppc64le
+#PLATFORMS ?= linux/amd64,linux/arm64,linux/s390x,linux/ppc64le
+#CLI_PLATFORMS ?= linux/amd64,linux/arm64,darwin/amd64,darwin/arm64
+#VIZ_PLATFORMS ?= linux/amd64,linux/arm64,linux/s390x,linux/ppc64le
+PLATFORMS ?= linux/arm64
+CLI_PLATFORMS ?= linux/arm64
+VIZ_PLATFORMS ?= linux/arm64
+
+
 DOCKER_BUILDX_CMD ?= docker buildx
 IMAGE_BUILD_CMD ?= $(DOCKER_BUILDX_CMD) build
 
@@ -55,8 +60,9 @@ TOOLS_DIR := $(PROJECT_DIR)/hack/internal/tools
 
 # Use distroless as minimal base image to package the manager binary
 # Refer to https://github.com/GoogleContainerTools/distroless for more details
-BASE_IMAGE ?= gcr.io/distroless/static:nonroot
-BUILDER_IMAGE ?= golang:$(GO_VERSION)
+BASE_IMAGE ?= registry.cn-hangzhou.aliyuncs.com/ls-2018/static:nonroot
+#BUILDER_IMAGE ?= golang:$(GO_VERSION)
+BUILDER_IMAGE ?= registry.cn-hangzhou.aliyuncs.com/ls-2018/mygo:v1.24.1
 CGO_ENABLED ?= 0
 
 # Setting SHELL to bash allows bash commands to be executed by recipes.
@@ -128,7 +134,7 @@ update-helm: manifests yq yaml-processor
 	$(BIN_DIR)/yaml-processor hack/processing-plan.yaml
 
 .PHONY: generate
-generate: gomod-download controller-gen generate-apiref generate-kueuectl-docs ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations and client-go libraries.
+generate: gomod-download controller-gen generate-apiref # generate-kueuectl-docs ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations and client-go libraries.
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./apis/..."
 	TOOLS_DIR=${TOOLS_DIR} ./hack/update-codegen.sh $(GO_CMD)
 
@@ -328,14 +334,10 @@ prepare-manifests:
 .PHONY: artifacts
 artifacts: DEST_CHART_DIR="artifacts"
 artifacts: clean-artifacts kustomize helm-chart-package prepare-manifests ## Generate release artifacts.
-	$(KUSTOMIZE) build config/default -o artifacts/manifests.yaml
-	$(KUSTOMIZE) build config/dev -o artifacts/manifests-dev.yaml
 	$(KUSTOMIZE) build config/alpha-enabled -o artifacts/manifests-alpha-enabled.yaml
-	$(KUSTOMIZE) build config/prometheus -o artifacts/prometheus.yaml
-	$(KUSTOMIZE) build config/visibility-apf -o artifacts/visibility-apf.yaml
 	$(KUSTOMIZE) build config/kueueviz -o artifacts/kueueviz.yaml
 	@$(call clean-manifests)
-	CGO_ENABLED=$(CGO_ENABLED) GO_CMD="$(GO_CMD)" LD_FLAGS="$(LD_FLAGS)" BUILD_DIR="artifacts" BUILD_NAME=kubectl-kueue PLATFORMS="$(CLI_PLATFORMS)" ./hack/multiplatform-build.sh ./cmd/kueuectl/main.go
+	CGO_ENABLED=$(CGO_ENABLED) GO_CMD="$(GO_CMD)" LD_FLAGS="$(LD_FLAGS)" BUILD_DIR="artifacts" BUILD_NAME=kubectl-kueue ./hack/multiplatform-build.sh ./cmd/kueuectl/main.go
 
 .PHONY: prepare-release-branch
 prepare-release-branch: yq kustomize ## Prepare the release branch with the release version.
@@ -462,3 +464,11 @@ ray-project-mini-image-build:
 kind-ray-project-mini-image-build: PLATFORMS=$(HOST_IMAGE_PLATFORM)
 kind-ray-project-mini-image-build: PUSH=--load
 kind-ray-project-mini-image-build: ray-project-mini-image-build
+
+
+.PHONY: load-image
+load-image:
+	kind load docker-image -n koord $(IMAGE_REPO):$(RELEASE_BRANCH)
+	kind load docker-image -n koord $(IMAGE_REGISTRY)/importer:$(RELEASE_BRANCH)
+	kind load docker-image -n koord $(IMAGE_REPO_KUEUEVIZ_BACKEND):$(RELEASE_BRANCH)
+	kind load docker-image -n koord $(IMAGE_REPO_KUEUEVIZ_FRONTEND):$(RELEASE_BRANCH)

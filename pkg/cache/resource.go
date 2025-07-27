@@ -1,19 +1,3 @@
-/*
-Copyright The Kubernetes Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package cache
 
 import (
@@ -29,9 +13,8 @@ import (
 type ResourceGroup struct {
 	CoveredResources sets.Set[corev1.ResourceName]
 	Flavors          []kueue.ResourceFlavorReference
-	// The set of key labels from all flavors.
-	// Those keys define the affinity terms of a workload
-	// that can be matched against the flavors.
+	// 所有 flavor 的 key label 集合。
+	// 这些 key 定义了 workload 的亲和性条件，可用于与 flavor 匹配。
 	LabelKeys sets.Set[string]
 }
 
@@ -43,10 +26,10 @@ func (rg *ResourceGroup) Clone() ResourceGroup {
 	}
 }
 
-type ResourceQuota struct {
-	Nominal        int64
-	BorrowingLimit *int64
-	LendingLimit   *int64
+type ResourceQuota struct { // 分类为 cq 的资源; cohort 可以使用的资源
+	Nominal        int64  // 规定的大小
+	BorrowingLimit *int64 // 借入
+	LendingLimit   *int64 // 借出
 }
 
 func createResourceQuotas(kueueRgs []kueue.ResourceGroup) map[resources.FlavorResource]ResourceQuota {

@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
       - name: cancer-cure-research-model-update
-        image: gcr.io/google-containers/busybox:latest
+        image: registry.cn-hangzhou.aliyuncs.com/acejilam/busybox
         command: ['sh', '-c', 'echo "Searching cure against cancer..." && sleep 120']
         resources:
           requests:

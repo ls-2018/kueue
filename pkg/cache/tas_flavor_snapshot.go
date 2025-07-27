@@ -1,19 +1,3 @@
-/*
-Copyright The Kubernetes Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package cache
 
 import (
@@ -104,9 +88,7 @@ type TASFlavorSnapshot struct {
 	// ResourceFlavor spec.topologyName field.
 	topologyName kueue.TopologyReference
 
-	// levelKeys denotes the ordered list of topology keys set as label keys
-	// on the Topology object
-	levelKeys []string
+	topologyKeys []string
 
 	// leaves maps domainID to domains that are at the lowest level of topology structure
 	leaves leafDomainByID
@@ -124,8 +106,7 @@ type TASFlavorSnapshot struct {
 	tolerations []corev1.Toleration
 }
 
-func newTASFlavorSnapshot(log logr.Logger, topologyName kueue.TopologyReference,
-	levels []string, tolerations []corev1.Toleration) *TASFlavorSnapshot {
+func newTASFlavorSnapshot(log logr.Logger, topologyName kueue.TopologyReference, levels []string, tolerations []corev1.Toleration) *TASFlavorSnapshot {
 	domainsPerLevel := make([]domainByID, len(levels))
 	for level := range levels {
 		domainsPerLevel[level] = make(domainByID)
@@ -134,7 +115,7 @@ func newTASFlavorSnapshot(log logr.Logger, topologyName kueue.TopologyReference,
 	snapshot := &TASFlavorSnapshot{
 		log:             log,
 		topologyName:    topologyName,
-		levelKeys:       slices.Clone(levels),
+		topologyKeys:    slices.Clone(levels),
 		leaves:          make(leafDomainByID),
 		tolerations:     slices.Clone(tolerations),
 		domains:         make(domainByID),
@@ -145,7 +126,7 @@ func newTASFlavorSnapshot(log logr.Logger, topologyName kueue.TopologyReference,
 }
 
 func (s *TASFlavorSnapshot) addNode(node corev1.Node) utiltas.TopologyDomainID {
-	levelValues := utiltas.LevelValues(s.levelKeys, node.Labels)
+	levelValues := utiltas.LevelValues(s.topologyKeys, node.Labels)
 	domainID := utiltas.DomainID(levelValues)
 	if s.isLowestLevelNode() {
 		domainID = utiltas.DomainID(levelValues[len(levelValues)-1:])
@@ -173,7 +154,7 @@ func (s *TASFlavorSnapshot) isLowestLevelNode() bool {
 }
 
 func (s *TASFlavorSnapshot) lowestLevel() string {
-	return s.levelKeys[len(s.levelKeys)-1]
+	return s.topologyKeys[len(s.topologyKeys)-1]
 }
 
 // initialize prepares the topology tree structure. This structure holds
@@ -480,7 +461,7 @@ func (s *TASFlavorSnapshot) requiredReplacementDomain(tr *TASPodSetRequests, ta 
 		return ""
 	}
 
-	nodeLevel := len(s.levelKeys) - 1
+	nodeLevel := len(s.topologyKeys) - 1
 	// Since all Domains comply with the required policy, take a random one
 	// in this case, the first one
 	// We know at this point that values contains only hostname
@@ -598,7 +579,7 @@ func (s *TASFlavorSnapshot) findTopologyAssignment(
 
 // Merges two topology assignments keeping the lexicographical order of levelValues
 func (s *TASFlavorSnapshot) mergeTopologyAssignments(a, b *kueue.TopologyAssignment) *kueue.TopologyAssignment {
-	nodeLevel := len(s.levelKeys) - 1
+	nodeLevel := len(s.topologyKeys) - 1
 	sortedDomains := make([]kueue.TopologyDomainAssignment, 0, len(a.Domains)+len(b.Domains))
 	sortedDomains = append(sortedDomains, a.Domains...)
 	sortedDomains = append(sortedDomains, b.Domains...)
@@ -629,23 +610,6 @@ func canMerge(mergedDomains []kueue.TopologyDomainAssignment, domain kueue.Topol
 	return utiltas.DomainID(domain.Values) == utiltas.DomainID(lastDomain.Values)
 }
 
-func (s *TASFlavorSnapshot) HasLevel(r *kueue.PodSetTopologyRequest) bool {
-	key := s.levelKey(r)
-	if key == nil {
-		return false
-	}
-	_, found := s.resolveLevelIdx(*key)
-	return found
-}
-
-func (s *TASFlavorSnapshot) resolveLevelIdx(levelKey string) (int, bool) {
-	levelIdx := slices.Index(s.levelKeys, levelKey)
-	if levelIdx == -1 {
-		return levelIdx, false
-	}
-	return levelIdx, true
-}
-
 func isRequired(tr *kueue.PodSetTopologyRequest) bool {
 	return tr != nil && tr.Required != nil
 }
@@ -658,22 +622,6 @@ func (s *TASFlavorSnapshot) levelKeyWithImpliedFallback(tasRequests *TASPodSetRe
 		return ptr.To(s.lowestLevel())
 	}
 	return nil
-}
-
-func (s *TASFlavorSnapshot) levelKey(topologyRequest *kueue.PodSetTopologyRequest) *string {
-	if topologyRequest == nil {
-		return nil
-	}
-	switch {
-	case topologyRequest.Required != nil:
-		return topologyRequest.Required
-	case topologyRequest.Preferred != nil:
-		return topologyRequest.Preferred
-	case ptr.Deref(topologyRequest.Unconstrained, false):
-		return ptr.To(s.lowestLevel())
-	default:
-		return nil
-	}
 }
 
 func isUnconstrained(tr *kueue.PodSetTopologyRequest, tasRequests *TASPodSetRequests) bool {
@@ -699,7 +647,7 @@ func findBestFitDomainIdx(domains []*domain, count int32) int {
 func (s *TASFlavorSnapshot) findLevelWithFitDomains(levelIdx int, required bool, count int32, unconstrained bool) (int, []*domain, string) {
 	domains := s.domainsPerLevel[levelIdx]
 	if len(domains) == 0 {
-		return 0, nil, fmt.Sprintf("no topology domains at level: %s", s.levelKeys[levelIdx])
+		return 0, nil, fmt.Sprintf("no topology domains at level: %s", s.topologyKeys[levelIdx])
 	}
 	levelDomains := slices.Collect(maps.Values(domains))
 	sortedDomain := s.sortedDomains(levelDomains, unconstrained)
@@ -794,7 +742,7 @@ func (s *TASFlavorSnapshot) buildTopologyAssignmentForLevels(domains []*domain, 
 	assignment := &kueue.TopologyAssignment{
 		Domains: make([]kueue.TopologyDomainAssignment, len(domains)),
 	}
-	assignment.Levels = s.levelKeys[levelIdx:]
+	assignment.Levels = s.topologyKeys[levelIdx:]
 	for i, domain := range domains {
 		assignment.Domains[i] = kueue.TopologyDomainAssignment{
 			Values: domain.levelValues[levelIdx:],
@@ -812,7 +760,7 @@ func (s *TASFlavorSnapshot) buildAssignment(domains []*domain) *kueue.TopologyAs
 	levelIdx := 0
 	// assign only hostname values if topology defines it
 	if s.isLowestLevelNode() {
-		levelIdx = len(s.levelKeys) - 1
+		levelIdx = len(s.topologyKeys) - 1
 	}
 	return s.buildTopologyAssignmentForLevels(domains, levelIdx)
 }
@@ -923,4 +871,35 @@ func (s *TASFlavorSnapshot) notFitMessage(fitCount, totalCount int32) string {
 		return fmt.Sprintf("topology %q doesn't allow to fit any of %v pod(s)", s.topologyName, totalCount)
 	}
 	return fmt.Sprintf("topology %q allows to fit only %v out of %v pod(s)", s.topologyName, fitCount, totalCount)
+}
+func (s *TASFlavorSnapshot) levelKey(topologyRequest *kueue.PodSetTopologyRequest) *string {
+	if topologyRequest == nil {
+		return nil
+	}
+	switch {
+	case topologyRequest.Required != nil:
+		return topologyRequest.Required
+	case topologyRequest.Preferred != nil:
+		return topologyRequest.Preferred
+	case ptr.Deref(topologyRequest.Unconstrained, false):
+		return ptr.To(s.lowestLevel())
+	default:
+		return nil
+	}
+}
+func (s *TASFlavorSnapshot) HasLevel(r *kueue.PodSetTopologyRequest) bool {
+	key := s.levelKey(r)
+	if key == nil {
+		return false
+	}
+	_, found := s.resolveLevelIdx(*key)
+	return found
+}
+
+func (s *TASFlavorSnapshot) resolveLevelIdx(levelKey string) (int, bool) {
+	levelIdx := slices.Index(s.topologyKeys, levelKey)
+	if levelIdx == -1 {
+		return levelIdx, false
+	}
+	return levelIdx, true
 }

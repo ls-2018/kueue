@@ -1,19 +1,3 @@
-/*
-Copyright The Kubernetes Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package job
 
 import (
@@ -43,6 +27,43 @@ import (
 type multiKueueAdapter struct{}
 
 var _ jobframework.MultiKueueAdapter = (*multiKueueAdapter)(nil)
+
+func (b *multiKueueAdapter) DeleteRemoteObject(ctx context.Context, remoteClient client.Client, key types.NamespacedName) error {
+	job := batchv1.Job{}
+	err := remoteClient.Get(ctx, key, &job)
+	if err != nil {
+		return client.IgnoreNotFound(err)
+	}
+	return client.IgnoreNotFound(remoteClient.Delete(ctx, &job, client.PropagationPolicy(metav1.DeletePropagationBackground)))
+}
+
+func (b *multiKueueAdapter) KeepAdmissionCheckPending() bool {
+	return !features.Enabled(features.MultiKueueBatchJobWithManagedBy)
+}
+
+func (b *multiKueueAdapter) GVK() schema.GroupVersionKind {
+	return gvk
+}
+
+var _ jobframework.MultiKueueWatcher = (*multiKueueAdapter)(nil)
+
+func (*multiKueueAdapter) GetEmptyList() client.ObjectList {
+	return &batchv1.JobList{}
+}
+
+func (*multiKueueAdapter) WorkloadKeyFor(o runtime.Object) (types.NamespacedName, error) {
+	job, isJob := o.(*batchv1.Job)
+	if !isJob {
+		return types.NamespacedName{}, errors.New("not a job")
+	}
+
+	prebuiltWl, hasPrebuiltWorkload := job.Labels[constants.PrebuiltWorkloadLabel]
+	if !hasPrebuiltWorkload {
+		return types.NamespacedName{}, fmt.Errorf("no prebuilt workload found for job: %s", klog.KObj(job))
+	}
+
+	return types.NamespacedName{Name: prebuiltWl, Namespace: job.Namespace}, nil
+}
 
 func (b *multiKueueAdapter) SyncJob(ctx context.Context, localClient client.Client, remoteClient client.Client, key types.NamespacedName, workloadName, origin string) error {
 	log := ctrl.LoggerFrom(ctx)
@@ -106,7 +127,7 @@ func (b *multiKueueAdapter) SyncJob(ctx context.Context, localClient client.Clie
 		remoteJob.Labels = map[string]string{}
 	}
 	remoteJob.Labels[constants.PrebuiltWorkloadLabel] = workloadName
-	remoteJob.Labels[kueue.MultiKueueOriginLabel] = origin
+	remoteJob.Labels[kueue.MultiKueueOriginLabel] = origin // ✅
 
 	if features.Enabled(features.MultiKueueBatchJobWithManagedBy) {
 		// clear the managedBy enables the batch/Job controller to take over
@@ -115,20 +136,6 @@ func (b *multiKueueAdapter) SyncJob(ctx context.Context, localClient client.Clie
 
 	return remoteClient.Create(ctx, &remoteJob)
 }
-
-func (b *multiKueueAdapter) DeleteRemoteObject(ctx context.Context, remoteClient client.Client, key types.NamespacedName) error {
-	job := batchv1.Job{}
-	err := remoteClient.Get(ctx, key, &job)
-	if err != nil {
-		return client.IgnoreNotFound(err)
-	}
-	return client.IgnoreNotFound(remoteClient.Delete(ctx, &job, client.PropagationPolicy(metav1.DeletePropagationBackground)))
-}
-
-func (b *multiKueueAdapter) KeepAdmissionCheckPending() bool {
-	return !features.Enabled(features.MultiKueueBatchJobWithManagedBy)
-}
-
 func (b *multiKueueAdapter) IsJobManagedByKueue(ctx context.Context, c client.Client, key types.NamespacedName) (bool, string, error) {
 	if !features.Enabled(features.MultiKueueBatchJobWithManagedBy) {
 		return true, "", nil
@@ -144,28 +151,4 @@ func (b *multiKueueAdapter) IsJobManagedByKueue(ctx context.Context, c client.Cl
 		return false, fmt.Sprintf("Expecting spec.managedBy to be %q not %q", kueue.MultiKueueControllerName, jobControllerName), nil
 	}
 	return true, "", nil
-}
-
-func (b *multiKueueAdapter) GVK() schema.GroupVersionKind {
-	return gvk
-}
-
-var _ jobframework.MultiKueueWatcher = (*multiKueueAdapter)(nil)
-
-func (*multiKueueAdapter) GetEmptyList() client.ObjectList {
-	return &batchv1.JobList{}
-}
-
-func (*multiKueueAdapter) WorkloadKeyFor(o runtime.Object) (types.NamespacedName, error) {
-	job, isJob := o.(*batchv1.Job)
-	if !isJob {
-		return types.NamespacedName{}, errors.New("not a job")
-	}
-
-	prebuiltWl, hasPrebuiltWorkload := job.Labels[constants.PrebuiltWorkloadLabel]
-	if !hasPrebuiltWorkload {
-		return types.NamespacedName{}, fmt.Errorf("no prebuilt workload found for job: %s", klog.KObj(job))
-	}
-
-	return types.NamespacedName{Name: prebuiltWl, Namespace: job.Namespace}, nil
 }

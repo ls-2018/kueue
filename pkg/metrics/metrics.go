@@ -1,19 +1,3 @@
-/*
-Copyright The Kubernetes Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package metrics
 
 import (
@@ -43,18 +27,19 @@ const (
 	PendingStatusActive       = "active"
 	PendingStatusInadmissible = "inadmissible"
 
-	// CQStatusPending means the ClusterQueue is accepted but not yet active,
-	// this can be because of:
-	// - a missing ResourceFlavor referenced by the ClusterQueue
-	// - a missing or inactive AdmissionCheck referenced by the ClusterQueue
-	// - the ClusterQueue is stopped
-	// In this state, the ClusterQueue can't admit new workloads and its quota can't be borrowed
-	// by other active ClusterQueues in the cohort.
+	// CQStatusPending 表示 ClusterQueue 已被接受但尚未激活，
+	// 可能原因包括：
+	// - ClusterQueue 引用的 ResourceFlavor 缺失
+	// - ClusterQueue 引用的 AdmissionCheck 缺失或未激活
+	// - ClusterQueue 已停止
+	// 在此状态下，ClusterQueue 不能接收新的工作负载，其配额也不能被同组中的其他激活 ClusterQueue 借用。
 	CQStatusPending ClusterQueueStatus = "pending"
 	// CQStatusActive means the ClusterQueue can admit new workloads and its quota
 	// can be borrowed by other ClusterQueues in the cohort.
+	// CQStatusActive 表示 ClusterQueue 可以接收新的工作负载，其配额也可以被同组中的其他 ClusterQueue 借用。
 	CQStatusActive ClusterQueueStatus = "active"
 	// CQStatusTerminating means the clusterQueue is in pending deletion.
+	// CQStatusTerminating 表示 ClusterQueue 正在等待删除。
 	CQStatusTerminating ClusterQueueStatus = "terminating"
 )
 
@@ -72,6 +57,11 @@ Each admission attempt might try to admit more than one workload.
 The label 'result' can have the following values:
 - 'success' means that at least one workload was admitted.,
 - 'inadmissible' means that no workload was admitted.`,
+			// 尝试接收工作负载的总次数。
+			// 每次接收尝试可能会尝试接收多个工作负载。
+			// 标签 'result' 可能有以下值：
+			// - 'success' 表示至少有一个工作负载被接收。
+			// - 'inadmissible' 表示没有工作负载被接收。
 		}, []string{"result"},
 	)
 
@@ -83,6 +73,10 @@ The label 'result' can have the following values:
 The label 'result' can have the following values:
 - 'success' means that at least one workload was admitted.,
 - 'inadmissible' means that no workload was admitted.`,
+			// 一次接收尝试的延迟。
+			// 标签 'result' 可能有以下值：
+			// - 'success' 表示至少有一个工作负载被接收。
+			// - 'inadmissible' 表示没有工作负载被接收。
 		}, []string{"result"},
 	)
 
@@ -92,6 +86,7 @@ The label 'result' can have the following values:
 			Name:      "admission_cycle_preemption_skips",
 			Help: "The number of Workloads in the ClusterQueue that got preemption candidates " +
 				"but had to be skipped because other ClusterQueues needed the same resources in the same cycle",
+			// 在 ClusterQueue 中获得抢占候选但由于其他 ClusterQueue 在同一周期需要相同资源而被跳过的工作负载数量
 		}, []string{"cluster_queue"},
 	)
 
@@ -105,6 +100,10 @@ The label 'result' can have the following values:
 'status' can have the following values:
 - "active" means that the workloads are in the admission queue.
 - "inadmissible" means there was a failed admission attempt for these workloads and they won't be retried until cluster conditions, which could make this workload admissible, change`,
+			// 每个 'cluster_queue' 和 'status' 下的待处理工作负载数量。
+			// 'status' 可能有以下值：
+			// - "active" 表示这些工作负载在接收队列中。
+			// - "inadmissible" 表示这些工作负载的接收尝试失败，只有当集群条件发生变化使其可接收时才会重试。
 		}, []string{"cluster_queue", "status"},
 	)
 
@@ -116,6 +115,10 @@ The label 'result' can have the following values:
 'status' can have the following values:
 - "active" means that the workloads are in the admission queue.
 - "inadmissible" means there was a failed admission attempt for these workloads and they won't be retried until cluster conditions, which could make this workload admissible, change`,
+			// 每个 'local_queue' 和 'status' 下的待处理工作负载数量。
+			// 'status' 可能有以下值：
+			// - "active" 表示这些工作负载在接收队列中。
+			// - "inadmissible" 表示这些工作负载的接收尝试失败，只有当集群条件发生变化使其可接收时才会重试。
 		}, []string{"name", "namespace", "status"},
 	)
 
@@ -124,6 +127,7 @@ The label 'result' can have the following values:
 			Subsystem: constants.KueueName,
 			Name:      "quota_reserved_workloads_total",
 			Help:      "The total number of quota reserved workloads per 'cluster_queue'",
+			// 每个 'cluster_queue' 下已保留配额的工作负载总数
 		}, []string{"cluster_queue"},
 	)
 
@@ -132,6 +136,7 @@ The label 'result' can have the following values:
 			Subsystem: constants.KueueName,
 			Name:      "local_queue_quota_reserved_workloads_total",
 			Help:      "The total number of quota reserved workloads per 'local_queue'",
+			// 每个 'local_queue' 下已保留配额的工作负载总数
 		}, []string{"name", "namespace"},
 	)
 
@@ -140,7 +145,8 @@ The label 'result' can have the following values:
 			Subsystem: constants.KueueName,
 			Name:      "quota_reserved_wait_time_seconds",
 			Help:      "The time between a workload was created or requeued until it got quota reservation, per 'cluster_queue'",
-			Buckets:   generateExponentialBuckets(14),
+			// 每个 'cluster_queue' 下，工作负载从创建或重新排队到获得配额保留的时间
+			Buckets: generateExponentialBuckets(14),
 		}, []string{"cluster_queue"},
 	)
 
@@ -149,7 +155,8 @@ The label 'result' can have the following values:
 			Subsystem: constants.KueueName,
 			Name:      "local_queue_quota_reserved_wait_time_seconds",
 			Help:      "The time between a workload was created or requeued until it got quota reservation, per 'local_queue'",
-			Buckets:   generateExponentialBuckets(14),
+			// 每个 'local_queue' 下，工作负载从创建或重新排队到获得配额保留的时间
+			Buckets: generateExponentialBuckets(14),
 		}, []string{"name", "namespace"},
 	)
 
@@ -158,6 +165,7 @@ The label 'result' can have the following values:
 			Subsystem: constants.KueueName,
 			Name:      "admitted_workloads_total",
 			Help:      "The total number of admitted workloads per 'cluster_queue'",
+			// 每个 'cluster_queue' 下已接收的工作负载总数
 		}, []string{"cluster_queue"},
 	)
 
@@ -166,6 +174,7 @@ The label 'result' can have the following values:
 			Subsystem: constants.KueueName,
 			Name:      "local_queue_admitted_workloads_total",
 			Help:      "The total number of admitted workloads per 'local_queue'",
+			// 每个 'local_queue' 下已接收的工作负载总数
 		}, []string{"name", "namespace"},
 	)
 
@@ -174,7 +183,8 @@ The label 'result' can have the following values:
 			Subsystem: constants.KueueName,
 			Name:      "admission_wait_time_seconds",
 			Help:      "The time between a workload was created or requeued until admission, per 'cluster_queue'",
-			Buckets:   generateExponentialBuckets(14),
+			// 每个 'cluster_queue' 下，工作负载从创建或重新排队到被接收的时间
+			Buckets: generateExponentialBuckets(14),
 		}, []string{"cluster_queue"},
 	)
 
@@ -183,7 +193,8 @@ The label 'result' can have the following values:
 			Subsystem: constants.KueueName,
 			Name:      "ready_wait_time_seconds",
 			Help:      "The time between a workload was created or requeued until ready, per 'cluster_queue'",
-			Buckets:   generateExponentialBuckets(14),
+			// 每个 'cluster_queue' 下，工作负载从创建或重新排队到就绪的时间
+			Buckets: generateExponentialBuckets(14),
 		}, []string{"cluster_queue"},
 	)
 
@@ -192,7 +203,8 @@ The label 'result' can have the following values:
 			Subsystem: constants.KueueName,
 			Name:      "admitted_until_ready_wait_time_seconds",
 			Help:      "The time between a workload was admitted until ready, per 'cluster_queue'",
-			Buckets:   generateExponentialBuckets(14),
+			// 每个 'cluster_queue' 下，工作负载从被接收到就绪的时间
+			Buckets: generateExponentialBuckets(14),
 		}, []string{"cluster_queue"},
 	)
 
@@ -201,7 +213,8 @@ The label 'result' can have the following values:
 			Subsystem: constants.KueueName,
 			Name:      "local_queue_admission_wait_time_seconds",
 			Help:      "The time between a workload was created or requeued until admission, per 'local_queue'",
-			Buckets:   generateExponentialBuckets(14),
+			// 每个 'local_queue' 下，工作负载从创建或重新排队到被接收的时间
+			Buckets: generateExponentialBuckets(14),
 		}, []string{"name", "namespace"},
 	)
 
@@ -210,7 +223,8 @@ The label 'result' can have the following values:
 			Subsystem: constants.KueueName,
 			Name:      "admission_checks_wait_time_seconds",
 			Help:      "The time from when a workload got the quota reservation until admission, per 'cluster_queue'",
-			Buckets:   generateExponentialBuckets(14),
+			// 每个 'cluster_queue' 下，工作负载从获得配额保留到被接收的时间
+			Buckets: generateExponentialBuckets(14),
 		}, []string{"cluster_queue"},
 	)
 
@@ -219,7 +233,8 @@ The label 'result' can have the following values:
 			Subsystem: constants.KueueName,
 			Name:      "local_queue_admission_checks_wait_time_seconds",
 			Help:      "The time from when a workload got the quota reservation until admission, per 'local_queue'",
-			Buckets:   generateExponentialBuckets(14),
+			// 每个 'local_queue' 下，工作负载从获得配额保留到被接收的时间
+			Buckets: generateExponentialBuckets(14),
 		}, []string{"name", "namespace"},
 	)
 
@@ -228,7 +243,8 @@ The label 'result' can have the following values:
 			Subsystem: constants.KueueName,
 			Name:      "local_queue_ready_wait_time_seconds",
 			Help:      "The time between a workload was created or requeued until ready, per 'local_queue'",
-			Buckets:   generateExponentialBuckets(14),
+			// 每个 'local_queue' 下，工作负载从创建或重新排队到就绪的时间
+			Buckets: generateExponentialBuckets(14),
 		}, []string{"name", "namespace"},
 	)
 
@@ -237,7 +253,8 @@ The label 'result' can have the following values:
 			Subsystem: constants.KueueName,
 			Name:      "local_queue_admitted_until_ready_wait_time_seconds",
 			Help:      "The time between a workload was admitted until ready, per 'local_queue'",
-			Buckets:   generateExponentialBuckets(14),
+			// 每个 'local_queue' 下，工作负载从被接收到就绪的时间
+			Buckets: generateExponentialBuckets(14),
 		}, []string{"name", "namespace"},
 	)
 
@@ -252,6 +269,13 @@ The label 'reason' can have the following values:
 - "AdmissionCheck" means that the workload was evicted because at least one admission check transitioned to False.
 - "ClusterQueueStopped" means that the workload was evicted because the ClusterQueue is stopped.
 - "Deactivated" means that the workload was evicted because spec.active is set to false`,
+			// 每个 'cluster_queue' 下被驱逐的工作负载数量，
+			// 标签 'reason' 可能有以下值：
+			// - "Preempted" 表示该工作负载被驱逐以释放资源给更高优先级的工作负载或回收名义配额。
+			// - "PodsReadyTimeout" 表示因 PodsReady 超时而被驱逐。
+			// - "AdmissionCheck" 表示因至少一个接收检查变为 False 而被驱逐。
+			// - "ClusterQueueStopped" 表示因 ClusterQueue 停止而被驱逐。
+			// - "Deactivated" 表示因 spec.active 设为 false 而被驱逐。
 		}, []string{"cluster_queue", "reason"},
 	)
 
@@ -266,6 +290,13 @@ The label 'reason' can have the following values:
 - "AdmissionCheck" means that the workload was evicted because at least one admission check transitioned to False.
 - "ClusterQueueStopped" means that the workload was evicted because the ClusterQueue is stopped.
 - "Deactivated" means that the workload was evicted because spec.active is set to false`,
+			// 每个 'local_queue' 下被驱逐的工作负载数量，
+			// 标签 'reason' 可能有以下值：
+			// - "Preempted" 表示该工作负载被驱逐以释放资源给更高优先级的工作负载或回收名义配额。
+			// - "PodsReadyTimeout" 表示因 PodsReady 超时而被驱逐。
+			// - "AdmissionCheck" 表示因至少一个接收检查变为 False 而被驱逐。
+			// - "ClusterQueueStopped" 表示因 ClusterQueue 停止而被驱逐。
+			// - "Deactivated" 表示因 spec.active 设为 false 而被驱逐。
 		}, []string{"name", "namespace", "reason"},
 	)
 
@@ -280,6 +311,13 @@ The label 'reason' can have the following values:
 - "AdmissionCheck" means that the workload was evicted because at least one admission check transitioned to False.
 - "ClusterQueueStopped" means that the workload was evicted because the ClusterQueue is stopped.
 - "Deactivated" means that the workload was evicted because spec.active is set to false`,
+			// 每个 'cluster_queue' 下唯一工作负载驱逐的数量，
+			// 标签 'reason' 可能有以下值：
+			// - "Preempted" 表示该工作负载被驱逐以释放资源给更高优先级的工作负载或回收名义配额。
+			// - "PodsReadyTimeout" 表示因 PodsReady 超时而被驱逐。
+			// - "AdmissionCheck" 表示因至少一个接收检查变为 False 而被驱逐。
+			// - "ClusterQueueStopped" 表示因 ClusterQueue 停止而被驱逐。
+			// - "Deactivated" 表示因 spec.active 设为 false 而被驱逐。
 		}, []string{"cluster_queue", "reason", "detailed_reason"},
 	)
 
@@ -293,16 +331,24 @@ The label 'reason' can have the following values:
 - "InCohortReclamation" means that the workload was preempted by a workload in the same cohort due to reclamation of nominal quota.
 - "InCohortFairSharing" means that the workload was preempted by a workload in the same cohort Fair Sharing.
 - "InCohortReclaimWhileBorrowing" means that the workload was preempted by a workload in the same cohort due to reclamation of nominal quota while borrowing.`,
+			// 每个 'preempting_cluster_queue' 下被抢占的工作负载数量，
+			// 标签 'reason' 可能有以下值：
+			// - "InClusterQueue" 表示该工作负载被同一 ClusterQueue 中的工作负载抢占。
+			// - "InCohortReclamation" 表示该工作负载被同组中因回收名义配额的工作负载抢占。
+			// - "InCohortFairSharing" 表示该工作负载被同组中公平共享的工作负载抢占。
+			// - "InCohortReclaimWhileBorrowing" 表示该工作负载被同组中借用时回收名义配额的工作负载抢占。
 		}, []string{"preempting_cluster_queue", "reason"},
 	)
 
 	// Metrics tied to the cache.
+	// 与缓存相关的指标。
 
 	ReservingActiveWorkloads = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Subsystem: constants.KueueName,
 			Name:      "reserving_active_workloads",
 			Help:      "The number of Workloads that are reserving quota, per 'cluster_queue'",
+			// 每个 'cluster_queue' 下正在保留配额的工作负载数量
 		}, []string{"cluster_queue"},
 	)
 
@@ -311,6 +357,7 @@ The label 'reason' can have the following values:
 			Subsystem: constants.KueueName,
 			Name:      "local_queue_reserving_active_workloads",
 			Help:      "The number of Workloads that are reserving quota, per 'localQueue'",
+			// 每个 'localQueue' 下正在保留配额的工作负载数量
 		}, []string{"name", "namespace"},
 	)
 
@@ -319,6 +366,7 @@ The label 'reason' can have the following values:
 			Subsystem: constants.KueueName,
 			Name:      "admitted_active_workloads",
 			Help:      "The number of admitted Workloads that are active (unsuspended and not finished), per 'cluster_queue'",
+			// 每个 'cluster_queue' 下已接收且处于活动状态（未挂起且未完成）的工作负载数量
 		}, []string{"cluster_queue"},
 	)
 
@@ -327,6 +375,7 @@ The label 'reason' can have the following values:
 			Subsystem: constants.KueueName,
 			Name:      "local_queue_admitted_active_workloads",
 			Help:      "The number of admitted Workloads that are active (unsuspended and not finished), per 'localQueue'",
+			// 每个 'localQueue' 下已接收且处于活动状态（未挂起且未完成）的工作负载数量
 		}, []string{"name", "namespace"},
 	)
 
@@ -336,6 +385,8 @@ The label 'reason' can have the following values:
 			Name:      "cluster_queue_status",
 			Help: `Reports 'cluster_queue' with its 'status' (with possible values 'pending', 'active' or 'terminated').
 For a ClusterQueue, the metric only reports a value of 1 for one of the statuses.`,
+			// 报告 'cluster_queue' 及其 'status'（可能的值有 'pending'、'active' 或 'terminated'）。
+			// 对于一个 ClusterQueue，该指标只会对其中一个状态报告值为 1。
 		}, []string{"cluster_queue", "status"},
 	)
 
@@ -345,16 +396,20 @@ For a ClusterQueue, the metric only reports a value of 1 for one of the statuses
 			Name:      "local_queue_status",
 			Help: `Reports 'localQueue' with its 'active' status (with possible values 'True', 'False', or 'Unknown').
 For a LocalQueue, the metric only reports a value of 1 for one of the statuses.`,
+			// 报告 'localQueue' 及其 'active' 状态（可能的值有 'True'、'False' 或 'Unknown'）。
+			// 对于一个 LocalQueue，该指标只会对其中一个状态报告值为 1。
 		}, []string{"name", "namespace", "active"},
 	)
 
 	// Optional cluster queue metrics
+	// 可选的 cluster queue 指标
 
 	ClusterQueueResourceReservations = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Subsystem: constants.KueueName,
 			Name:      "cluster_queue_resource_reservation",
 			Help:      `Reports the cluster_queue's total resource reservation within all the flavors`,
+			// 报告 cluster_queue 在所有 flavor 下的总资源保留量
 		}, []string{"cohort", "cluster_queue", "flavor", "resource"},
 	)
 
@@ -363,6 +418,7 @@ For a LocalQueue, the metric only reports a value of 1 for one of the statuses.`
 			Subsystem: constants.KueueName,
 			Name:      "cluster_queue_resource_usage",
 			Help:      `Reports the cluster_queue's total resource usage within all the flavors`,
+			// 报告 cluster_queue 在所有 flavor 下的总资源使用量
 		}, []string{"cohort", "cluster_queue", "flavor", "resource"},
 	)
 
@@ -371,6 +427,7 @@ For a LocalQueue, the metric only reports a value of 1 for one of the statuses.`
 			Subsystem: constants.KueueName,
 			Name:      "local_queue_resource_reservation",
 			Help:      `Reports the localQueue's total resource reservation within all the flavors`,
+			// 报告 localQueue 在所有 flavor 下的总资源保留量
 		}, []string{"name", "namespace", "flavor", "resource"},
 	)
 
@@ -379,6 +436,7 @@ For a LocalQueue, the metric only reports a value of 1 for one of the statuses.`
 			Subsystem: constants.KueueName,
 			Name:      "local_queue_resource_usage",
 			Help:      `Reports the localQueue's total resource usage within all the flavors`,
+			// 报告 localQueue 在所有 flavor 下的总资源使用量
 		}, []string{"name", "namespace", "flavor", "resource"},
 	)
 
@@ -387,6 +445,7 @@ For a LocalQueue, the metric only reports a value of 1 for one of the statuses.`
 			Subsystem: constants.KueueName,
 			Name:      "cluster_queue_nominal_quota",
 			Help:      `Reports the cluster_queue's resource nominal quota within all the flavors`,
+			// 报告 cluster_queue 在所有 flavor 下的资源名义配额
 		}, []string{"cohort", "cluster_queue", "flavor", "resource"},
 	)
 
@@ -395,6 +454,7 @@ For a LocalQueue, the metric only reports a value of 1 for one of the statuses.`
 			Subsystem: constants.KueueName,
 			Name:      "cluster_queue_borrowing_limit",
 			Help:      `Reports the cluster_queue's resource borrowing limit within all the flavors`,
+			// 报告 cluster_queue 在所有 flavor 下的资源借用上限
 		}, []string{"cohort", "cluster_queue", "flavor", "resource"},
 	)
 
@@ -403,6 +463,7 @@ For a LocalQueue, the metric only reports a value of 1 for one of the statuses.`
 			Subsystem: constants.KueueName,
 			Name:      "cluster_queue_lending_limit",
 			Help:      `Reports the cluster_queue's resource lending limit within all the flavors`,
+			// 报告 cluster_queue 在所有 flavor 下的资源出借上限
 		}, []string{"cohort", "cluster_queue", "flavor", "resource"},
 	)
 
@@ -416,6 +477,9 @@ the ClusterQueue, and divided by the weight.
 If zero, it means that the usage of the ClusterQueue is below the nominal quota.
 If the ClusterQueue has a weight of zero and is borrowing, this will return 9223372036854775807,
 the maximum possible share value.`,
+			// 报告一个值，表示 ClusterQueue 所有资源中，超出名义配额的使用量与同组可借用资源的最大比值，并除以权重。
+			// 如果为零，表示 ClusterQueue 的使用量低于名义配额。
+			// 如果 ClusterQueue 权重为零且正在借用，则返回 9223372036854775807，即最大可能份额值。
 		}, []string{"cluster_queue"},
 	)
 
@@ -429,6 +493,9 @@ the Cohort, and divided by the weight.
 If zero, it means that the usage of the Cohort is below the nominal quota.
 If the Cohort has a weight of zero and is borrowing, this will return 9223372036854775807,
 the maximum possible share value.`,
+			// 报告一个值，表示 Cohort 所有资源中，超出名义配额的使用量与同组可借用资源的最大比值，并除以权重。
+			// 如果为零，表示 Cohort 的使用量低于名义配额。
+			// 如果 Cohort 权重为零且正在借用，则返回 9223372036854775807，即最大可能份额值。
 		}, []string{"cohort"},
 	)
 )

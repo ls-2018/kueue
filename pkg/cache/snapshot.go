@@ -1,19 +1,3 @@
-/*
-Copyright The Kubernetes Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package cache
 
 import (
@@ -21,6 +5,8 @@ import (
 	"fmt"
 	"maps"
 	"slices"
+	"sync"
+	"time"
 
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -41,6 +27,7 @@ type Snapshot struct {
 
 // RemoveWorkload removes a workload from its corresponding ClusterQueue and
 // updates resource usage.
+// RemoveWorkload 从对应的 ClusterQueue 移除 workload 并更新资源使用量。
 func (s *Snapshot) RemoveWorkload(wl *workload.Info) {
 	cq := s.ClusterQueue(wl.ClusterQueue)
 	delete(cq.Workloads, workload.Key(wl.Obj))
@@ -49,12 +36,14 @@ func (s *Snapshot) RemoveWorkload(wl *workload.Info) {
 
 // AddWorkload adds a workload from its corresponding ClusterQueue and
 // updates resource usage.
+// AddWorkload 将 workload 添加到对应的 ClusterQueue 并更新资源使用量。
 func (s *Snapshot) AddWorkload(wl *workload.Info) {
 	cq := s.ClusterQueue(wl.ClusterQueue)
 	cq.Workloads[workload.Key(wl.Obj)] = wl
 	cq.AddUsage(wl.Usage())
 }
 
+// Log 打印快照信息。
 func (s *Snapshot) Log(log logr.Logger) {
 	for name, cq := range s.ClusterQueues() {
 		cohortName := "<none>"
@@ -101,7 +90,18 @@ func (s *Snapshot) Log(log logr.Logger) {
 	}
 }
 
+var snap sync.Once
+
+// Snapshot 生成当前缓存的快照。
 func (c *Cache) Snapshot(ctx context.Context) (*Snapshot, error) {
+	snap.Do(func() {
+		go func() {
+			for {
+				time.Sleep(5 * time.Second)
+				fmt.Println(c)
+			}
+		}()
+	})
 	c.RLock()
 	defer c.RUnlock()
 
@@ -155,8 +155,7 @@ func (c *Cache) Snapshot(ctx context.Context) (*Snapshot, error) {
 	return &snap, nil
 }
 
-// snapshotClusterQueue creates a copy of ClusterQueue that includes
-// references to immutable objects and deep copies of changing ones.
+// snapshotClusterQueue 创建 ClusterQueue 的快照副本。
 func snapshotClusterQueue(c *clusterQueue) *ClusterQueueSnapshot {
 	cc := &ClusterQueueSnapshot{
 		Name:                          c.Name,
@@ -180,6 +179,7 @@ func snapshotClusterQueue(c *clusterQueue) *ClusterQueueSnapshot {
 	return cc
 }
 
+// newCohortSnapshot 创建新的 CohortSnapshot。
 func newCohortSnapshot(name kueue.CohortReference) *CohortSnapshot {
 	return &CohortSnapshot{
 		Name:   name,

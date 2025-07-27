@@ -1,19 +1,3 @@
-/*
-Copyright The Kubernetes Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package multikueue
 
 import (
@@ -57,13 +41,14 @@ func indexUsingMultiKueueClusters(obj client.Object) []string {
 
 func SetupIndexer(ctx context.Context, indexer client.FieldIndexer, configNamespace string) error {
 	if err := indexer.IndexField(ctx, &kueue.MultiKueueCluster{}, UsingKubeConfigs, getIndexUsingKubeConfigs(configNamespace)); err != nil {
-		return fmt.Errorf("setting index on clusters using kubeconfig: %w", err)
+		return fmt.Errorf("设置集群使用kubeconfig索引: %w", err)
 	}
 	if err := indexer.IndexField(ctx, &kueue.MultiKueueConfig{}, UsingMultiKueueClusters, indexUsingMultiKueueClusters); err != nil {
-		return fmt.Errorf("setting index on configs using clusters: %w", err)
+		return fmt.Errorf("设置配置使用集群索引: %w", err)
 	}
-	if err := indexer.IndexField(ctx, &kueue.AdmissionCheck{}, AdmissionCheckUsingConfigKey, admissioncheck.IndexerByConfigFunction(kueue.MultiKueueControllerName, configGVK)); err != nil {
-		return fmt.Errorf("setting index on admission checks config: %w", err)
+	if err := indexer.IndexField(ctx, &kueue.AdmissionCheck{}, AdmissionCheckUsingConfigKey,
+		admissioncheck.IndexerByConfigFunction(kueue.MultiKueueControllerName, configGVK)); err != nil {
+		return fmt.Errorf("设置准入检查配置索引: %w", err)
 	}
 	return nil
 }

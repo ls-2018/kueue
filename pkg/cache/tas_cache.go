@@ -1,19 +1,3 @@
-/*
-Copyright The Kubernetes Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package cache
 
 import (
@@ -52,12 +36,14 @@ func (t *tasCache) Get(name kueue.ResourceFlavorReference) *TASFlavorCache {
 }
 
 // Clone returns a shallow copy of the map
+// Clone 返回该 map 的浅拷贝。
 func (t *tasCache) Clone() map[kueue.ResourceFlavorReference]*TASFlavorCache {
 	t.RLock()
 	defer t.RUnlock()
 	return maps.Clone(t.flavorCache)
 }
 
+// AddFlavor 添加资源 flavor。
 func (t *tasCache) AddFlavor(flavor *kueue.ResourceFlavor) {
 	t.Lock()
 	defer t.Unlock()
@@ -75,6 +61,7 @@ func (t *tasCache) AddFlavor(flavor *kueue.ResourceFlavor) {
 	}
 }
 
+// AddTopology 添加拓扑。
 func (t *tasCache) AddTopology(topology *kueuealpha.Topology) {
 	t.Lock()
 	defer t.Unlock()
@@ -92,6 +79,7 @@ func (t *tasCache) AddTopology(topology *kueuealpha.Topology) {
 	}
 }
 
+// DeleteFlavor 删除资源 flavor。
 func (t *tasCache) DeleteFlavor(name kueue.ResourceFlavorReference) {
 	t.Lock()
 	defer t.Unlock()
@@ -99,6 +87,7 @@ func (t *tasCache) DeleteFlavor(name kueue.ResourceFlavorReference) {
 	delete(t.flavorCache, name)
 }
 
+// DeleteTopology 删除拓扑。
 func (t *tasCache) DeleteTopology(name kueue.TopologyReference) {
 	t.Lock()
 	defer t.Unlock()

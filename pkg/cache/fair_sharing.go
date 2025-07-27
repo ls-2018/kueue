@@ -1,51 +1,55 @@
-/*
-Copyright The Kubernetes Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package cache
 
 import (
-	"math"
-
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	"math"
+	"sigs.k8s.io/kueue/pkg/resources"
 
 	kueue "sigs.k8s.io/kueue/apis/kueue/v1beta1"
-	"sigs.k8s.io/kueue/pkg/resources"
 )
 
 var (
 	oneQuantity = resource.MustParse("1")
 )
 
-// dominantResourceShareNode is a node in the Cohort tree on which we
-// can compute its dominantResourceShare.
+// dominantResourceShareNode 是 Cohort 树中可用于计算主导资源份额的节点。
 type dominantResourceShareNode interface {
-	// see FairSharing.Weight in the API.
 	fairWeight() *resource.Quantity
 	hierarchicalResourceNode
 }
 
-// dominantResourceShare returns a value from 0 to 1,000,000
-// representing the maximum of the ratios of usage above nominal quota
-// to the lendable resources in the cohort, among all the resources
-// provided by the ClusterQueue, and divided by the weight.  If zero,
-// it means that the usage of the ClusterQueue is below the nominal
-// quota.  The function also returns the resource name that yielded
-// this value.  When the FairSharing weight is 0, and the ClusterQueue
-// or Cohort is borrowing, we return math.MaxInt.
+// calculateLendable 聚合所有 FlavorResource 的资源容量。
+func calculateLendable(node hierarchicalResourceNode) map[corev1.ResourceName]int64 {
+	// walk to root
+	root := node
+	for root.HasParent() {
+		root = root.parentHRN()
+	}
+
+	lendable := make(map[corev1.ResourceName]int64, len(root.getResourceNode().SubtreeQuota))
+	// The root's SubtreeQuota contains all FlavorResources,
+	// as we accumulate even 0s in accumulateFromChild.
+	for fr := range root.getResourceNode().SubtreeQuota {
+		lendable[fr.Resource] += potentialAvailable(node, fr)
+	}
+	return lendable
+}
+
+// parseFairWeight parses FairSharing.Weight if it exists,
+// or otherwise returns the default value of 1.
+// parseFairWeight 解析 FairSharing.Weight，如果不存在则返回默认值 1。
+func parseFairWeight(fs *kueue.FairSharing) resource.Quantity {
+	if fs == nil || fs.Weight == nil {
+		return oneQuantity
+	}
+	return *fs.Weight
+}
+
+// dominantResourceShare 返回一个 0 到 1,000,000 的值，
+// 表示所有资源中超出 nominal quota 的使用量与 cohort 可借用资源的最大比值，并除以权重。
+// 如果为 0，表示 ClusterQueue 的使用量低于 nominal quota。函数还返回导致该值的资源名。
+// 当 FairSharing 权重为 0 且 ClusterQueue 或 Cohort 处于借用状态时，返回 math.MaxInt。
 func dominantResourceShare(node dominantResourceShareNode, wlReq resources.FlavorResourceQuantities) (int, corev1.ResourceName) {
 	if !node.HasParent() {
 		return 0, ""
@@ -83,31 +87,4 @@ func dominantResourceShare(node dominantResourceShareNode, wlReq resources.Flavo
 
 	dws := drs * 1000 / node.fairWeight().MilliValue()
 	return int(dws), dRes
-}
-
-// calculateLendable aggregates capacity for resources across all
-// FlavorResources.
-func calculateLendable(node hierarchicalResourceNode) map[corev1.ResourceName]int64 {
-	// walk to root
-	root := node
-	for root.HasParent() {
-		root = root.parentHRN()
-	}
-
-	lendable := make(map[corev1.ResourceName]int64, len(root.getResourceNode().SubtreeQuota))
-	// The root's SubtreeQuota contains all FlavorResources,
-	// as we accumulate even 0s in accumulateFromChild.
-	for fr := range root.getResourceNode().SubtreeQuota {
-		lendable[fr.Resource] += potentialAvailable(node, fr)
-	}
-	return lendable
-}
-
-// parseFairWeight parses FairSharing.Weight if it exists,
-// or otherwise returns the default value of 1.
-func parseFairWeight(fs *kueue.FairSharing) resource.Quantity {
-	if fs == nil || fs.Weight == nil {
-		return oneQuantity
-	}
-	return *fs.Weight
 }

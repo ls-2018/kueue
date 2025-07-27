@@ -1,19 +1,3 @@
-/*
-Copyright The Kubernetes Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package v1beta1
 
 import (
@@ -27,7 +11,7 @@ import (
 // +kubebuilder:storageversion
 // +kubebuilder:resource:scope=Cluster,shortName={flavor,flavors,rf}
 
-// ResourceFlavor is the Schema for the resourceflavors API.
+// ResourceFlavor 是 resourceflavors API 的 Schema。
 type ResourceFlavor struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -35,43 +19,34 @@ type ResourceFlavor struct {
 	Spec ResourceFlavorSpec `json:"spec,omitempty"`
 }
 
-// TopologyReference is the name of the Topology.
+// TopologyReference 是拓扑的名称。
 // +kubebuilder:validation:MaxLength=253
 // +kubebuilder:validation:Pattern="^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
 type TopologyReference string
 
-// ResourceFlavorSpec defines the desired state of the ResourceFlavor
+// ResourceFlavorSpec 定义 ResourceFlavor 的期望状态
 // +kubebuilder:validation:XValidation:rule="!has(self.topologyName) || self.nodeLabels.size() >= 1", message="at least one nodeLabel is required when topology is set"
 // +kubebuilder:validation:XValidation:rule="!has(oldSelf.topologyName) || self == oldSelf", message="resourceFlavorSpec are immutable when topologyName is set"
 type ResourceFlavorSpec struct {
-	// nodeLabels are labels that associate the ResourceFlavor with Nodes that
-	// have the same labels.
-	// When a Workload is admitted, its podsets can only get assigned
-	// ResourceFlavors whose nodeLabels match the nodeSelector and nodeAffinity
-	// fields.
-	// Once a ResourceFlavor is assigned to a podSet, the ResourceFlavor's
-	// nodeLabels should be injected into the pods of the Workload by the
-	// controller that integrates with the Workload object.
+	// nodeLabels 是将 ResourceFlavor 与具有相同标签的节点关联的标签。
+	// 当工作负载被接纳时，其 podset 只能分配给 nodeLabels 与 nodeSelector 和 nodeAffinity 字段匹配的 ResourceFlavors。
+	// 一旦 ResourceFlavor 被分配给 podSet，ResourceFlavor 的 nodeLabels 应该由与工作负载对象集成的控制器注入到工作负载的 pod 中。
 	//
-	// nodeLabels can be up to 8 elements.
+	// nodeLabels 最多可以有 8 个元素。
 	// +optional
 	// +mapType=atomic
 	// +kubebuilder:validation:MaxProperties=8
 	NodeLabels map[string]string `json:"nodeLabels,omitempty"`
 
-	// nodeTaints are taints that the nodes associated with this ResourceFlavor
-	// have.
-	// Workloads' podsets must have tolerations for these nodeTaints in order to
-	// get assigned this ResourceFlavor during admission.
-	// When this ResourceFlavor has also set the matching tolerations (in .spec.tolerations),
-	// then the nodeTaints are not considered during admission.
-	// Only the 'NoSchedule' and 'NoExecute' taint effects are evaluated,
-	// while 'PreferNoSchedule' is ignored.
+	// nodeTaints 是与此 ResourceFlavor 关联的节点所具有的污点。
+	// 工作负载的 podset 必须对这些 nodeTaints 有容忍度，才能在准入期间被分配此 ResourceFlavor。
+	// 当此 ResourceFlavor 也设置了匹配的容忍度（在 .spec.tolerations 中）时，则在准入期间不考虑 nodeTaints。
+	// 仅评估 'NoSchedule' 和 'NoExecute' 污点效果，而忽略 'PreferNoSchedule'。
 	//
-	// An example of a nodeTaint is
+	// nodeTaint 的示例是
 	// cloud.provider.com/preemptible="true":NoSchedule
 	//
-	// nodeTaints can be up to 8 elements.
+	// nodeTaints 最多可以有 8 个元素。
 	//
 	// +optional
 	// +listType=atomic
@@ -79,13 +54,12 @@ type ResourceFlavorSpec struct {
 	// +kubebuilder:validation:XValidation:rule="self.all(x, x.effect in ['NoSchedule', 'PreferNoSchedule', 'NoExecute'])", message="supported taint effect values: 'NoSchedule', 'PreferNoSchedule', 'NoExecute'"
 	NodeTaints []corev1.Taint `json:"nodeTaints,omitempty"`
 
-	// tolerations are extra tolerations that will be added to the pods admitted in
-	// the quota associated with this resource flavor.
+	// tolerations 是额外的容忍度，将添加到与此资源类型关联的配额中接纳的 pod 中。
 	//
-	// An example of a toleration is
+	// 容忍度的示例是
 	// cloud.provider.com/preemptible="true":NoSchedule
 	//
-	// tolerations can be up to 8 elements.
+	// tolerations 最多可以有 8 个元素。
 	//
 	// +optional
 	// +listType=atomic
@@ -97,17 +71,15 @@ type ResourceFlavorSpec struct {
 	// +kubebuilder:validation:XValidation:rule="self.all(x, !has(x.effect) || x.effect in ['NoSchedule', 'PreferNoSchedule', 'NoExecute'])", message="supported taint effect values: 'NoSchedule', 'PreferNoSchedule', 'NoExecute'"
 	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
 
-	// topologyName indicates topology for the TAS ResourceFlavor.
-	// When specified, it enables scraping of the topology information from the
-	// nodes matching to the Resource Flavor node labels.
-	//
+	// topologyName 指定了 TAS 资源类型所对应的拓扑结构。
+	// 若指定了该参数，则能够从与资源类型标签相匹配的节点中抓取拓扑信息。
 	// +optional
 	TopologyName *TopologyReference `json:"topologyName,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 
-// ResourceFlavorList contains a list of ResourceFlavor
+// ResourceFlavorList 包含 ResourceFlavor 的列表
 type ResourceFlavorList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`

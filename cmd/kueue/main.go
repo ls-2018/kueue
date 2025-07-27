@@ -1,19 +1,3 @@
-/*
-Copyright The Kubernetes Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package main
 
 import (
@@ -125,6 +109,7 @@ func main() {
 		setupLog.Error(err, "Unable to load the configuration")
 		os.Exit(1)
 	}
+	options.LeaderElection = false
 
 	if err := config.ValidateFeatureGates(featureGates, cfg.FeatureGates); err != nil {
 		setupLog.Error(err, "conflicting feature gates detected")
@@ -291,93 +276,6 @@ func setupIndexes(ctx context.Context, mgr ctrl.Manager, cfg *configapi.Configur
 	return jobframework.SetupIndexes(ctx, mgr.GetFieldIndexer(), opts...)
 }
 
-func setupControllers(ctx context.Context, mgr ctrl.Manager, cCache *cache.Cache, queues *queue.Manager, certsReady chan struct{}, cfg *configapi.Configuration, serverVersionFetcher *kubeversion.ServerVersionFetcher) {
-	// The controllers won't work until the webhooks are operating, and the webhook won't work until the
-	// certs are all in place.
-	cert.WaitForCertsReady(setupLog, certsReady)
-
-	if failedCtrl, err := core.SetupControllers(mgr, queues, cCache, cfg); err != nil {
-		setupLog.Error(err, "Unable to create controller", "controller", failedCtrl)
-		os.Exit(1)
-	}
-
-	// setup provision admission check controller
-	if features.Enabled(features.ProvisioningACC) {
-		if err := provisioning.ServerSupportsProvisioningRequest(mgr); err != nil {
-			setupLog.Info("Skipping provisioning controller setup: Provisioning Requests not supported (Possible cause: missing or unsupported cluster-autoscaler)")
-		} else {
-			ctrl, err := provisioning.NewController(mgr.GetClient(), mgr.GetEventRecorderFor("kueue-provisioning-request-controller"))
-			if err != nil {
-				setupLog.Error(err, "Could not create the provisioning controller")
-				os.Exit(1)
-			}
-
-			if err := ctrl.SetupWithManager(mgr); err != nil {
-				setupLog.Error(err, "Could not setup provisioning controller")
-				os.Exit(1)
-			}
-		}
-	}
-
-	if features.Enabled(features.MultiKueue) {
-		adapters, err := jobframework.GetMultiKueueAdapters(sets.New(cfg.Integrations.Frameworks...))
-		if err != nil {
-			setupLog.Error(err, "Could not get the enabled multikueue adapters")
-			os.Exit(1)
-		}
-		if err := multikueue.SetupControllers(mgr, *cfg.Namespace,
-			multikueue.WithGCInterval(cfg.MultiKueue.GCInterval.Duration),
-			multikueue.WithOrigin(ptr.Deref(cfg.MultiKueue.Origin, configapi.DefaultMultiKueueOrigin)),
-			multikueue.WithWorkerLostTimeout(cfg.MultiKueue.WorkerLostTimeout.Duration),
-			multikueue.WithAdapters(adapters),
-		); err != nil {
-			setupLog.Error(err, "Could not setup MultiKueue controller")
-			os.Exit(1)
-		}
-	}
-
-	if features.Enabled(features.TopologyAwareScheduling) {
-		if failedCtrl, err := tas.SetupControllers(mgr, queues, cCache, cfg); err != nil {
-			setupLog.Error(err, "Could not setup TAS controller", "controller", failedCtrl)
-			os.Exit(1)
-		}
-	}
-
-	if failedWebhook, err := webhooks.Setup(mgr); err != nil {
-		setupLog.Error(err, "Unable to create webhook", "webhook", failedWebhook)
-		os.Exit(1)
-	}
-
-	opts := []jobframework.Option{
-		jobframework.WithManageJobsWithoutQueueName(cfg.ManageJobsWithoutQueueName),
-		jobframework.WithWaitForPodsReady(cfg.WaitForPodsReady),
-		jobframework.WithKubeServerVersion(serverVersionFetcher),
-		jobframework.WithEnabledFrameworks(cfg.Integrations.Frameworks),
-		jobframework.WithEnabledExternalFrameworks(cfg.Integrations.ExternalFrameworks),
-		jobframework.WithManagerName(constants.KueueName),
-		jobframework.WithLabelKeysToCopy(cfg.Integrations.LabelKeysToCopy),
-		jobframework.WithCache(cCache),
-		jobframework.WithQueues(queues),
-		jobframework.WithObjectRetentionPolicies(cfg.ObjectRetentionPolicies),
-	}
-	if cfg.Integrations.PodOptions != nil {
-		opts = append(opts, jobframework.WithIntegrationOptions(corev1.SchemeGroupVersion.WithKind("Pod").String(), cfg.Integrations.PodOptions))
-	}
-	if features.Enabled(features.ManagedJobsNamespaceSelector) {
-		nsSelector, err := metav1.LabelSelectorAsSelector(cfg.ManagedJobsNamespaceSelector)
-		if err != nil {
-			setupLog.Error(err, "Failed to parse managedJobsNamespaceSelector")
-			os.Exit(1)
-		}
-		opts = append(opts, jobframework.WithManagedJobsNamespaceSelector(nsSelector))
-	}
-
-	if err := jobframework.SetupControllers(ctx, mgr, setupLog, opts...); err != nil {
-		setupLog.Error(err, "Unable to create controller or webhook", "kubernetesVersion", serverVersionFetcher.GetServerVersion())
-		os.Exit(1)
-	}
-}
-
 // setupProbeEndpoints registers the health endpoints
 func setupProbeEndpoints(mgr ctrl.Manager, certsReady <-chan struct{}) {
 	defer setupLog.Info("Probe endpoints are configured on healthz and readyz")
@@ -467,4 +365,90 @@ func apply(configFile string) (ctrl.Options, configapi.Configuration, error) {
 	}
 	setupLog.Info("Successfully loaded configuration", "config", cfgStr)
 	return options, cfg, nil
+}
+func setupControllers(ctx context.Context, mgr ctrl.Manager, cCache *cache.Cache, queues *queue.Manager, certsReady chan struct{}, cfg *configapi.Configuration, serverVersionFetcher *kubeversion.ServerVersionFetcher) {
+	// The controllers won't work until the webhooks are operating, and the webhook won't work until the
+	// certs are all in place.
+	cert.WaitForCertsReady(setupLog, certsReady)
+
+	if failedCtrl, err := core.SetupControllers(mgr, queues, cCache, cfg); err != nil {
+		setupLog.Error(err, "Unable to create controller", "controller", failedCtrl)
+		os.Exit(1)
+	}
+
+	// setup provision admission check controller
+	if features.Enabled(features.ProvisioningACC) {
+		if err := provisioning.ServerSupportsProvisioningRequest(mgr); err != nil {
+			setupLog.Info("Skipping provisioning controller setup: Provisioning Requests not supported (Possible cause: missing or unsupported cluster-autoscaler)")
+		} else {
+			ctrl, err := provisioning.NewController(mgr.GetClient(), mgr.GetEventRecorderFor("kueue-provisioning-request-controller"))
+			if err != nil {
+				setupLog.Error(err, "Could not create the provisioning controller")
+				os.Exit(1)
+			}
+
+			if err := ctrl.SetupWithManager(mgr); err != nil {
+				setupLog.Error(err, "Could not setup provisioning controller")
+				os.Exit(1)
+			}
+		}
+	}
+
+	if features.Enabled(features.MultiKueue) {
+		adapters, err := jobframework.GetMultiKueueAdapters(sets.New(cfg.Integrations.Frameworks...))
+		if err != nil {
+			setupLog.Error(err, "Could not get the enabled multikueue adapters")
+			os.Exit(1)
+		}
+		if err := multikueue.SetupControllers(mgr, *cfg.Namespace,
+			multikueue.WithGCInterval(cfg.MultiKueue.GCInterval.Duration),
+			multikueue.WithOrigin(ptr.Deref(cfg.MultiKueue.Origin, configapi.DefaultMultiKueueOrigin)),
+			multikueue.WithWorkerLostTimeout(cfg.MultiKueue.WorkerLostTimeout.Duration),
+			multikueue.WithAdapters(adapters),
+		); err != nil {
+			setupLog.Error(err, "Could not setup MultiKueue controller")
+			os.Exit(1)
+		}
+	}
+
+	if features.Enabled(features.TopologyAwareScheduling) {
+		if failedCtrl, err := tas.SetupControllers(mgr, queues, cCache, cfg); err != nil {
+			setupLog.Error(err, "Could not setup TAS controller", "controller", failedCtrl)
+			os.Exit(1)
+		}
+	}
+
+	if failedWebhook, err := webhooks.Setup(mgr); err != nil {
+		setupLog.Error(err, "Unable to create webhook", "webhook", failedWebhook)
+		os.Exit(1)
+	}
+
+	opts := []jobframework.Option{
+		jobframework.WithManageJobsWithoutQueueName(cfg.ManageJobsWithoutQueueName),
+		jobframework.WithWaitForPodsReady(cfg.WaitForPodsReady),
+		jobframework.WithKubeServerVersion(serverVersionFetcher),
+		jobframework.WithEnabledFrameworks(cfg.Integrations.Frameworks),
+		jobframework.WithEnabledExternalFrameworks(cfg.Integrations.ExternalFrameworks),
+		jobframework.WithManagerName(constants.KueueName),
+		jobframework.WithLabelKeysToCopy(cfg.Integrations.LabelKeysToCopy),
+		jobframework.WithCache(cCache),
+		jobframework.WithQueues(queues),
+		jobframework.WithObjectRetentionPolicies(cfg.ObjectRetentionPolicies),
+	}
+	if cfg.Integrations.PodOptions != nil {
+		opts = append(opts, jobframework.WithIntegrationOptions(corev1.SchemeGroupVersion.WithKind("Pod").String(), cfg.Integrations.PodOptions))
+	}
+	if features.Enabled(features.ManagedJobsNamespaceSelector) {
+		nsSelector, err := metav1.LabelSelectorAsSelector(cfg.ManagedJobsNamespaceSelector)
+		if err != nil {
+			setupLog.Error(err, "Failed to parse managedJobsNamespaceSelector")
+			os.Exit(1)
+		}
+		opts = append(opts, jobframework.WithManagedJobsNamespaceSelector(nsSelector))
+	}
+
+	if err := jobframework.SetupControllers(ctx, mgr, setupLog, opts...); err != nil {
+		setupLog.Error(err, "Unable to create controller or webhook", "kubernetesVersion", serverVersionFetcher.GetServerVersion())
+		os.Exit(1)
+	}
 }

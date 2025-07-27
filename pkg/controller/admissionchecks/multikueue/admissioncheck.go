@@ -1,19 +1,3 @@
-/*
-Copyright The Kubernetes Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package multikueue
 
 import (
@@ -43,9 +27,8 @@ func newMultiKueueStoreHelper(c client.Client) (*multiKueueStoreHelper, error) {
 	return admissioncheck.NewConfigHelper[*kueue.MultiKueueConfig](c)
 }
 
-// ACReconciler implements the reconciler for all the admission checks controlled by multikueue.
-// Its main task being to maintain the active state of the admission checks based on the heath
-// of its referenced MultiKueueClusters.
+// ACReconciler 实现了所有由 multikueue 控制的 admission check 的 reconciler。
+// 其主要任务是根据其引用的 MultiKueueClusters 的健康状况维护 admission check 的活跃状态。
 type ACReconciler struct {
 	client client.Client
 	helper *multiKueueStoreHelper
@@ -77,8 +60,8 @@ func (a *ACReconciler) Reconcile(ctx context.Context, req reconcile.Request) (re
 	} else {
 		var missingClusters []string
 		var inactiveClusters []string
-		// check the status of the clusters
-		for _, clusterName := range cfg.Spec.Clusters {
+		// 检查集群状态
+		for _, clusterName := range cfg.Spec.Clusters { // MultiKueueConfig
 			cluster := &kueue.MultiKueueCluster{}
 			err := a.client.Get(ctx, types.NamespacedName{Name: clusterName}, cluster)
 			if client.IgnoreNotFound(err) != nil {
@@ -95,7 +78,7 @@ func (a *ACReconciler) Reconcile(ctx context.Context, req reconcile.Request) (re
 		unusableClustersCount := len(missingClusters) + len(inactiveClusters)
 		if unusableClustersCount > 0 {
 			if unusableClustersCount < len(cfg.Spec.Clusters) {
-				// keep it partially active
+				// 保持部分活跃状态
 				newCondition.Reason = "SomeActiveClusters"
 			} else {
 				newCondition.Status = metav1.ConditionFalse
@@ -129,19 +112,6 @@ func (a *ACReconciler) Reconcile(ctx context.Context, req reconcile.Request) (re
 	}
 
 	return reconcile.Result{}, nil
-}
-
-// +kubebuilder:rbac:groups="",resources=events,verbs=create;watch;update
-// +kubebuilder:rbac:groups=kueue.x-k8s.io,resources=workloads,verbs=get;list;watch;update;patch;delete
-// +kubebuilder:rbac:groups=kueue.x-k8s.io,resources=workloads/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=kueue.x-k8s.io,resources=admissionchecks,verbs=get;list;watch
-// +kubebuilder:rbac:groups=kueue.x-k8s.io,resources=multikueueconfigs,verbs=get;list;watch
-
-func newACReconciler(c client.Client, helper *multiKueueStoreHelper) *ACReconciler {
-	return &ACReconciler{
-		client: c,
-		helper: helper,
-	}
 }
 
 func (a *ACReconciler) setupWithManager(mgr ctrl.Manager) error {
@@ -300,4 +270,17 @@ func cmpConditionState(a, b *metav1.Condition) bool {
 		return false
 	}
 	return a.Status == b.Status && a.Reason == b.Reason && a.Message == b.Message
+}
+
+// +kubebuilder:rbac:groups="",resources=events,verbs=create;watch;update
+// +kubebuilder:rbac:groups=kueue.x-k8s.io,resources=workloads,verbs=get;list;watch;update;patch;delete
+// +kubebuilder:rbac:groups=kueue.x-k8s.io,resources=workloads/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=kueue.x-k8s.io,resources=admissionchecks,verbs=get;list;watch
+// +kubebuilder:rbac:groups=kueue.x-k8s.io,resources=multikueueconfigs,verbs=get;list;watch
+
+func newACReconciler(c client.Client, helper *multiKueueStoreHelper) *ACReconciler {
+	return &ACReconciler{
+		client: c,
+		helper: helper,
+	}
 }

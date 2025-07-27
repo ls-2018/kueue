@@ -1,19 +1,3 @@
-/*
-Copyright The Kubernetes Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package provisioning
 
 import (
@@ -57,22 +41,6 @@ func ProvisioningRequestName(workloadName string, checkName kueue.AdmissionCheck
 	return limitObjectName(fullName)
 }
 
-func getProvisioningRequestNamePrefix(workloadName string, checkName kueue.AdmissionCheckReference) string {
-	fullName := fmt.Sprintf("%s-%s-", workloadName, checkName)
-	return limitObjectName(fullName)
-}
-
-func getProvisioningRequestPodTemplateName(prName string, podsetName kueue.PodSetReference) string {
-	fullName := fmt.Sprintf("%s-%s-%s", podTemplatesPrefix, prName, podsetName)
-	return limitObjectName(fullName)
-}
-
-func matchesWorkloadAndCheck(pr *autoscaling.ProvisioningRequest, workloadName string, checkName kueue.AdmissionCheckReference) bool {
-	attemptRegex := getAttemptRegex(workloadName, checkName)
-	matches := attemptRegex.FindStringSubmatch(pr.Name)
-	return len(matches) > 0
-}
-
 func getAttempt(log logr.Logger, pr *autoscaling.ProvisioningRequest, workloadName string, checkName kueue.AdmissionCheckReference) int32 {
 	attemptRegex := getAttemptRegex(workloadName, checkName)
 	matches := attemptRegex.FindStringSubmatch(pr.Name)
@@ -86,12 +54,6 @@ func getAttempt(log logr.Logger, pr *autoscaling.ProvisioningRequest, workloadNa
 	}
 	log.Error(errors.New("no attempt suffix in provisioning request"), "No attempt suffix in provisioning request", "requestName", pr.Name)
 	return 1
-}
-
-func getAttemptRegex(workloadName string, checkName kueue.AdmissionCheckReference) *regexp.Regexp {
-	prefix := getProvisioningRequestNamePrefix(workloadName, checkName)
-	escapedPrefix := regexp.QuoteMeta(prefix)
-	return regexp.MustCompile("^" + escapedPrefix + "([0-9]+)$")
 }
 
 func parametersKueueToProvisioning(in map[string]kueue.Parameter) map[string]autoscaling.Parameter {
@@ -129,4 +91,25 @@ func passProvReqParams(wl *kueue.Workload, req *autoscaling.ProvisioningRequest)
 		paramName := strings.TrimPrefix(annotation, constants.ProvReqAnnotationPrefix)
 		req.Spec.Parameters[paramName] = autoscaling.Parameter(val)
 	}
+}
+
+func matchesWorkloadAndCheck(pr *autoscaling.ProvisioningRequest, workloadName string, checkName kueue.AdmissionCheckReference) bool {
+	attemptRegex := getAttemptRegex(workloadName, checkName)
+	matches := attemptRegex.FindStringSubmatch(pr.Name)
+	return len(matches) > 0
+}
+
+func getProvisioningRequestNamePrefix(workloadName string, checkName kueue.AdmissionCheckReference) string {
+	fullName := fmt.Sprintf("%s-%s-", workloadName, checkName)
+	return limitObjectName(fullName)
+}
+
+func getProvisioningRequestPodTemplateName(prName string, podsetName kueue.PodSetReference) string {
+	fullName := fmt.Sprintf("%s-%s-%s", podTemplatesPrefix, prName, podsetName)
+	return limitObjectName(fullName)
+}
+func getAttemptRegex(workloadName string, checkName kueue.AdmissionCheckReference) *regexp.Regexp {
+	prefix := getProvisioningRequestNamePrefix(workloadName, checkName)
+	escapedPrefix := regexp.QuoteMeta(prefix)
+	return regexp.MustCompile("^" + escapedPrefix + "([0-9]+)$")
 }

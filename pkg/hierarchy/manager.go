@@ -1,19 +1,3 @@
-/*
-Copyright The Kubernetes Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package hierarchy
 
 import (
@@ -41,14 +25,6 @@ func NewManager[CQ clusterQueueNode[C], C cohortNode[CQ, C]](newCohort func(kueu
 	}
 }
 
-func (m *Manager[CQ, C]) AddClusterQueue(cq CQ) {
-	m.clusterQueues[cq.GetName()] = cq
-}
-
-func (m *Manager[CQ, C]) ClusterQueue(name kueue.ClusterQueueReference) CQ {
-	return m.clusterQueues[name]
-}
-
 func (m *Manager[CQ, C]) ClusterQueuesNames() []kueue.ClusterQueueReference {
 	clusterQueuesNames := make([]kueue.ClusterQueueReference, 0, len(m.clusterQueues))
 	for k := range m.clusterQueues {
@@ -59,16 +35,6 @@ func (m *Manager[CQ, C]) ClusterQueuesNames() []kueue.ClusterQueueReference {
 
 func (m *Manager[CQ, C]) ClusterQueues() map[kueue.ClusterQueueReference]CQ {
 	return maps.Clone(m.clusterQueues)
-}
-
-func (m *Manager[CQ, C]) UpdateClusterQueueEdge(name kueue.ClusterQueueReference, parentName kueue.CohortReference) {
-	cq := m.clusterQueues[name]
-	m.detachClusterQueueFromParent(cq)
-	if parentName != "" {
-		parent := m.getOrCreateCohort(parentName)
-		parent.insertClusterQueue(cq)
-		cq.setParent(parent)
-	}
 }
 
 func (m *Manager[CQ, C]) DeleteClusterQueue(name kueue.ClusterQueueReference) {
@@ -135,45 +101,11 @@ func (m *Manager[CQ, C]) transferChildren(old, new C) {
 	}
 }
 
-func (m *Manager[CQ, C]) detachClusterQueueFromParent(cq CQ) {
-	if cq.HasParent() {
-		parent := cq.Parent()
-		parent.deleteClusterQueue(cq)
-		m.cleanupCohort(parent)
-		var zero C
-		cq.setParent(zero)
-	}
-}
-
-func (m *Manager[CQ, C]) detachCohortFromParent(cohort C) {
-	if cohort.HasParent() {
-		parent := cohort.Parent()
-		parent.deleteCohortChild(cohort)
-		m.cleanupCohort(parent)
-		var zero C
-		cohort.setParent(zero)
-	}
-}
-
 func (m *Manager[CQ, C]) getOrCreateCohort(cohortName kueue.CohortReference) C {
 	if _, ok := m.cohorts[cohortName]; !ok {
 		m.cohorts[cohortName] = m.cohortFactory(cohortName)
 	}
 	return m.cohorts[cohortName]
-}
-
-func (m *Manager[CQ, C]) cleanupCohort(cohort C) {
-	if !cohort.isExplicit() && !cohort.hasChildren() {
-		delete(m.cohorts, cohort.GetName())
-	}
-}
-
-// NewManagerForTest is a special constructor for using in tests
-func NewManagerForTest[CQ clusterQueueNode[C], C cohortNode[CQ, C]](cohorts map[kueue.CohortReference]C, clusterQueues map[kueue.ClusterQueueReference]CQ) Manager[CQ, C] {
-	return Manager[CQ, C]{
-		cohorts:       cohorts,
-		clusterQueues: clusterQueues,
-	}
 }
 
 type nodeBase[T comparable] interface {
@@ -200,7 +132,51 @@ type cohortNode[CQ nodeBase[kueue.ClusterQueueReference], C nodeBase[kueue.Cohor
 	deleteClusterQueue(CQ)
 	hasChildren() bool
 	ChildCQs() []CQ
-	isExplicit() bool
+	isExplicit() bool // 明确的
 	markExplicit()
 	nodeBase[kueue.CohortReference]
+}
+
+func (m *Manager[CQ, C]) ClusterQueue(name kueue.ClusterQueueReference) CQ {
+	return m.clusterQueues[name]
+}
+func (m *Manager[CQ, C]) UpdateClusterQueueEdge(name kueue.ClusterQueueReference, parentName kueue.CohortReference) {
+	cq := m.clusterQueues[name]
+	m.detachClusterQueueFromParent(cq)
+	if parentName != "" {
+		parent := m.getOrCreateCohort(parentName)
+		parent.insertClusterQueue(cq)
+		cq.setParent(parent)
+	}
+}
+
+func (m *Manager[CQ, C]) detachClusterQueueFromParent(cq CQ) {
+	if cq.HasParent() {
+		parent := cq.Parent()
+		parent.deleteClusterQueue(cq)
+		m.cleanupCohort(parent)
+		var zero C
+		cq.setParent(zero)
+	}
+}
+
+func (m *Manager[CQ, C]) cleanupCohort(cohort C) {
+	if !cohort.isExplicit() && // 不明确的
+		!cohort.hasChildren() { // 没有子cq
+		delete(m.cohorts, cohort.GetName())
+	}
+}
+
+func (m *Manager[CQ, C]) detachCohortFromParent(cohort C) {
+	if cohort.HasParent() {
+		parent := cohort.Parent()
+		parent.deleteCohortChild(cohort)
+		m.cleanupCohort(parent)
+		var zero C
+		cohort.setParent(zero)
+	}
+}
+
+func (m *Manager[CQ, C]) AddClusterQueue(cq CQ) {
+	m.clusterQueues[cq.GetName()] = cq
 }

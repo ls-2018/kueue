@@ -1,30 +1,14 @@
-/*
-Copyright The Kubernetes Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package workload
 
 import (
 	"context"
 	"fmt"
+	"github.com/go-logr/logr"
 	"maps"
 	"slices"
 	"strings"
 	"time"
 
-	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
@@ -96,14 +80,14 @@ type InfoOption func(*InfoOptions)
 
 var defaultOptions = InfoOptions{}
 
-// WithExcludedResourcePrefixes adds the prefixes
+// WithExcludedResourcePrefixes 添加排除的资源前缀
 func WithExcludedResourcePrefixes(n []string) InfoOption {
 	return func(o *InfoOptions) {
 		o.excludedResourcePrefixes = n
 	}
 }
 
-// WithResourceTransformations sets the resource transformations.
+// WithResourceTransformations 设置资源转换
 func WithResourceTransformations(transforms []config.ResourceTransformation) InfoOption {
 	return func(o *InfoOptions) {
 		o.resourceTransformations = utilslices.ToRefMap(transforms, func(e *config.ResourceTransformation) corev1.ResourceName { return e.Input })
@@ -121,11 +105,11 @@ func (s *AssignmentClusterQueueState) Clone() *AssignmentClusterQueueState {
 	return &c
 }
 
-// PendingFlavors returns whether there are pending flavors to try
-// after the last attempt.
+// PendingFlavors 返回是否还有待尝试的 flavor
+// 在最后一次尝试之后。
 func (s *AssignmentClusterQueueState) PendingFlavors() bool {
 	if s == nil {
-		// This is only reached in unit tests.
+		// 这种情况仅在单元测试中达到。
 		return false
 	}
 	for _, podSetIdxs := range s.LastTriedFlavorIdx {
@@ -138,47 +122,23 @@ func (s *AssignmentClusterQueueState) PendingFlavors() bool {
 	return false
 }
 
-func (s *AssignmentClusterQueueState) NextFlavorToTryForPodSetResource(ps int, res corev1.ResourceName) int {
-	if !features.Enabled(features.FlavorFungibility) {
-		return 0
-	}
-	if s == nil || ps >= len(s.LastTriedFlavorIdx) {
-		return 0
-	}
-	idx, ok := s.LastTriedFlavorIdx[ps][res]
-	if !ok {
-		return 0
-	}
-	return idx + 1
-}
-
-// Info holds a Workload object and some pre-processing.
+// Info 持有 Workload 对象并进行一些预处理。
 type Info struct {
 	Obj *kueue.Workload
-	// list of total resources requested by the podsets.
+	// 工作负载请求的总资源列表。
 	TotalRequests []PodSetResources
-	// Populated from the queue during admission or from the admission field if
-	// already admitted.
+	// 从队列在准入或已准入时填充。
 	ClusterQueue   kueue.ClusterQueueReference
 	LastAssignment *AssignmentClusterQueueState
 }
 
 type PodSetResources struct {
-	// Name is the name of the PodSet.
-	Name kueue.PodSetReference
-	// Requests incorporates the requests from all pods in the podset.
-	Requests resources.Requests
-	// Count indicates how many pods are in the podset.
-	Count int32
-
-	// TopologyRequest specifies the requests for TAS
-	TopologyRequest *TopologyRequest
-
-	// DelayedTopologyRequest indicates the state of the delayed TopologyRequest
+	Name                   kueue.PodSetReference
+	Requests               resources.Requests //总资源   pod * count
+	Count                  int32
+	TopologyRequest        *TopologyRequest
 	DelayedTopologyRequest *kueue.DelayedTopologyRequestState
-
-	// Flavors are populated when the Workload is assigned.
-	Flavors map[corev1.ResourceName]kueue.ResourceFlavorReference
+	Flavors                map[corev1.ResourceName]kueue.ResourceFlavorReference // 当工作负载被分配时，这些区域就会被填满。
 }
 
 func (p *PodSetResources) SinglePodRequests() resources.Requests {
@@ -193,7 +153,7 @@ type TopologyRequest struct {
 type TopologyDomainRequests struct {
 	Values            []string
 	SinglePodRequests resources.Requests
-	// Count indicates how many pods are requested in this TopologyDomain.
+	// Count 表示此 TopologyDomain 中请求的 pod 数量。
 	Count int32
 }
 
@@ -201,52 +161,11 @@ func (t *TopologyDomainRequests) TotalRequests() resources.Requests {
 	return t.SinglePodRequests.ScaledUp(int64(t.Count))
 }
 
-func (p *PodSetResources) ScaledTo(newCount int32) *PodSetResources {
-	if p.TopologyRequest != nil {
-		return p
-	}
-	ret := &PodSetResources{
-		Name:     p.Name,
-		Requests: maps.Clone(p.Requests),
-		Count:    p.Count,
-		Flavors:  maps.Clone(p.Flavors),
-	}
-
-	if p.Count != 0 && p.Count != newCount {
-		ret.Requests.Divide(int64(ret.Count))
-		ret.Requests.Mul(int64(newCount))
-		ret.Count = newCount
-	}
-	return ret
-}
-
-func NewInfo(w *kueue.Workload, opts ...InfoOption) *Info {
-	options := defaultOptions
-	for _, opt := range opts {
-		opt(&options)
-	}
-	info := &Info{
-		Obj: w,
-	}
-	if w.Status.Admission != nil {
-		info.ClusterQueue = w.Status.Admission.ClusterQueue
-		info.TotalRequests = totalRequestsFromAdmission(w)
-	} else {
-		info.TotalRequests = totalRequestsFromPodSets(w, &options)
-	}
-	return info
-}
-
 func (i *Info) Update(wl *kueue.Workload) {
 	i.Obj = wl
 }
 
-func (i *Info) CanBePartiallyAdmitted() bool {
-	return CanBePartiallyAdmitted(i.Obj)
-}
-
-// Usage returns the total resource usage for the workload, including regular
-// quota and TAS usage.
+// Usage 返回工作负载的总资源使用量，包括常规配额和 TAS 使用量。
 func (i *Info) Usage() Usage {
 	return Usage{
 		Quota: i.FlavorResourceUsage(),
@@ -254,8 +173,8 @@ func (i *Info) Usage() Usage {
 	}
 }
 
-// FlavorResourceUsage returns the total resource usage for the workload,
-// per flavor (if assigned, otherwise flavor shows as empty string), per resource.
+// FlavorResourceUsage 返回工作负载的总资源使用量，
+// 每种 flavor（如果已分配，否则 flavor 显示为空字符串），每种资源。
 func (i *Info) FlavorResourceUsage() resources.FlavorResourceQuantities {
 	total := make(resources.FlavorResourceQuantities)
 	if i == nil {
@@ -268,23 +187,6 @@ func (i *Info) FlavorResourceUsage() resources.FlavorResourceQuantities {
 		}
 	}
 	return total
-}
-
-func dropExcludedResources(input corev1.ResourceList, excludedPrefixes []string) corev1.ResourceList {
-	res := corev1.ResourceList{}
-	for inputName, inputQuantity := range input {
-		exclude := false
-		for _, excludedPrefix := range excludedPrefixes {
-			if strings.HasPrefix(string(inputName), excludedPrefix) {
-				exclude = true
-				break
-			}
-		}
-		if !exclude {
-			res[inputName] = inputQuantity
-		}
-	}
-	return res
 }
 
 func (i *Info) LocalQueueUsage(ctx context.Context, c client.Client, resWeights map[corev1.ResourceName]float64) (float64, error) {
@@ -302,13 +204,13 @@ func (i *Info) LocalQueueUsage(ctx context.Context, c client.Client, resWeights 
 		usage += weight * resVal.AsApproximateFloat64()
 	}
 	if lq.Spec.FairSharing != nil && lq.Spec.FairSharing.Weight != nil {
-		// if no weight for lq was defined, use default weight of 1
+		// 如果没有定义 lq 的权重，则使用默认权重 1
 		usage /= lq.Spec.FairSharing.Weight.AsApproximateFloat64()
 	}
 	return usage, nil
 }
 
-// IsUsingTAS returns information if the workload is using TAS
+// IsUsingTAS 返回工作负载是否使用 TAS
 func (i *Info) IsUsingTAS() bool {
 	return slices.ContainsFunc(i.TotalRequests,
 		func(ps PodSetResources) bool {
@@ -316,15 +218,7 @@ func (i *Info) IsUsingTAS() bool {
 		})
 }
 
-// IsRequestingTAS returns information if the workload is requesting TAS
-func (i *Info) IsRequestingTAS() bool {
-	return slices.ContainsFunc(i.Obj.Spec.PodSets,
-		func(ps kueue.PodSet) bool {
-			return ps.TopologyRequest != nil
-		})
-}
-
-// TASUsage returns topology usage requested by the Workload
+// TASUsage 返回工作负载请求的拓扑使用量
 func (i *Info) TASUsage() TASUsage {
 	if !features.Enabled(features.TopologyAwareScheduling) || !i.IsUsingTAS() {
 		return nil
@@ -344,73 +238,8 @@ func (i *Info) TASUsage() TASUsage {
 	return result
 }
 
-func applyResourceTransformations(input corev1.ResourceList, transforms map[corev1.ResourceName]*config.ResourceTransformation) corev1.ResourceList {
-	match := false
-	for resourceName := range input {
-		if _, ok := transforms[resourceName]; ok {
-			match = true
-			break
-		}
-	}
-	if !match {
-		return input
-	}
-	output := make(corev1.ResourceList)
-	for inputName, inputQuantity := range input {
-		if mapping, ok := transforms[inputName]; ok {
-			for outputName, baseFactor := range mapping.Outputs {
-				outputQuantity := baseFactor.DeepCopy()
-				outputQuantity.Mul(inputQuantity.Value())
-				if accumulated, ok := output[outputName]; ok {
-					outputQuantity.Add(accumulated)
-				}
-				output[outputName] = outputQuantity
-			}
-			if ptr.Deref(mapping.Strategy, config.Retain) == config.Retain {
-				output[inputName] = inputQuantity
-			}
-		} else {
-			output[inputName] = inputQuantity
-		}
-	}
-	return output
-}
-
-func CanBePartiallyAdmitted(wl *kueue.Workload) bool {
-	ps := wl.Spec.PodSets
-	for psi := range ps {
-		if ps[psi].Count > ptr.Deref(ps[psi].MinCount, ps[psi].Count) {
-			return true
-		}
-	}
-	return false
-}
-
 func Key(w *kueue.Workload) string {
 	return fmt.Sprintf("%s/%s", w.Namespace, w.Name)
-}
-
-func reclaimableCounts(wl *kueue.Workload) map[kueue.PodSetReference]int32 {
-	return utilslices.ToMap(wl.Status.ReclaimablePods, func(i int) (kueue.PodSetReference, int32) {
-		return wl.Status.ReclaimablePods[i].Name, wl.Status.ReclaimablePods[i].Count
-	})
-}
-
-func podSetsCounts(wl *kueue.Workload) map[kueue.PodSetReference]int32 {
-	return utilslices.ToMap(wl.Spec.PodSets, func(i int) (kueue.PodSetReference, int32) {
-		return wl.Spec.PodSets[i].Name, wl.Spec.PodSets[i].Count
-	})
-}
-
-func podSetsCountsAfterReclaim(wl *kueue.Workload) map[kueue.PodSetReference]int32 {
-	totalCounts := podSetsCounts(wl)
-	reclaimCounts := reclaimableCounts(wl)
-	for podSetName := range totalCounts {
-		if rc, found := reclaimCounts[podSetName]; found {
-			totalCounts[podSetName] -= rc
-		}
-	}
-	return totalCounts
 }
 
 func PodSetNameToTopologyRequest(wl *kueue.Workload) map[kueue.PodSetReference]*kueue.PodSetTopologyRequest {
@@ -419,76 +248,8 @@ func PodSetNameToTopologyRequest(wl *kueue.Workload) map[kueue.PodSetReference]*
 	})
 }
 
-func totalRequestsFromPodSets(wl *kueue.Workload, info *InfoOptions) []PodSetResources {
-	if len(wl.Spec.PodSets) == 0 {
-		return nil
-	}
-	res := make([]PodSetResources, 0, len(wl.Spec.PodSets))
-	currentCounts := podSetsCountsAfterReclaim(wl)
-	for _, ps := range wl.Spec.PodSets {
-		count := currentCounts[ps.Name]
-		setRes := PodSetResources{
-			Name:  ps.Name,
-			Count: count,
-		}
-		specRequests := resourcehelpers.PodRequests(&corev1.Pod{Spec: ps.Template.Spec}, resourcehelpers.PodResourcesOptions{})
-		effectiveRequests := dropExcludedResources(specRequests, info.excludedResourcePrefixes)
-		if features.Enabled(features.ConfigurableResourceTransformations) {
-			effectiveRequests = applyResourceTransformations(effectiveRequests, info.resourceTransformations)
-		}
-		setRes.Requests = resources.NewRequests(effectiveRequests)
-		setRes.Requests.Mul(int64(count))
-		res = append(res, setRes)
-	}
-	return res
-}
-
-func totalRequestsFromAdmission(wl *kueue.Workload) []PodSetResources {
-	if wl.Status.Admission == nil {
-		return nil
-	}
-	res := make([]PodSetResources, 0, len(wl.Spec.PodSets))
-	currentCounts := podSetsCountsAfterReclaim(wl)
-	totalCounts := podSetsCounts(wl)
-	for _, psa := range wl.Status.Admission.PodSetAssignments {
-		setRes := PodSetResources{
-			Name:     psa.Name,
-			Flavors:  psa.Flavors,
-			Count:    ptr.Deref(psa.Count, totalCounts[psa.Name]),
-			Requests: resources.NewRequests(psa.ResourceUsage),
-		}
-		if features.Enabled(features.TopologyAwareScheduling) && psa.TopologyAssignment != nil {
-			setRes.TopologyRequest = &TopologyRequest{
-				Levels: psa.TopologyAssignment.Levels,
-			}
-			for _, domain := range psa.TopologyAssignment.Domains {
-				setRes.TopologyRequest.DomainRequests = append(setRes.TopologyRequest.DomainRequests, TopologyDomainRequests{
-					Values:            domain.Values,
-					SinglePodRequests: setRes.SinglePodRequests(),
-					Count:             domain.Count,
-				})
-			}
-		}
-		if features.Enabled(features.TopologyAwareScheduling) && psa.DelayedTopologyRequest != nil {
-			setRes.DelayedTopologyRequest = ptr.To(*psa.DelayedTopologyRequest)
-		}
-
-		// If countAfterReclaim is lower then the admission count indicates that
-		// additional pods are marked as reclaimable, and the consumption should be scaled down.
-		if countAfterReclaim := currentCounts[psa.Name]; countAfterReclaim < setRes.Count {
-			setRes.Requests.Divide(int64(setRes.Count))
-			setRes.Requests.Mul(int64(countAfterReclaim))
-			setRes.Count = countAfterReclaim
-		}
-		// Otherwise if countAfterReclaim is higher it means that the podSet was partially admitted
-		// and the count should be preserved.
-		res = append(res, setRes)
-	}
-	return res
-}
-
-// UpdateStatus updates the condition of a workload with ssa,
-// fieldManager being set to managerPrefix + "-" + conditionType
+// UpdateStatus 更新工作负载的条件，
+// fieldManager 设置为 managerPrefix + "-" + conditionType
 func UpdateStatus(ctx context.Context,
 	c client.Client,
 	wl *kueue.Workload,
@@ -512,9 +273,9 @@ func UpdateStatus(ctx context.Context,
 	return c.Status().Patch(ctx, newWl, client.Apply, client.FieldOwner(managerPrefix+"-"+condition.Type))
 }
 
-// UnsetQuotaReservationWithCondition sets the QuotaReserved condition to false, clears
-// the admission and set the WorkloadRequeued status.
-// Returns whether any change was done.
+// UnsetQuotaReservationWithCondition 将 QuotaReserved 条件设置为 false，清除
+// 准入和设置 WorkloadRequeued 状态。
+// 返回是否进行了任何更改。
 func UnsetQuotaReservationWithCondition(wl *kueue.Workload, reason, message string, now time.Time) bool {
 	condition := metav1.Condition{
 		Type:               kueue.WorkloadQuotaReserved,
@@ -529,25 +290,25 @@ func UnsetQuotaReservationWithCondition(wl *kueue.Workload, reason, message stri
 		changed = true
 	}
 
-	// Reset the admitted condition if necessary.
+	// 如果需要，则重置已准入条件。
 	if SyncAdmittedCondition(wl, now) {
 		changed = true
 	}
 	return changed
 }
 
-// UpdateRequeueState calculate requeueAt time and update requeuingCount
+// UpdateRequeueState 计算 requeueAt 时间并更新 requeuingCount
 func UpdateRequeueState(wl *kueue.Workload, backoffBaseSeconds int32, backoffMaxSeconds int32, clock clock.Clock) {
 	if wl.Status.RequeueState == nil {
 		wl.Status.RequeueState = &kueue.RequeueState{}
 	}
 	requeuingCount := ptr.Deref(wl.Status.RequeueState.Count, 0) + 1
 
-	// Every backoff duration is about "60s*2^(n-1)+Rand" where:
-	// - "n" represents the "requeuingCount",
-	// - "Rand" represents the random jitter.
-	// During this time, the workload is taken as an inadmissible and other
-	// workloads will have a chance to be admitted.
+	// 每次回退持续时间大约为 "60s*2^(n-1)+Rand"，其中：
+	// - "n" 表示 "requeuingCount"，
+	// - "Rand" 表示随机抖动。
+	// 在此期间，工作负载被视为不可接纳，其他
+	// 工作负载将有资格被接纳。
 	backoff := &wait.Backoff{
 		Duration: time.Duration(backoffBaseSeconds) * time.Second,
 		Factor:   2,
@@ -563,7 +324,7 @@ func UpdateRequeueState(wl *kueue.Workload, backoffBaseSeconds int32, backoffMax
 	wl.Status.RequeueState.Count = &requeuingCount
 }
 
-// SetRequeuedCondition sets the WorkloadRequeued condition to true
+// SetRequeuedCondition 设置 WorkloadRequeued 条件为 true
 func SetRequeuedCondition(wl *kueue.Workload, reason, message string, status bool) {
 	condition := metav1.Condition{
 		Type:               kueue.WorkloadRequeued,
@@ -587,35 +348,11 @@ func QueuedWaitTime(wl *kueue.Workload, clock clock.Clock) time.Duration {
 	return clock.Since(queuedTime)
 }
 
-// BaseSSAWorkload creates a new object based on the input workload that
-// only contains the fields necessary to identify the original object.
-// The object can be used in as a base for Server-Side-Apply.
-func BaseSSAWorkload(w *kueue.Workload) *kueue.Workload {
-	wlCopy := &kueue.Workload{
-		ObjectMeta: metav1.ObjectMeta{
-			UID:         w.UID,
-			Name:        w.Name,
-			Namespace:   w.Namespace,
-			Generation:  w.Generation, // Produce a conflict if there was a change in the spec.
-			Annotations: maps.Clone(w.Annotations),
-			Labels:      maps.Clone(w.Labels),
-		},
-		TypeMeta: w.TypeMeta,
-	}
-	if wlCopy.APIVersion == "" {
-		wlCopy.APIVersion = kueue.GroupVersion.String()
-	}
-	if wlCopy.Kind == "" {
-		wlCopy.Kind = "Workload"
-	}
-	return wlCopy
-}
-
-// SetQuotaReservation applies the provided admission to the workload.
-// The WorkloadAdmitted and WorkloadEvicted are added or updated if necessary.
+// SetQuotaReservation 将提供的准入应用于工作负载。
+// WorkloadAdmitted 和 WorkloadEvicted 根据需要添加或更新。
 func SetQuotaReservation(w *kueue.Workload, admission *kueue.Admission, clock clock.Clock) {
 	w.Status.Admission = admission
-	message := fmt.Sprintf("Quota reserved in ClusterQueue %s", w.Status.Admission.ClusterQueue)
+	message := fmt.Sprintf("ClusterQueue %s 中配额已保留", w.Status.Admission.ClusterQueue)
 	admittedCond := metav1.Condition{
 		Type:               kueue.WorkloadQuotaReserved,
 		Status:             metav1.ConditionTrue,
@@ -625,14 +362,14 @@ func SetQuotaReservation(w *kueue.Workload, admission *kueue.Admission, clock cl
 	}
 	apimeta.SetStatusCondition(&w.Status.Conditions, admittedCond)
 
-	// reset Evicted condition if present.
+	// 重置 Evicted 条件（如果存在）。
 	if evictedCond := apimeta.FindStatusCondition(w.Status.Conditions, kueue.WorkloadEvicted); evictedCond != nil {
 		evictedCond.Status = metav1.ConditionFalse
 		evictedCond.Reason = "QuotaReserved"
 		evictedCond.Message = api.TruncateConditionMessage("Previously: " + evictedCond.Message)
 		evictedCond.LastTransitionTime = metav1.NewTime(clock.Now())
 	}
-	// reset Preempted condition if present.
+	// 重置 Preempted 条件（如果存在）。
 	if preemptedCond := apimeta.FindStatusCondition(w.Status.Conditions, kueue.WorkloadPreempted); preemptedCond != nil {
 		preemptedCond.Status = metav1.ConditionFalse
 		preemptedCond.Reason = "QuotaReserved"
@@ -641,8 +378,7 @@ func SetQuotaReservation(w *kueue.Workload, admission *kueue.Admission, clock cl
 	}
 }
 
-// NeedsSecondPass checks if the second pass of scheduling is needed for the
-// workload.
+// NeedsSecondPass 检查是否需要工作负载的第二次调度。
 func NeedsSecondPass(w *kueue.Workload) bool {
 	if IsFinished(w) || IsEvicted(w) || !HasQuotaReservation(w) {
 		return false
@@ -661,8 +397,8 @@ func needsSecondPassAfterNodeFailure(w *kueue.Workload) bool {
 	return HasTopologyAssignmentWithNodeToReplace(w)
 }
 
-// HasTopologyAssignmentsPending checks if the workload contains any
-// PodSetAssignment with the DelayedTopologyRequest=Pending.
+// HasTopologyAssignmentsPending 检查工作负载是否包含任何
+// PodSetAssignment 具有 DelayedTopologyRequest=Pending。
 func HasTopologyAssignmentsPending(w *kueue.Workload) bool {
 	if w.Status.Admission == nil {
 		return false
@@ -708,8 +444,8 @@ func SetEvictedCondition(w *kueue.Workload, reason string, message string) {
 	apimeta.SetStatusCondition(&w.Status.Conditions, condition)
 }
 
-// PropagateResourceRequests synchronizes w.Status.ResourceRequests to
-// with info.TotalRequests if the feature gate is enabled and returns true if w was updated
+// PropagateResourceRequests 同步 w.Status.ResourceRequests 到
+// 如果启用了功能门，则与 info.TotalRequests 匹配，并返回 true 如果 w 已更新
 func PropagateResourceRequests(w *kueue.Workload, info *Info) bool {
 	if len(w.Status.ResourceRequests) == len(info.TotalRequests) {
 		match := true
@@ -734,72 +470,12 @@ func PropagateResourceRequests(w *kueue.Workload, info *Info) bool {
 	return true
 }
 
-// AdmissionStatusPatch creates a new object based on the input workload that contains
-// the admission and related conditions. The object can be used in Server-Side-Apply.
-// If strict is true, resourceVersion will be part of the patch.
-func AdmissionStatusPatch(w *kueue.Workload, wlCopy *kueue.Workload, strict bool) {
-	wlCopy.Status.Admission = w.Status.Admission.DeepCopy()
-	wlCopy.Status.RequeueState = w.Status.RequeueState.DeepCopy()
-	if wlCopy.Status.Admission != nil {
-		// Clear ResourceRequests; Assignment.PodSetAssignment[].ResourceUsage supercedes it
-		wlCopy.Status.ResourceRequests = []kueue.PodSetRequest{}
-	} else {
-		for _, rr := range w.Status.ResourceRequests {
-			wlCopy.Status.ResourceRequests = append(wlCopy.Status.ResourceRequests, *rr.DeepCopy())
-		}
-	}
-	for _, conditionName := range admissionManagedConditions {
-		if existing := apimeta.FindStatusCondition(w.Status.Conditions, conditionName); existing != nil {
-			wlCopy.Status.Conditions = append(wlCopy.Status.Conditions, *existing.DeepCopy())
-		}
-	}
-	if strict {
-		wlCopy.ResourceVersion = w.ResourceVersion
-	}
-	wlCopy.Status.AccumulatedPastExexcutionTimeSeconds = w.Status.AccumulatedPastExexcutionTimeSeconds
-	if w.Status.SchedulingStats != nil {
-		if wlCopy.Status.SchedulingStats == nil {
-			wlCopy.Status.SchedulingStats = &kueue.SchedulingStats{}
-		}
-		wlCopy.Status.SchedulingStats.Evictions = append(wlCopy.Status.SchedulingStats.Evictions, w.Status.SchedulingStats.Evictions...)
-	}
-}
-
-func AdmissionChecksStatusPatch(w *kueue.Workload, wlCopy *kueue.Workload, c clock.Clock) {
-	if wlCopy.Status.AdmissionChecks == nil && w.Status.AdmissionChecks != nil {
-		wlCopy.Status.AdmissionChecks = make([]kueue.AdmissionCheckState, 0)
-	}
-	for _, ac := range w.Status.AdmissionChecks {
-		SetAdmissionCheckState(&wlCopy.Status.AdmissionChecks, ac, c)
-	}
-}
-
-// ApplyAdmissionStatus updated all the admission related status fields of a workload with SSA.
-// If strict is true, resourceVersion will be part of the patch, make this call fail if Workload
-// was changed.
-func ApplyAdmissionStatus(ctx context.Context, c client.Client, w *kueue.Workload, strict bool, clk clock.Clock) error {
-	wlCopy := PrepareWorkloadPatch(w, strict, clk)
-	return ApplyAdmissionStatusPatch(ctx, c, wlCopy)
-}
-
-func PrepareWorkloadPatch(w *kueue.Workload, strict bool, clk clock.Clock) *kueue.Workload {
-	wlCopy := BaseSSAWorkload(w)
-	AdmissionStatusPatch(w, wlCopy, strict)
-	AdmissionChecksStatusPatch(w, wlCopy, clk)
-	return wlCopy
-}
-
-// ApplyAdmissionStatusPatch applies the patch of admission related status fields of a workload with SSA.
-func ApplyAdmissionStatusPatch(ctx context.Context, c client.Client, patch *kueue.Workload) error {
-	return c.Status().Patch(ctx, patch, client.Apply, client.FieldOwner(constants.AdmissionName), client.ForceOwnership)
-}
-
 type Ordering struct {
 	PodsReadyRequeuingTimestamp config.RequeuingTimestamp
 }
 
-// GetQueueOrderTimestamp return the timestamp to be used by the scheduler. It could
-// be the workload creation time or the last time a PodsReady timeout has occurred.
+// GetQueueOrderTimestamp 返回调度器使用的时戳。它可以是
+// 工作负载创建时间或最后一次 PodsReady 超时发生的时间。
 func (o Ordering) GetQueueOrderTimestamp(w *kueue.Workload) *metav1.Time {
 	if o.PodsReadyRequeuingTimestamp == config.EvictionTimestamp {
 		if evictedCond, evictedByTimeout := IsEvictedByPodsReadyTimeout(w); evictedByTimeout {
@@ -813,28 +489,15 @@ func (o Ordering) GetQueueOrderTimestamp(w *kueue.Workload) *metav1.Time {
 		if preemptedCond := apimeta.FindStatusCondition(w.Status.Conditions, kueue.WorkloadPreempted); preemptedCond != nil &&
 			preemptedCond.Status == metav1.ConditionTrue &&
 			preemptedCond.Reason == kueue.InCohortReclaimWhileBorrowingReason {
-			// We add an epsilon to make sure the timestamp of the preempted
-			// workload is strictly greater that the preemptor's
+			// 我们添加一个 epsilon 以确保抢占的工作负载的时戳严格大于抢占者的
 			return &metav1.Time{Time: preemptedCond.LastTransitionTime.Add(time.Millisecond)}
 		}
 	}
 	return &w.CreationTimestamp
 }
 
-// HasQuotaReservation checks if workload is admitted based on conditions
-func HasQuotaReservation(w *kueue.Workload) bool {
-	return apimeta.IsStatusConditionTrue(w.Status.Conditions, kueue.WorkloadQuotaReserved)
-}
-
-// UpdateReclaimablePods updates the ReclaimablePods list for the workload with SSA.
-func UpdateReclaimablePods(ctx context.Context, c client.Client, w *kueue.Workload, reclaimablePods []kueue.ReclaimablePod) error {
-	patch := BaseSSAWorkload(w)
-	patch.Status.ReclaimablePods = reclaimablePods
-	return c.Status().Patch(ctx, patch, client.Apply, client.FieldOwner(constants.ReclaimablePodsMgr))
-}
-
-// ReclaimablePodsAreEqual checks if two Reclaimable pods are semantically equal
-// having the same length and all keys have the same value.
+// ReclaimablePodsAreEqual 检查两个 Reclaimable pods 是否语义相等
+// 具有相同的长度和所有键的值都相同。
 func ReclaimablePodsAreEqual(a, b []kueue.ReclaimablePod) bool {
 	if len(a) != len(b) {
 		return false
@@ -844,28 +507,17 @@ func ReclaimablePodsAreEqual(a, b []kueue.ReclaimablePod) bool {
 	return maps.Equal(ma, mb)
 }
 
-// IsAdmitted returns true if the workload is admitted.
-func IsAdmitted(w *kueue.Workload) bool {
-	return apimeta.IsStatusConditionTrue(w.Status.Conditions, kueue.WorkloadAdmitted)
-}
-
-// IsFinished returns true if the workload is finished.
+// IsFinished 返回工作负载是否已完成。
 func IsFinished(w *kueue.Workload) bool {
 	return apimeta.IsStatusConditionTrue(w.Status.Conditions, kueue.WorkloadFinished)
 }
 
-// IsActive returns true if the workload is active.
+// IsActive 返回工作负载是否活跃。
 func IsActive(w *kueue.Workload) bool {
 	return ptr.Deref(w.Spec.Active, true)
 }
 
-// IsEvictedByDeactivation returns true if the workload is evicted by deactivation.
-func IsEvictedByDeactivation(w *kueue.Workload) bool {
-	cond := apimeta.FindStatusCondition(w.Status.Conditions, kueue.WorkloadEvicted)
-	return cond != nil && cond.Status == metav1.ConditionTrue && strings.HasPrefix(cond.Reason, kueue.WorkloadDeactivated)
-}
-
-// IsEvictedDueToDeactivationByKueue returns true if the workload is evicted by deactivation by kueue.
+// IsEvictedDueToDeactivationByKueue 返回工作负载是否因 kueue 驱逐而驱逐。
 func IsEvictedDueToDeactivationByKueue(w *kueue.Workload) bool {
 	cond := apimeta.FindStatusCondition(w.Status.Conditions, kueue.WorkloadEvicted)
 	return cond != nil && cond.Status == metav1.ConditionTrue &&
@@ -892,8 +544,8 @@ func IsEvicted(w *kueue.Workload) bool {
 	return apimeta.IsStatusConditionPresentAndEqual(w.Status.Conditions, kueue.WorkloadEvicted, metav1.ConditionTrue)
 }
 
-// HasConditionWithTypeAndReason checks if there is a condition in Workload's status
-// with exactly the same Type, Status and Reason
+// HasConditionWithTypeAndReason 检查工作负载状态中是否存在
+// 具有完全相同的 Type、Status 和 Reason 的条件。
 func HasConditionWithTypeAndReason(w *kueue.Workload, cond *metav1.Condition) bool {
 	for _, statusCond := range w.Status.Conditions {
 		if statusCond.Type == cond.Type && statusCond.Reason == cond.Reason &&
@@ -913,25 +565,6 @@ func HasNodeToReplace(w *kueue.Workload) bool {
 	return found
 }
 
-func HasTopologyAssignmentWithNodeToReplace(w *kueue.Workload) bool {
-	if !HasNodeToReplace(w) || !IsAdmitted(w) {
-		return false
-	}
-	annotations := w.GetAnnotations()
-	failedNode := annotations[kueuealpha.NodeToReplaceAnnotation]
-	for _, psa := range w.Status.Admission.PodSetAssignments {
-		if psa.TopologyAssignment == nil {
-			continue
-		}
-		for _, domain := range psa.TopologyAssignment.Domains {
-			if domain.Values[len(domain.Values)-1] == failedNode {
-				return true
-			}
-		}
-	}
-	return false
-}
-
 func CreatePodsReadyCondition(status metav1.ConditionStatus, reason, message string, clock clock.Clock) metav1.Condition {
 	return metav1.Condition{
 		Type:               kueue.WorkloadPodsReady,
@@ -939,7 +572,7 @@ func CreatePodsReadyCondition(status metav1.ConditionStatus, reason, message str
 		Reason:             reason,
 		Message:            message,
 		LastTransitionTime: metav1.NewTime(clock.Now()),
-		// ObservedGeneration is added via workload.UpdateStatus
+		// ObservedGeneration 通过 workload.UpdateStatus 添加
 	}
 }
 
@@ -948,52 +581,6 @@ func RemoveFinalizer(ctx context.Context, c client.Client, wl *kueue.Workload) e
 		return c.Update(ctx, wl)
 	}
 	return nil
-}
-
-// AdmissionChecksForWorkload returns AdmissionChecks that should be assigned to a specific Workload based on
-// ClusterQueue configuration and ResourceFlavors
-func AdmissionChecksForWorkload(log logr.Logger, wl *kueue.Workload, admissionChecks map[kueue.AdmissionCheckReference]sets.Set[kueue.ResourceFlavorReference]) sets.Set[kueue.AdmissionCheckReference] {
-	// If all admissionChecks should be run for all flavors we don't need to wait for Workload's Admission to be set.
-	// This is also the case if admissionChecks are specified with ClusterQueue.Spec.AdmissionChecks instead of
-	// ClusterQueue.Spec.AdmissionCheckStrategy
-	allFlavors := true
-	for _, flavors := range admissionChecks {
-		if len(flavors) != 0 {
-			allFlavors = false
-		}
-	}
-	if allFlavors {
-		return sets.New(slices.Collect(maps.Keys(admissionChecks))...)
-	}
-
-	// Kueue sets AdmissionChecks first based on ClusterQueue configuration and at this point Workload has no
-	// ResourceFlavors assigned, so we cannot match AdmissionChecks to ResourceFlavor.
-	// After Quota is reserved, another reconciliation happens and we can match AdmissionChecks to ResourceFlavors
-	if wl.Status.Admission == nil {
-		log.V(2).Info("Workload has no Admission", "Workload", klog.KObj(wl))
-		return nil
-	}
-
-	var assignedFlavors []kueue.ResourceFlavorReference
-	for _, podSet := range wl.Status.Admission.PodSetAssignments {
-		for _, flavor := range podSet.Flavors {
-			assignedFlavors = append(assignedFlavors, flavor)
-		}
-	}
-
-	acNames := sets.New[kueue.AdmissionCheckReference]()
-	for acName, flavors := range admissionChecks {
-		if len(flavors) == 0 {
-			acNames.Insert(acName)
-			continue
-		}
-		for _, fName := range assignedFlavors {
-			if flavors.Has(fName) {
-				acNames.Insert(acName)
-			}
-		}
-	}
-	return acNames
 }
 
 func ReportEvictedWorkload(recorder record.EventRecorder, wl *kueue.Workload, cqName kueue.ClusterQueueReference, reason, message string) {
@@ -1054,4 +641,378 @@ func SetSchedulingStatsEviction(wl *kueue.Workload, newEvictionState kueue.Workl
 		return true
 	}
 	return false
+}
+
+// IsAdmitted 返回工作负载是否 准入。
+func IsAdmitted(w *kueue.Workload) bool {
+	return apimeta.IsStatusConditionTrue(w.Status.Conditions, kueue.WorkloadAdmitted)
+}
+
+// BaseSSAWorkload 会根据输入的工作负载创建一个新的对象，该对象仅包含识别原始对象所必需的字段。此对象可用于作为服务器端应用的基础。
+func BaseSSAWorkload(w *kueue.Workload) *kueue.Workload {
+	wlCopy := &kueue.Workload{
+		ObjectMeta: metav1.ObjectMeta{
+			UID:         w.UID,
+			Name:        w.Name,
+			Namespace:   w.Namespace,
+			Generation:  w.Generation, // 如果规范发生变化，则产生冲突。
+			Annotations: maps.Clone(w.Annotations),
+			Labels:      maps.Clone(w.Labels),
+		},
+		TypeMeta: w.TypeMeta,
+	}
+	if wlCopy.APIVersion == "" {
+		wlCopy.APIVersion = kueue.GroupVersion.String()
+	}
+	if wlCopy.Kind == "" {
+		wlCopy.Kind = "Workload"
+	}
+	return wlCopy
+}
+
+// UpdateReclaimablePods 使用 SSA 更新工作负载的 ReclaimablePods 列表。
+func UpdateReclaimablePods(ctx context.Context, c client.Client, w *kueue.Workload, reclaimablePods []kueue.ReclaimablePod) error {
+	patch := BaseSSAWorkload(w)
+	patch.Status.ReclaimablePods = reclaimablePods
+	return c.Status().Patch(ctx, patch, client.Apply, client.FieldOwner(constants.ReclaimablePodsMgr))
+}
+
+func NewInfo(w *kueue.Workload, opts ...InfoOption) *Info {
+	options := defaultOptions
+	for _, opt := range opts {
+		opt(&options)
+	}
+	info := &Info{
+		Obj: w,
+	}
+	if w.Status.Admission != nil {
+		info.ClusterQueue = w.Status.Admission.ClusterQueue
+		info.TotalRequests = totalRequestsFromAdmission(w) // ✅
+	} else {
+		info.TotalRequests = totalRequestsFromPodSets(w, &options) // ✅
+	}
+	return info
+}
+
+func totalRequestsFromPodSets(wl *kueue.Workload, info *InfoOptions) []PodSetResources {
+	if len(wl.Spec.PodSets) == 0 {
+		return nil
+	}
+	res := make([]PodSetResources, 0, len(wl.Spec.PodSets))
+	currentCounts := podSetsCountsAfterReclaim(wl) // ✅
+	for _, ps := range wl.Spec.PodSets {
+		count := currentCounts[ps.Name]
+		setRes := PodSetResources{
+			Name:  ps.Name,
+			Count: count,
+		}
+		specRequests := resourcehelpers.PodRequests(&corev1.Pod{Spec: ps.Template.Spec}, resourcehelpers.PodResourcesOptions{})
+		effectiveRequests := dropExcludedResources(specRequests, info.excludedResourcePrefixes) // 实际上的
+		if features.Enabled(features.ConfigurableResourceTransformations) {
+			effectiveRequests = applyResourceTransformations(effectiveRequests, info.resourceTransformations)
+		}
+		setRes.Requests = resources.NewRequests(effectiveRequests)
+		setRes.Requests.Mul(int64(count))
+		res = append(res, setRes)
+	}
+	return res
+}
+
+func podSetsCountsAfterReclaim(wl *kueue.Workload) map[kueue.PodSetReference]int32 {
+	totalCounts := podSetsCounts(wl)       // ✅
+	reclaimCounts := reclaimableCounts(wl) // ✅
+	for podSetName := range totalCounts {
+		if rc, found := reclaimCounts[podSetName]; found {
+			totalCounts[podSetName] -= rc
+		}
+	}
+	return totalCounts
+}
+func podSetsCounts(wl *kueue.Workload) map[kueue.PodSetReference]int32 {
+	return utilslices.ToMap(wl.Spec.PodSets, func(i int) (kueue.PodSetReference, int32) {
+		return wl.Spec.PodSets[i].Name, wl.Spec.PodSets[i].Count
+	})
+}
+func reclaimableCounts(wl *kueue.Workload) map[kueue.PodSetReference]int32 {
+	return utilslices.ToMap(wl.Status.ReclaimablePods, func(i int) (kueue.PodSetReference, int32) {
+		return wl.Status.ReclaimablePods[i].Name, wl.Status.ReclaimablePods[i].Count
+	})
+}
+
+func dropExcludedResources(input corev1.ResourceList, excludedPrefixes []string) corev1.ResourceList {
+	res := corev1.ResourceList{}
+	for inputName, inputQuantity := range input {
+		exclude := false
+		for _, excludedPrefix := range excludedPrefixes {
+			if strings.HasPrefix(string(inputName), excludedPrefix) {
+				exclude = true
+				break
+			}
+		}
+		if !exclude {
+			res[inputName] = inputQuantity
+		}
+	}
+	return res
+}
+
+func applyResourceTransformations(input corev1.ResourceList, transforms map[corev1.ResourceName]*config.ResourceTransformation) corev1.ResourceList {
+	match := false
+	for resourceName := range input {
+		if _, ok := transforms[resourceName]; ok {
+			match = true
+			break
+		}
+	}
+	if !match {
+		return input
+	}
+	output := make(corev1.ResourceList)
+	for inputName, inputQuantity := range input {
+		if mapping, ok := transforms[inputName]; ok {
+			for outputName, baseFactor := range mapping.Outputs {
+				outputQuantity := baseFactor.DeepCopy()
+				outputQuantity.Mul(inputQuantity.Value())
+				if accumulated, ok := output[outputName]; ok {
+					outputQuantity.Add(accumulated) // 这里也有规格的意思
+				}
+				output[outputName] = outputQuantity
+			}
+			if ptr.Deref(mapping.Strategy, config.Retain) == config.Retain {
+				output[inputName] = inputQuantity
+			}
+		} else {
+			output[inputName] = inputQuantity
+		}
+	}
+	return output
+}
+func totalRequestsFromAdmission(wl *kueue.Workload) []PodSetResources {
+	if wl.Status.Admission == nil {
+		return nil
+	}
+	res := make([]PodSetResources, 0, len(wl.Spec.PodSets))
+	currentCounts := podSetsCountsAfterReclaim(wl) // ✅
+	totalCounts := podSetsCounts(wl)
+	for _, psa := range wl.Status.Admission.PodSetAssignments {
+		setRes := PodSetResources{
+			Name:     psa.Name,
+			Flavors:  psa.Flavors,
+			Count:    ptr.Deref(psa.Count, totalCounts[psa.Name]),
+			Requests: resources.NewRequests(psa.ResourceUsage),
+		}
+		if features.Enabled(features.TopologyAwareScheduling) && psa.TopologyAssignment != nil {
+			setRes.TopologyRequest = &TopologyRequest{
+				Levels: psa.TopologyAssignment.Levels,
+			}
+			for _, domain := range psa.TopologyAssignment.Domains {
+				setRes.TopologyRequest.DomainRequests = append(setRes.TopologyRequest.DomainRequests, TopologyDomainRequests{
+					Values:            domain.Values,
+					SinglePodRequests: setRes.SinglePodRequests(),
+					Count:             domain.Count,
+				})
+			}
+		}
+		if features.Enabled(features.TopologyAwareScheduling) && psa.DelayedTopologyRequest != nil {
+			setRes.DelayedTopologyRequest = ptr.To(*psa.DelayedTopologyRequest)
+		}
+
+		// 如果 countAfterReclaim 低于 admission 计数，则表示
+		// 额外的 pod 被标记为可回收，消耗应向下缩放。
+		if countAfterReclaim := currentCounts[psa.Name]; countAfterReclaim < setRes.Count {
+			setRes.Requests.Divide(int64(setRes.Count))
+			setRes.Requests.Mul(int64(countAfterReclaim))
+			setRes.Count = countAfterReclaim
+		}
+		// 否则，如果 countAfterReclaim 更高，则表示 podSet 部分已准入
+		// 并且计数应保持不变。
+		res = append(res, setRes)
+	}
+	return res
+}
+
+// ScaledTo 按份数调整资源   副本数调整
+func (p *PodSetResources) ScaledTo(newCount int32) *PodSetResources {
+	if p.TopologyRequest != nil {
+		return p
+	}
+	ret := &PodSetResources{
+		Name:     p.Name,
+		Requests: maps.Clone(p.Requests),
+		Count:    p.Count,
+		Flavors:  maps.Clone(p.Flavors),
+	}
+
+	if p.Count != 0 && p.Count != newCount {
+		ret.Requests.Divide(int64(ret.Count))
+		ret.Requests.Mul(int64(newCount))
+		ret.Count = newCount
+	}
+	return ret
+}
+
+// NextFlavorToTryForPodSetResource 下一个要尝试的用于 PodSet 资源的 flavor
+func (s *AssignmentClusterQueueState) NextFlavorToTryForPodSetResource(ps int, res corev1.ResourceName) int {
+	if !features.Enabled(features.FlavorFungibility) {
+		return 0
+	}
+	if s == nil || ps >= len(s.LastTriedFlavorIdx) {
+		return 0
+	}
+	idx, ok := s.LastTriedFlavorIdx[ps][res]
+	if !ok {
+		return 0
+	}
+	return idx + 1
+}
+
+func (i *Info) CanBePartiallyAdmitted() bool {
+	return CanBePartiallyAdmitted(i.Obj) // ✅
+}
+
+func CanBePartiallyAdmitted(wl *kueue.Workload) bool {
+	ps := wl.Spec.PodSets
+	for psi := range ps {
+		if ps[psi].Count > ptr.Deref(ps[psi].MinCount, ps[psi].Count) {
+			return true
+		}
+	}
+	return false
+}
+
+// IsRequestingTAS 返回工作负载是否请求 TAS
+func (i *Info) IsRequestingTAS() bool {
+	return slices.ContainsFunc(i.Obj.Spec.PodSets,
+		func(ps kueue.PodSet) bool {
+			return ps.TopologyRequest != nil
+		})
+}
+
+func HasTopologyAssignmentWithNodeToReplace(w *kueue.Workload) bool {
+	if !HasNodeToReplace(w) || !IsAdmitted(w) {
+		return false
+	}
+	annotations := w.GetAnnotations()
+	failedNode := annotations[kueuealpha.NodeToReplaceAnnotation]
+	for _, psa := range w.Status.Admission.PodSetAssignments {
+		if psa.TopologyAssignment == nil {
+			continue
+		}
+		for _, domain := range psa.TopologyAssignment.Domains {
+			if domain.Values[len(domain.Values)-1] == failedNode {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// AdmissionChecksForWorkload 返回应分配给特定工作负载的 AdmissionChecks，
+// 基于 ClusterQueue 配置和 ResourceFlavors。
+func AdmissionChecksForWorkload(log logr.Logger, wl *kueue.Workload, admissionChecks map[kueue.AdmissionCheckReference]sets.Set[kueue.ResourceFlavorReference]) sets.Set[kueue.AdmissionCheckReference] {
+	// 如果所有 admissionChecks 都应针对所有 flavor 运行，则不需要等待 Workload 的 Admission 被设置。
+	// 这也是 admissionChecks 通过 ClusterQueue.Spec.AdmissionChecks 指定的情况，而不是
+	// ClusterQueue.Spec.AdmissionCheckStrategy
+	allFlavors := true
+	for _, flavors := range admissionChecks {
+		if len(flavors) != 0 {
+			allFlavors = false
+		}
+	}
+	if allFlavors {
+		return sets.New(slices.Collect(maps.Keys(admissionChecks))...)
+	}
+
+	// Kueue 首先根据 ClusterQueue 配置设置 AdmissionChecks，此时 Workload 没有
+	// 分配 ResourceFlavors，因此我们无法将 AdmissionChecks 与 ResourceFlavor 匹配。
+	// 在配额保留后，另一个重新协调发生，我们可以将 AdmissionChecks 与 ResourceFlavors 匹配
+	if wl.Status.Admission == nil {
+		log.V(2).Info("Workload has no Admission", "Workload", klog.KObj(wl))
+		return nil
+	}
+
+	var assignedFlavors []kueue.ResourceFlavorReference
+	for _, podSet := range wl.Status.Admission.PodSetAssignments {
+		for _, flavor := range podSet.Flavors {
+			assignedFlavors = append(assignedFlavors, flavor)
+		}
+	}
+
+	acNames := sets.New[kueue.AdmissionCheckReference]()
+	for acName, flavors := range admissionChecks {
+		if len(flavors) == 0 {
+			acNames.Insert(acName)
+			continue
+		}
+		for _, fName := range assignedFlavors {
+			if flavors.Has(fName) {
+				acNames.Insert(acName)
+			}
+		}
+	}
+	return acNames
+}
+
+// ApplyAdmissionStatus 使用 SSA 更新工作负载的所有准入相关状态字段。
+// 如果 strict 为 true，则资源版本将是补丁的一部分，如果 Workload
+// 已更改，则使此调用失败。
+func ApplyAdmissionStatus(ctx context.Context, c client.Client, w *kueue.Workload, strict bool, clk clock.Clock) error {
+	wlCopy := PrepareWorkloadPatch(w, strict, clk)
+	return ApplyAdmissionStatusPatch(ctx, c, wlCopy)
+}
+
+func PrepareWorkloadPatch(w *kueue.Workload, strict bool, clk clock.Clock) *kueue.Workload {
+	wlCopy := BaseSSAWorkload(w)
+	AdmissionStatusPatch(w, wlCopy, strict)
+	AdmissionChecksStatusPatch(w, wlCopy, clk)
+	return wlCopy
+}
+
+// AdmissionStatusPatch 创建一个基于输入工作负载的新对象，其中包含
+// 准入和相关条件。该对象可用于服务器端应用。
+// 如果 strict 为 true，则资源版本将是补丁的一部分。
+func AdmissionStatusPatch(w *kueue.Workload, wlCopy *kueue.Workload, strict bool) {
+	wlCopy.Status.Admission = w.Status.Admission.DeepCopy()
+	wlCopy.Status.RequeueState = w.Status.RequeueState.DeepCopy()
+	if wlCopy.Status.Admission != nil {
+		// 清除 ResourceRequests；Assignment.PodSetAssignment[].ResourceUsage 覆盖它
+		wlCopy.Status.ResourceRequests = []kueue.PodSetRequest{}
+	} else {
+		for _, rr := range w.Status.ResourceRequests {
+			wlCopy.Status.ResourceRequests = append(wlCopy.Status.ResourceRequests, *rr.DeepCopy())
+		}
+	}
+	for _, conditionName := range admissionManagedConditions {
+		if existing := apimeta.FindStatusCondition(w.Status.Conditions, conditionName); existing != nil {
+			wlCopy.Status.Conditions = append(wlCopy.Status.Conditions, *existing.DeepCopy())
+		}
+	}
+	if strict {
+		wlCopy.ResourceVersion = w.ResourceVersion
+	}
+	wlCopy.Status.AccumulatedPastExexcutionTimeSeconds = w.Status.AccumulatedPastExexcutionTimeSeconds
+	if w.Status.SchedulingStats != nil {
+		if wlCopy.Status.SchedulingStats == nil {
+			wlCopy.Status.SchedulingStats = &kueue.SchedulingStats{}
+		}
+		wlCopy.Status.SchedulingStats.Evictions = append(wlCopy.Status.SchedulingStats.Evictions, w.Status.SchedulingStats.Evictions...)
+	}
+}
+func AdmissionChecksStatusPatch(w *kueue.Workload, wlCopy *kueue.Workload, c clock.Clock) {
+	if wlCopy.Status.AdmissionChecks == nil && w.Status.AdmissionChecks != nil {
+		wlCopy.Status.AdmissionChecks = make([]kueue.AdmissionCheckState, 0)
+	}
+	for _, ac := range w.Status.AdmissionChecks {
+		SetAdmissionCheckState(&wlCopy.Status.AdmissionChecks, ac, c)
+	}
+}
+
+// ApplyAdmissionStatusPatch 应用工作负载准入相关状态字段的补丁，使用 SSA。
+func ApplyAdmissionStatusPatch(ctx context.Context, c client.Client, patch *kueue.Workload) error {
+	return c.Status().Patch(ctx, patch, client.Apply, client.FieldOwner(constants.AdmissionName), client.ForceOwnership)
+}
+
+// HasQuotaReservation 检查工作负载是否基于条件进行准入。
+func HasQuotaReservation(w *kueue.Workload) bool {
+	return apimeta.IsStatusConditionTrue(w.Status.Conditions, kueue.WorkloadQuotaReserved)
 }

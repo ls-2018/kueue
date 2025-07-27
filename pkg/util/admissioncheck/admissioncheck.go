@@ -1,19 +1,3 @@
-/*
-Copyright The Kubernetes Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package admissioncheck
 
 import (
@@ -70,23 +54,6 @@ func (ch *ConfigHelper[PtrT, T]) isValidConfigReference(ref *kueue.AdmissionChec
 	return refValidForGK(ref, ch.gk)
 }
 
-// ConfigByName - get the config identified by its name
-func (ch *ConfigHelper[PtrT, T]) ConfigByName(ctx context.Context, name string) (PtrT, error) {
-	configPtr := ch.newConfigPtr()
-	if err := ch.client.Get(ctx, types.NamespacedName{Name: name}, configPtr); err != nil {
-		return nil, err
-	}
-	return configPtr, nil
-}
-
-// ConfigFromRef - get the config identified by ref if valid.
-func (ch *ConfigHelper[PtrT, T]) ConfigFromRef(ctx context.Context, ref *kueue.AdmissionCheckParametersReference) (PtrT, error) {
-	if isValid, err := ch.isValidConfigReference(ref); !isValid {
-		return nil, err
-	}
-	return ch.ConfigByName(ctx, ref.Name)
-}
-
 // ConfigForAdmissionCheck - get the configuration of the admission check identified by its name if it uses the
 // helpers configuration type.
 func (ch *ConfigHelper[PtrT, T]) ConfigForAdmissionCheck(ctx context.Context, checkName kueue.AdmissionCheckReference) (PtrT, error) {
@@ -130,21 +97,6 @@ func IndexerByConfigFunction(controllerName string, gvk schema.GroupVersionKind)
 	}
 }
 
-// FilterForController - returns a list of check names controlled by ControllerName.
-func FilterForController(ctx context.Context, c client.Client, states []kueue.AdmissionCheckState, controllerName string) ([]kueue.AdmissionCheckReference, error) {
-	var retActive []kueue.AdmissionCheckReference
-	for _, state := range states {
-		ac := &kueue.AdmissionCheck{}
-
-		if err := c.Get(ctx, types.NamespacedName{Name: string(state.Name)}, ac); client.IgnoreNotFound(err) != nil {
-			return nil, err
-		} else if err == nil && ac.Spec.ControllerName == controllerName {
-			retActive = append(retActive, kueue.AdmissionCheckReference(ac.Name))
-		}
-	}
-	return retActive, nil
-}
-
 // FilterProvReqAnnotations returns annotations containing the Provisioning Request annotation prefix.
 func FilterProvReqAnnotations(annotations map[string]string) map[string]string {
 	res := make(map[string]string)
@@ -171,4 +123,34 @@ func NewAdmissionChecks(cq *kueue.ClusterQueue) map[kueue.AdmissionCheckReferenc
 		}
 	}
 	return checks
+}
+
+// ConfigFromRef - get the config identified by ref if valid.
+func (ch *ConfigHelper[PtrT, T]) ConfigFromRef(ctx context.Context, ref *kueue.AdmissionCheckParametersReference) (PtrT, error) {
+	if isValid, err := ch.isValidConfigReference(ref); !isValid {
+		return nil, err
+	}
+	return ch.ConfigByName(ctx, ref.Name)
+}
+
+// ConfigByName - get the config identified by its name
+func (ch *ConfigHelper[PtrT, T]) ConfigByName(ctx context.Context, name string) (PtrT, error) {
+	configPtr := ch.newConfigPtr()
+	if err := ch.client.Get(ctx, types.NamespacedName{Name: name}, configPtr); err != nil {
+		return nil, err
+	}
+	return configPtr, nil
+}
+func FilterForController(ctx context.Context, c client.Client, states []kueue.AdmissionCheckState, controllerName string) ([]kueue.AdmissionCheckReference, error) {
+	var retActive []kueue.AdmissionCheckReference
+	for _, state := range states {
+		ac := &kueue.AdmissionCheck{}
+
+		if err := c.Get(ctx, types.NamespacedName{Name: string(state.Name)}, ac); client.IgnoreNotFound(err) != nil {
+			return nil, err
+		} else if err == nil && ac.Spec.ControllerName == controllerName {
+			retActive = append(retActive, kueue.AdmissionCheckReference(ac.Name))
+		}
+	}
+	return retActive, nil
 }

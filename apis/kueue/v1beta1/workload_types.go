@@ -1,19 +1,3 @@
-/*
-Copyright The Kubernetes Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package v1beta1
 
 import (
@@ -23,13 +7,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// WorkloadSpec defines the desired state of Workload
+// WorkloadSpec 定义了 Workload 的期望状态
 // +kubebuilder:validation:XValidation:rule="has(self.priorityClassName) ? has(self.priority) : true", message="priority should not be nil when priorityClassName is set"
 type WorkloadSpec struct {
-	// podSets is a list of sets of homogeneous pods, each described by a Pod spec
-	// and a count.
-	// There must be at least one element and at most 8.
-	// podSets cannot be changed.
+	// podSets 是一组同质 Pod 的集合，每个由 Pod 规范和数量描述。
+	// 必须至少有一个元素，最多 8 个。
+	// podSets 不可更改。
 	//
 	// +listType=map
 	// +listMapKey=name
@@ -37,107 +20,92 @@ type WorkloadSpec struct {
 	// +kubebuilder:validation:MinItems=1
 	PodSets []PodSet `json:"podSets"`
 
-	// queueName is the name of the LocalQueue the Workload is associated with.
-	// queueName cannot be changed while .status.admission is not null.
+	// queueName 是 Workload 关联的 LocalQueue 的名称。
+	// 当 .status.admission 不为 null 时，queueName 不可更改。
 	QueueName LocalQueueName `json:"queueName,omitempty"`
 
-	// If specified, indicates the workload's priority.
-	// "system-node-critical" and "system-cluster-critical" are two special
-	// keywords which indicate the highest priorities with the former being
-	// the highest priority. Any other name must be defined by creating a
-	// PriorityClass object with that name. If not specified, the workload
-	// priority will be default or zero if there is no default.
+	// 如果指定，表示 workload 的优先级。
+	// "system-node-critical" 和 "system-cluster-critical" 是两个特殊关键字，分别表示最高优先级和次高优先级。
+	// 其他名称必须通过创建具有该名称的 PriorityClass 对象来定义。如果未指定，workload 的优先级将为默认值或零（如果没有默认值）。
 	// +kubebuilder:validation:MaxLength=253
 	// +kubebuilder:validation:Pattern="^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
 	PriorityClassName string `json:"priorityClassName,omitempty"`
 
-	// Priority determines the order of access to the resources managed by the
-	// ClusterQueue where the workload is queued.
-	// The priority value is populated from PriorityClassName.
-	// The higher the value, the higher the priority.
-	// If priorityClassName is specified, priority must not be null.
+	// Priority 决定了在 ClusterQueue 中访问资源的顺序。
+	// 优先级值由 PriorityClassName 填充。
+	// 值越高，优先级越高。
+	// 如果指定了 priorityClassName，则 priority 不能为空。
 	Priority *int32 `json:"priority,omitempty"`
 
-	// priorityClassSource determines whether the priorityClass field refers to a pod PriorityClass or kueue.x-k8s.io/workloadpriorityclass.
-	// Workload's PriorityClass can accept the name of a pod priorityClass or a workloadPriorityClass.
-	// When using pod PriorityClass, a priorityClassSource field has the scheduling.k8s.io/priorityclass value.
+	// priorityClassSource 决定 priorityClass 字段是指 pod PriorityClass 还是 kueue.x-k8s.io/workloadpriorityclass。
+	// Workload 的 PriorityClass 可以接受 pod priorityClass 或 workloadPriorityClass 的名称。
+	// 当使用 pod PriorityClass 时，priorityClassSource 字段值为 scheduling.k8s.io/priorityclass。
 	// +kubebuilder:default=""
 	// +kubebuilder:validation:Enum=kueue.x-k8s.io/workloadpriorityclass;scheduling.k8s.io/priorityclass;""
 	PriorityClassSource string `json:"priorityClassSource,omitempty"`
 
-	// Active determines if a workload can be admitted into a queue.
-	// Changing active from true to false will evict any running workloads.
-	// Possible values are:
+	// Active 决定 workload 是否可以被接纳到队列中。
+	// 将 active 从 true 改为 false 会驱逐所有正在运行的 workload。
+	// 可能的值：
 	//
-	//   - false: indicates that a workload should never be admitted and evicts running workloads
-	//   - true: indicates that a workload can be evaluated for admission into it's respective queue.
+	//   - false: 表示 workload 永远不会被接纳，并驱逐正在运行的 workload
+	//   - true: 表示 workload 可以被评估是否接纳到其所属队列。
 	//
-	// Defaults to true
+	// 默认为 true
 	// +kubebuilder:default=true
 	Active *bool `json:"active,omitempty"`
 
-	// maximumExecutionTimeSeconds if provided, determines the maximum time, in seconds,
-	// the workload can be admitted before it's automatically deactivated.
+	// maximumExecutionTimeSeconds 如果提供，表示 workload 被接纳后允许的最大执行时间（秒），超时后会自动被停用。
 	//
-	// If unspecified, no execution time limit is enforced on the Workload.
+	// 如果未指定，则不对 Workload 强制执行时间限制。
 	//
 	// +optional
 	// +kubebuilder:validation:Minimum=1
 	MaximumExecutionTimeSeconds *int32 `json:"maximumExecutionTimeSeconds,omitempty"`
 }
 
-// PodSetTopologyRequest defines the topology request for a PodSet.
+// PodSetTopologyRequest 定义了 PodSet 的拓扑请求。
 type PodSetTopologyRequest struct {
-	// required indicates the topology level required by the PodSet, as
-	// indicated by the `kueue.x-k8s.io/podset-required-topology` PodSet
-	// annotation.
+	// required 表示 PodSet 所需的拓扑级别，由 `kueue.x-k8s.io/podset-required-topology` PodSet 注解指示。
 	//
 	// +optional
 	Required *string `json:"required,omitempty"`
 
-	// preferred indicates the topology level preferred by the PodSet, as
-	// indicated by the `kueue.x-k8s.io/podset-preferred-topology` PodSet
-	// annotation.
+	// preferred 表示 PodSet 偏好的拓扑级别，由 `kueue.x-k8s.io/podset-preferred-topology` PodSet 注解指示。
 	//
 	// +optional
 	Preferred *string `json:"preferred,omitempty"`
 
-	// unconstrained indicates that Kueue has the freedom to schedule the PodSet within
-	// the entire available capacity, without constraints on the compactness of the placement.
-	// This is indicated by the `kueue.x-k8s.io/podset-unconstrained-topology` PodSet annotation.
+	// unconstrained 表示 Kueue 在完全可用容量内调度 PodSet 时没有约束，没有放置紧凑性的约束。
+	// 这由 `kueue.x-k8s.io/podset-unconstrained-topology` PodSet 注解指示。
 	//
 	// +optional
 	// +kubebuilder:validation:Type=boolean
 	Unconstrained *bool `json:"unconstrained,omitempty"`
 
-	// PodIndexLabel indicates the name of the label indexing the pods.
-	// For example, in the context of
-	// - kubernetes job this is: kubernetes.io/job-completion-index
-	// - JobSet: kubernetes.io/job-completion-index (inherited from Job)
-	// - Kubeflow: training.kubeflow.org/replica-index
+	// PodIndexLabel 表示 Pod 的索引标签名称。
+	// 例如，在 kubernetes job 中是：kubernetes.io/job-completion-index
 	PodIndexLabel *string `json:"podIndexLabel,omitempty"`
 
-	// SubGroupIndexLabel indicates the name of the label indexing the instances of replicated Jobs (groups)
-	// within a PodSet. For example, in the context of JobSet this is jobset.sigs.k8s.io/job-index.
+	// SubGroupIndexLabel 表示 PodSet 中复制的 Jobs（组）实例的索引标签名称。例如，在 JobSet 中是 jobset.sigs.k8s.io/job-index。
 	SubGroupIndexLabel *string `json:"subGroupIndexLabel,omitempty"`
 
-	// SubGroupIndexLabel indicates the count of replicated Jobs (groups) within a PodSet.
-	// For example, in the context of JobSet this value is read from jobset.sigs.k8s.io/replicatedjob-replicas.
+	// SubGroupIndexLabel 表示 PodSet 中复制的 Jobs（组）数量。例如，在 JobSet 中，此值从 jobset.sigs.k8s.io/replicatedjob-replicas 读取。
 	SubGroupCount *int32 `json:"subGroupCount,omitempty"`
 }
 
 type Admission struct {
-	// clusterQueue is the name of the ClusterQueue that admitted this workload.
+	// clusterQueue 是集群队列的名称，该集群队列接纳了此 workload。
 	ClusterQueue ClusterQueueReference `json:"clusterQueue"`
 
-	// PodSetAssignments hold the admission results for each of the .spec.podSets entries.
+	// PodSetAssignments 持有每个 .spec.podSets 条目对应的接纳结果。
 	// +listType=map
 	// +listMapKey=name
 	// +kubebuilder:validation:MaxItems=8
 	PodSetAssignments []PodSetAssignment `json:"podSetAssignments"`
 }
 
-// PodSetReference is the name of a PodSet.
+// PodSetReference 是 PodSet 的名称。
 // +kubebuilder:validation:MaxLength=63
 // +kubebuilder:validation:Pattern="^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
 type PodSetReference string
@@ -147,40 +115,35 @@ func NewPodSetReference(name string) PodSetReference {
 }
 
 type PodSetAssignment struct {
-	// Name is the name of the podSet. It should match one of the names in .spec.podSets.
+	// Name 是 podSet 的名称。它应该与 .spec.podSets 中的名称之一匹配。
 	// +kubebuilder:default=main
 	Name PodSetReference `json:"name"`
 
-	// Flavors are the flavors assigned to the workload for each resource.
+	// Flavors 是工作负载为每个资源分配的口味。
 	Flavors map[corev1.ResourceName]ResourceFlavorReference `json:"flavors,omitempty"`
 
-	// resourceUsage keeps track of the total resources all the pods in the podset need to run.
+	// resourceUsage 跟踪所有在 podSet 中运行的 Pod 所需的资源总量。
 	//
-	// Beside what is provided in podSet's specs, this calculation takes into account
-	// the LimitRange defaults and RuntimeClass overheads at the moment of admission.
-	// This field will not change in case of quota reclaim.
+	// 除了 podSet 规范中提供的内容外，此计算还考虑了接纳时的 LimitRange 默认值和 RuntimeClass 开销。
+	// 此字段在配额回收时不会改变。
 	ResourceUsage corev1.ResourceList `json:"resourceUsage,omitempty"`
 
-	// count is the number of pods taken into account at admission time.
-	// This field will not change in case of quota reclaim.
-	// Value could be missing for Workloads created before this field was added,
-	// in that case spec.podSets[*].count value will be used.
+	// count 是接纳时考虑的 Pod 数量。
+	// 此字段在配额回收时不会改变。
+	// 如果 Workload 创建于添加此字段之前，则此值可能缺失，在这种情况下，spec.podSets[*].count 值将用于。
 	//
 	// +optional
 	// +kubebuilder:validation:Minimum=0
 	Count *int32 `json:"count,omitempty"`
 
-	// topologyAssignment indicates the topology assignment divided into
-	// topology domains corresponding to the lowest level of the topology.
-	// The assignment specifies the number of Pods to be scheduled per topology
-	// domain and specifies the node selectors for each topology domain, in the
-	// following way: the node selector keys are specified by the levels field
-	// (same for all domains), and the corresponding node selector value is
-	// specified by the domains.values subfield. If the TopologySpec.Levels field contains
-	// "kubernetes.io/hostname" label, topologyAssignment will contain data only for
-	// this label, and omit higher levels in the topology
+	// topologyAssignment 表示拓扑分配，分为拓扑域，对应拓扑的最低级别。
+	// 分配指定每个拓扑域中要调度的 Pod 数量，并指定每个拓扑域的节点选择器，如下所示：
+	// 节点选择器键由 levels 字段指定（所有域都相同），
+	// 对应的节点选择器值由 domains.values 子字段指定。
+	// 如果 TopologySpec.Levels 字段包含 "kubernetes.io/hostname" 标签，
+	// topologyAssignment 将仅包含此标签的数据，并省略拓扑中的更高级别
 	//
-	// Example:
+	// 示例：
 	//
 	// topologyAssignment:
 	//   levels:
@@ -192,19 +155,17 @@ type PodSetAssignment struct {
 	//   - values: [block-1, rack-2]
 	//     count: 2
 	//
-	// Here:
-	// - 4 Pods are to be scheduled on nodes matching the node selector:
+	// 这里：
+	// - 4 个 Pod 要调度到匹配节点选择器的节点：
 	//   cloud.provider.com/topology-block: block-1
 	//   cloud.provider.com/topology-rack: rack-1
-	// - 2 Pods are to be scheduled on nodes matching the node selector:
+	// - 2 个 Pod 要调度到匹配节点选择器的节点：
 	//   cloud.provider.com/topology-block: block-1
 	//   cloud.provider.com/topology-rack: rack-2
 	//
-	// Example:
-	// Below there is an equivalent of the above example assuming, Topology
-	// object defines kubernetes.io/hostname as the lowest level in topology.
-	// Hence we omit higher level of topologies, since the hostname label
-	// is sufficient to explicitly identify a proper node.
+	// 示例：
+	// 下面是一个等效于上述示例的示例，假设 Topology 对象将 kubernetes.io/hostname 定义为拓扑的最低级别。
+	// 因此，我们省略了拓扑中的更高级别，因为主机名标签足以明确识别一个合适的节点。
 	//
 	// topologyAssignment:
 	//   levels:
@@ -218,33 +179,28 @@ type PodSetAssignment struct {
 	// +optional
 	TopologyAssignment *TopologyAssignment `json:"topologyAssignment,omitempty"`
 
-	// delayedTopologyRequest indicates the topology assignment is delayed.
-	// Topology assignment might be delayed in case there is ProvisioningRequest
-	// AdmissionCheck used.
-	// Kueue schedules the second pass of scheduling for each workload with at
-	// least one PodSet which has delayedTopologyRequest=true and without
-	// topologyAssignment.
+	// delayedTopologyRequest 表示拓扑请求被延迟。
+	// 当使用 ProvisioningRequest AdmissionCheck 时，拓扑分配可能会延迟。
+	// Kueue 对每个 workload 调度第二个调度周期，其中至少有一个 PodSet 具有 delayedTopologyRequest=true 且没有 topologyAssignment。
 	//
 	// +optional
 	DelayedTopologyRequest *DelayedTopologyRequestState `json:"delayedTopologyRequest,omitempty"`
 }
 
-// DelayedTopologyRequestState indicates the state of the delayed TopologyRequest.
+// DelayedTopologyRequestState 表示延迟拓扑请求的状态。
 // +enum
 type DelayedTopologyRequestState string
 
 const (
-	// This state indicates the delayed TopologyRequest is waiting for determining.
+	// 此状态表示延迟拓扑请求正在等待确定。
 	DelayedTopologyRequestStatePending DelayedTopologyRequestState = "Pending"
 
-	// This state indicates the delayed TopologyRequest is was requested and completed.
+	// 此状态表示延迟拓扑请求已请求并完成。
 	DelayedTopologyRequestStateReady DelayedTopologyRequestState = "Ready"
 )
 
 type TopologyAssignment struct {
-	// levels is an ordered list of keys denoting the levels of the assigned
-	// topology (i.e. node label keys), from the highest to the lowest level of
-	// the topology.
+	// levels 是拓扑分配中按顺序列出的键，表示拓扑级别（即节点标签键），从最高到最低。
 	//
 	// +required
 	// +listType=atomic
@@ -252,17 +208,15 @@ type TopologyAssignment struct {
 	// +kubebuilder:validation:MaxItems=8
 	Levels []string `json:"levels"`
 
-	// domains is a list of topology assignments split by topology domains at
-	// the lowest level of the topology.
+	// domains 是按拓扑域拆分的拓扑分配列表，对应拓扑的最低级别。
 	//
 	// +required
 	Domains []TopologyDomainAssignment `json:"domains"`
 }
 
 type TopologyDomainAssignment struct {
-	// values is an ordered list of node selector values describing a topology
-	// domain. The values correspond to the consecutive topology levels, from
-	// the highest to the lowest.
+	// values 是描述拓扑域的节点选择器值的有序列表。
+	// 值对应连续的拓扑级别，从最高到最低。
 	//
 	// +required
 	// +listType=atomic
@@ -270,8 +224,7 @@ type TopologyDomainAssignment struct {
 	// +kubebuilder:validation:MaxItems=8
 	Values []string `json:"values"`
 
-	// count indicates the number of Pods to be scheduled in the topology
-	// domain indicated by the values field.
+	// count 表示在值字段指示的拓扑域中要调度的 Pod 数量。
 	//
 	// +required
 	// +kubebuilder:validation:Minimum=1
@@ -280,72 +233,58 @@ type TopologyDomainAssignment struct {
 
 // +kubebuilder:validation:XValidation:rule="has(self.minCount) ? self.minCount <= self.count : true", message="minCount should be positive and less or equal to count"
 type PodSet struct {
-	// name is the PodSet name.
+	// name 是 PodSet 的名称。
 	// +kubebuilder:default=main
 	Name PodSetReference `json:"name,omitempty"`
 
-	// template is the Pod template.
+	// template 是 Pod 模板。
 	//
-	// The only allowed fields in template.metadata are labels and annotations.
+	// template.metadata 中仅允许标签和注解。
 	//
-	// If requests are omitted for a container or initContainer,
-	// they default to the limits if they are explicitly specified for the
-	// container or initContainer.
+	// 如果容器或 initContainer 的请求被省略，
+	// 它们默认为容器或 initContainer 的限制。
 	//
-	// During admission, the rules in nodeSelector and
-	// nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution that match
-	// the keys in the nodeLabels from the ResourceFlavors considered for this
-	// Workload are used to filter the ResourceFlavors that can be assigned to
-	// this podSet.
+	// 在接纳时，nodeSelector 和
+	// nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution 中与 ResourceFlavors 考虑的 nodeLabels 匹配的规则用于过滤可以分配给此 podSet 的 ResourceFlavors。
 	Template corev1.PodTemplateSpec `json:"template"`
 
-	// count is the number of pods for the spec.
+	// count 是规范中的 Pod 数量。
 	// +kubebuilder:default=1
 	// +kubebuilder:validation:Minimum=0
 	Count int32 `json:"count"`
 
-	// minCount is the minimum number of pods for the spec acceptable
-	// if the workload supports partial admission.
-	//
-	// If not provided, partial admission for the current PodSet is not
-	// enabled.
-	//
-	// Only one podSet within the workload can use this.
-	//
-	// This is an alpha field and requires enabling PartialAdmission feature gate.
+	// minCount 是规范中接受的 Pod 最小数量
+	// 如果工作负载支持部分接纳，则此值未提供。
+	// 只有工作负载中的一个 podSet 可以使用此值。
+	// 这是一个 alpha 字段，需要启用 PartialAdmission 功能门。
 	//
 	// +optional
 	// +kubebuilder:validation:Minimum=1
 	MinCount *int32 `json:"minCount,omitempty"`
 
-	// topologyRequest defines the topology request for the PodSet.
+	// topologyRequest 定义了 PodSet 的拓扑请求。
 	//
 	// +optional
 	TopologyRequest *PodSetTopologyRequest `json:"topologyRequest,omitempty"`
 }
 
-// WorkloadStatus defines the observed state of Workload
+// WorkloadStatus 定义了 Workload 的观察状态
 type WorkloadStatus struct {
-	// admission holds the parameters of the admission of the workload by a
-	// ClusterQueue. admission can be set back to null, but its fields cannot be
-	// changed once set.
+	// admission 持有工作负载被集群队列接纳的参数。admission 可以设置为 null，但一旦设置，其字段不可更改。
 	Admission *Admission `json:"admission,omitempty"`
 
-	// requeueState holds the re-queue state
-	// when a workload meets Eviction with PodsReadyTimeout reason.
+	// requeueState 持有工作负载在 PodsReadyTimeout 原因下被驱逐时的重队列状态。
 	//
 	// +optional
 	RequeueState *RequeueState `json:"requeueState,omitempty"`
 
-	// conditions hold the latest available observations of the Workload
-	// current state.
+	// conditions 持有工作负载的最新可用观察结果。
 	//
-	// The type of the condition could be:
+	// 条件的类型可以是：
 	//
-	// - Admitted: the Workload was admitted through a ClusterQueue.
-	// - Finished: the associated workload finished running (failed or succeeded).
-	// - PodsReady: at least `.spec.podSets[*].count` Pods are ready or have
-	// succeeded.
+	// - Admitted: 工作负载通过集群队列被接纳。
+	// - Finished: 关联的工作负载运行完成（失败或成功）。
+	// - PodsReady: 至少 `.spec.podSets[*].count` Pods 已就绪或成功。
 	//
 	// +optional
 	// +listType=map
@@ -354,15 +293,14 @@ type WorkloadStatus struct {
 	// +patchMergeKey=type
 	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type"`
 
-	// reclaimablePods keeps track of the number pods within a podset for which
-	// the resource reservation is no longer needed.
+	// reclaimablePods 跟踪需要资源预留的 Pod 数量。
 	// +optional
 	// +listType=map
 	// +listMapKey=name
 	// +kubebuilder:validation:MaxItems=8
 	ReclaimablePods []ReclaimablePod `json:"reclaimablePods,omitempty"`
 
-	// admissionChecks list all the admission checks required by the workload and the current status
+	// admissionChecks 列出工作负载所需的所有接纳检查及其当前状态
 	// +optional
 	// +listType=map
 	// +listMapKey=name
@@ -371,10 +309,8 @@ type WorkloadStatus struct {
 	// +kubebuilder:validation:MaxItems=8
 	AdmissionChecks []AdmissionCheckState `json:"admissionChecks,omitempty" patchStrategy:"merge" patchMergeKey:"name"`
 
-	// resourceRequests provides a detailed view of the resources that were
-	// requested by a non-admitted workload when it was considered for admission.
-	// If admission is non-null, resourceRequests will be empty because
-	// admission.resourceUsage contains the detailed information.
+	// resourceRequests 提供了工作负载在考虑接纳时请求的资源详细视图。
+	// 如果 admission 不为 null，则 resourceRequests 将为空，因为 admission.resourceUsage 包含详细信息。
 	//
 	// +optional
 	// +listType=map
@@ -382,20 +318,20 @@ type WorkloadStatus struct {
 	// +kubebuilder:validation:MaxItems=8
 	ResourceRequests []PodSetRequest `json:"resourceRequests,omitempty"`
 
-	// accumulatedPastExexcutionTimeSeconds holds the total time, in seconds, the workload spent
-	// in Admitted state, in the previous `Admit` - `Evict` cycles.
+	// accumulatedPastExexcutionTimeSeconds 持有工作负载在 Admitted 状态下花费的总时间（秒），
+	// 在之前的 `Admit` - `Evict` 周期中。
 	//
 	// +optional
 	AccumulatedPastExexcutionTimeSeconds *int32 `json:"accumulatedPastExexcutionTimeSeconds,omitempty"`
 
-	// schedulingStats tracks scheduling statistics
+	// schedulingStats 跟踪调度统计信息
 	//
 	// +optional
 	SchedulingStats *SchedulingStats `json:"schedulingStats,omitempty"`
 }
 
 type SchedulingStats struct {
-	// evictions tracks eviction statistics by reason and underlyingCause.
+	// evictions 按原因和根本原因对驱逐事件的数据进行统计。
 	//
 	// +optional
 	// +listType=map
@@ -408,22 +344,22 @@ type SchedulingStats struct {
 }
 
 type WorkloadSchedulingStatsEviction struct {
-	// reason specifies the programmatic identifier for the eviction cause.
+	// reason 表示驱逐原因的程序化标识符。
 	//
 	// +required
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MaxLength=316
 	Reason string `json:"reason"`
 
-	// underlyingCause specifies a finer-grained explanation that complements the eviction reason.
-	// This may be an empty string.
+	// underlyingCause 提供了更详细的解释，补充了驱逐原因。
+	// 这可能是空字符串。
 	//
 	// +required
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MaxLength=316
 	UnderlyingCause string `json:"underlyingCause"`
 
-	// count tracks the number of evictions for this reason and detailed reason.
+	// count 跟踪此原因和详细原因的驱逐次数。
 	//
 	// +required
 	// +kubebuilder:validation:Required
@@ -432,45 +368,45 @@ type WorkloadSchedulingStatsEviction struct {
 }
 
 type RequeueState struct {
-	// count records the number of times a workload has been re-queued
-	// When a deactivated (`.spec.activate`=`false`) workload is reactivated (`.spec.activate`=`true`),
-	// this count would be reset to null.
+	// count 记录工作负载被重队列的次数
+	// 当 deactivated (`.spec.activate`=`false`) 的工作负载被 reactivated (`.spec.activate`=`true`) 时，
+	// 此计数将重置为 null。
 	//
 	// +optional
 	// +kubebuilder:validation:Minimum=0
 	Count *int32 `json:"count,omitempty"`
 
-	// requeueAt records the time when a workload will be re-queued.
-	// When a deactivated (`.spec.activate`=`false`) workload is reactivated (`.spec.activate`=`true`),
-	// this time would be reset to null.
+	// requeueAt 记录工作负载将被重队列的时间。
+	// 当 deactivated (`.spec.activate`=`false`) 的工作负载被 reactivated (`.spec.activate`=`true`) 时，
+	// 此时间将重置为 null。
 	//
 	// +optional
 	RequeueAt *metav1.Time `json:"requeueAt,omitempty"`
 }
 
-// AdmissionCheckReference is the name of an AdmissionCheck.
+// AdmissionCheckReference 是接纳检查的名称。
 // +kubebuilder:validation:MaxLength=316
 type AdmissionCheckReference string
 
 type AdmissionCheckState struct {
-	// name identifies the admission check.
+	// name 标识接纳检查。
 	// +required
 	// +kubebuilder:validation:Required
 	Name AdmissionCheckReference `json:"name"`
-	// state of the admissionCheck, one of Pending, Ready, Retry, Rejected
+	// 接纳检查的状态，Pending, Ready, Retry, Rejected
 	// +required
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:Enum=Pending;Ready;Retry;Rejected
 	State CheckState `json:"state"`
-	// lastTransitionTime is the last time the condition transitioned from one status to another.
-	// This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+	// lastTransitionTime 是条件从一种状态转换到另一种状态的最后时间。
+	// 这应该是基础条件发生变化的时间。 如果不知道，则使用 API 字段更改的时间是可接受的。
 	// +required
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:Type=string
 	// +kubebuilder:validation:Format=date-time
 	LastTransitionTime metav1.Time `json:"lastTransitionTime"`
-	// message is a human readable message indicating details about the transition.
-	// This may be an empty string.
+	// message 是描述转换的易读消息。
+	// 这可能是空字符串。
 	// +required
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MaxLength=32768
@@ -482,12 +418,11 @@ type AdmissionCheckState struct {
 	PodSetUpdates []PodSetUpdate `json:"podSetUpdates,omitempty"`
 }
 
-// PodSetUpdate contains a list of pod set modifications suggested by AdmissionChecks.
-// The modifications should be additive only - modifications of already existing keys
-// or having the same key provided by multiple AdmissionChecks is not allowed and will
-// result in failure during workload admission.
+// PodSetUpdate 包含 AdmissionChecks 建议的 PodSet 修改列表。
+// 修改应仅添加 - 修改已存在的键或由多个 AdmissionChecks 提供相同键的修改是不允许的，
+// 并且在工作负载接纳期间会导致失败。
 type PodSetUpdate struct {
-	// Name of the PodSet to modify. Should match to one of the Workload's PodSets.
+	// 要修改的 PodSet 名称。应与 Workload 的 PodSets 之一匹配。
 	// +required
 	// +kubebuilder:validation:Required
 	Name PodSetReference `json:"name"`
@@ -512,172 +447,144 @@ type PodSetUpdate struct {
 }
 
 type ReclaimablePod struct {
-	// name is the PodSet name.
+	// name 是 PodSet 的名称。
 	Name PodSetReference `json:"name"`
 
-	// count is the number of pods for which the requested resources are no longer needed.
+	// count 是请求资源不再需要的 Pod 数量。
 	// +kubebuilder:validation:Minimum=0
 	Count int32 `json:"count"`
 }
 
 type PodSetRequest struct {
-	// name is the name of the podSet. It should match one of the names in .spec.podSets.
+	// name 是 podSet 的名称。它应该与 .spec.podSets 中的名称之一匹配。
 	// +kubebuilder:default=main
 	// +required
 	// +kubebuilder:validation:Required
 	Name PodSetReference `json:"name"`
 
-	// resources is the total resources all the pods in the podset need to run.
+	// resources 是 podSet 中所有 Pod 运行所需的资源总量。
 	//
-	// Beside what is provided in podSet's specs, this value also takes into account
-	// the LimitRange defaults and RuntimeClass overheads at the moment of consideration
-	// and the application of resource.excludeResourcePrefixes and resource.transformations.
+	// 除了 podSet 规范中提供的内容外，此值还考虑了考虑接纳时的 LimitRange 默认值和 RuntimeClass 开销，
+	// 以及 resource.excludeResourcePrefixes 和 resource.transformations 的应用。
 	// +optional
 	Resources corev1.ResourceList `json:"resources,omitempty"`
 }
 
 const (
-	// WorkloadAdmitted means that the Workload has reserved quota and all the admissionChecks
-	// defined in the ClusterQueue are satisfied.
-	WorkloadAdmitted = "Admitted"
+	WorkloadAdmitted      = "Admitted"      // 表示工作负载已保留配额，且 ClusterQueue 中定义的所有接纳检查均已满足。
+	WorkloadQuotaReserved = "QuotaReserved" // 表示工作负载已保留配额
+	WorkloadFinished      = "Finished"      // 表示与 ResourceClaim 关联的工作负载运行完成（失败或成功）。
+	WorkloadPodsReady     = "PodsReady"     // 表示至少 `.spec.podSets[*].count` Pods 已就绪或成功。
 
-	// WorkloadQuotaReserved means that the Workload has reserved quota a ClusterQueue.
-	WorkloadQuotaReserved = "QuotaReserved"
-
-	// WorkloadFinished means that the workload associated to the
-	// ResourceClaim finished running (failed or succeeded).
-	WorkloadFinished = "Finished"
-
-	// WorkloadPodsReady means that at least `.spec.podSets[*].count` Pods are
-	// ready or have succeeded.
-	WorkloadPodsReady = "PodsReady"
-
-	// WorkloadEvicted means that the Workload was evicted. The possible reasons
-	// for this condition are:
-	// - "Preempted": the workload was preempted
-	// - "PodsReadyTimeout": the workload exceeded the PodsReady timeout
-	// - "AdmissionCheck": at least one admission check transitioned to False
-	// - "ClusterQueueStopped": the ClusterQueue is stopped
-	// - "Deactivated": the workload has spec.active set to false
-	// When a workload is preempted, this condition is accompanied by the "Preempted"
-	// condition which contains a more detailed reason for the preemption.
+	// WorkloadEvicted 表示工作负载被驱逐。可能的原因是：
+	// - "Preempted": 工作负载被抢占
+	// - "PodsReadyTimeout": 工作负载超过 PodsReady 超时
+	// - "AdmissionCheck": 至少一个接纳检查状态变为 False
+	// - "ClusterQueueStopped": 集群队列已停止
+	// - "Deactivated": 工作负载 spec.active 设置为 false
+	// 当工作负载被抢占时，此条件伴随 "Preempted" 条件，其中包含更详细的抢占原因。
 	WorkloadEvicted = "Evicted"
 
-	// WorkloadPreempted means that the Workload was preempted.
-	// The possible values of the reason field are "InClusterQueue", "InCohort".
-	// In the future more reasons can be introduced, including those conveying
-	// more detailed information. The more detailed reasons should be prefixed
-	// by one of the "base" reasons.
+	// WorkloadPreempted 表示工作负载被抢占。
+	// 原因字段的可能值是 "InClusterQueue"、"InCohort"。
+	// 将来可以引入更多原因，包括传达更详细信息的原因。更详细的原因应以前缀 "base" 之一开头。
 	WorkloadPreempted = "Preempted"
 
-	// WorkloadRequeued means that the Workload was requeued due to eviction.
+	// WorkloadRequeued 表示工作负载因驱逐而被重队列。
 	WorkloadRequeued = "Requeued"
 
-	// WorkloadDeactivationTarget means that the Workload should be deactivated.
-	// This condition is temporary, so it should be removed after deactivation.
+	// WorkloadDeactivationTarget 表示工作负载应被停用。
+	// 此条件是临时的，因此应在停用后移除。
 	WorkloadDeactivationTarget = "DeactivationTarget"
 )
 
-// Reasons for the WorkloadPreempted condition.
+// WorkloadPreempted 条件的原因。
 const (
-	// InClusterQueueReason indicates the Workload was preempted due to
-	// prioritization in the ClusterQueue.
+	// InClusterQueueReason 表示工作负载因集群队列中的优先级而被抢占。
 	InClusterQueueReason string = "InClusterQueue"
 
-	// InCohortReclamationReason indicates the Workload was preempted due to
-	// reclamation within the Cohort.
+	// InCohortReclamationReason 表示工作负载因 cohort 中的回收而被抢占。
 	InCohortReclamationReason string = "InCohortReclamation"
 
-	// InCohortFairSharingReason indicates the Workload was preempted due to
-	// Fair Sharing within the cohort.
+	// InCohortFairSharingReason 表示工作负载因 cohort 中的公平共享而被抢占。
 	InCohortFairSharingReason string = "InCohortFairSharing"
 
-	// InCohortReclaimWhileBorrowingReason indicates the Workload was preempted
-	// due to reclamation within the cohort while borrowing.
+	// InCohortReclaimWhileBorrowingReason 表示工作负载因 cohort 中的回收而被抢占，同时正在借用。
 	InCohortReclaimWhileBorrowingReason string = "InCohortReclaimWhileBorrowing"
 )
 
 const (
-	// WorkloadInadmissible means that the Workload can't reserve quota
-	// due to LocalQueue or ClusterQueue doesn't exist or inactive.
+	// WorkloadInadmissible 表示工作负载无法保留配额
+	// 由于 LocalQueue 或 ClusterQueue 不存在或处于非活动状态。
 	WorkloadInadmissible = "Inadmissible"
 
-	// WorkloadEvictedByPreemption indicates that the workload was evicted
-	// in order to free resources for a workload with a higher priority.
+	// WorkloadEvictedByPreemption 表示工作负载因抢占而驱逐，
+	// 以便为具有更高优先级的工作负载释放资源。
 	WorkloadEvictedByPreemption = "Preempted"
 
-	// WorkloadEvictedByPodsReadyTimeout indicates that the eviction took
-	// place due to a PodsReady timeout.
+	// WorkloadEvictedByPodsReadyTimeout 表示驱逐是由于 PodsReady 超时而发生的。
 	WorkloadEvictedByPodsReadyTimeout = "PodsReadyTimeout"
 
-	// WorkloadEvictedByAdmissionCheck indicates that the workload was evicted
-	// because at least one admission check transitioned to False.
+	// WorkloadEvictedByAdmissionCheck 表示工作负载因至少一个接纳检查状态变为 False 而驱逐。
 	WorkloadEvictedByAdmissionCheck = "AdmissionCheck"
 
-	// WorkloadEvictedByClusterQueueStopped indicates that the workload was evicted
-	// because the ClusterQueue is Stopped.
+	// WorkloadEvictedByClusterQueueStopped 表示工作负载因集群队列已停止而驱逐。
 	WorkloadEvictedByClusterQueueStopped = "ClusterQueueStopped"
 
-	// WorkloadEvictedByLocalQueueStopped indicates that the workload was evicted
-	// because the LocalQueue is Stopped.
+	// WorkloadEvictedByLocalQueueStopped 表示工作负载因 LocalQueue 已停止而驱逐。
 	WorkloadEvictedByLocalQueueStopped = "LocalQueueStopped"
 
-	// WorkloadEvictedDueToNodeFailures indicates that the workload was evicted
-	// due to non-recoverable node failures.
+	// WorkloadEvictedDueToNodeFailures 表示工作负载因不可恢复的节点故障而驱逐。
 	WorkloadEvictedDueToNodeFailures = "NodeFailures"
 
-	// WorkloadDeactivated indicates that the workload was evicted
-	// because spec.active is set to false.
+	// WorkloadDeactivated 表示工作负载因 spec.active 设置为 false 而驱逐。
 	WorkloadDeactivated = "Deactivated"
 
-	// WorkloadReactivated indicates that the workload was requeued because
-	// spec.active is set to true after deactivation.
+	// WorkloadReactivated 表示工作负载因 spec.active 设置为 true 而重队列，
+	// 在停用后。
 	WorkloadReactivated = "Reactivated"
 
-	// WorkloadBackoffFinished indicates that the workload was requeued because
-	// backoff finished.
+	// WorkloadBackoffFinished 表示工作负载因回退完成而重队列。
 	WorkloadBackoffFinished = "BackoffFinished"
 
-	// WorkloadClusterQueueRestarted indicates that the workload was requeued because
-	// cluster queue was restarted after being stopped.
+	// WorkloadClusterQueueRestarted 表示工作负载因集群队列重启而重队列，
+	// 在停止后。
 	WorkloadClusterQueueRestarted = "ClusterQueueRestarted"
 
-	// WorkloadLocalQueueRestarted indicates that the workload was requeued because
-	// local queue was restarted after being stopped.
+	// WorkloadLocalQueueRestarted 表示工作负载因 LocalQueue 重启而重队列，
+	// 在停止后。
 	WorkloadLocalQueueRestarted = "LocalQueueRestarted"
 
-	// WorkloadRequeuingLimitExceeded indicates that the workload exceeded max number
-	// of re-queuing retries.
+	// WorkloadRequeuingLimitExceeded 表示工作负载超过最大重队列重试次数。
 	WorkloadRequeuingLimitExceeded = "RequeuingLimitExceeded"
 
-	// WorkloadMaximumExecutionTimeExceeded indicates that the workload exceeded its
-	// maximum execution time.
+	// WorkloadMaximumExecutionTimeExceeded 表示工作负载超过其最大执行时间。
 	WorkloadMaximumExecutionTimeExceeded = "MaximumExecutionTimeExceeded"
 
-	// WorkloadWaitForStart indicates the reason for PodsReady=False condition
-	// when the pods have not been ready since admission, or the workload is not admitted.
+	// WorkloadWaitForStart 表示 PodsReady=False 条件的原因，
+	// 当 pods 自接纳以来未就绪，或工作负载未被接纳。
 	WorkloadWaitForStart = "WaitForStart"
 
-	// WorkloadWaitForRecovery indicates the reason for the PodsReady=False condition
-	// when the Pods were ready since the workload admission, but some pod has failed,
-	// and workload waits for recovering.
+	// WorkloadWaitForRecovery 表示 PodsReady=False 条件的原因，
+	// 当 pods 自工作负载接纳以来就绪，但某些 pod 失败，
+	// 工作负载正在等待恢复。
 	WorkloadWaitForRecovery = "WaitForRecovery"
 
-	// WorkloadStarted indicates that all Pods are ready and the Workload has successfully started
+	// WorkloadStarted 表示所有 Pods 已就绪，且工作负载已成功启动。
 	WorkloadStarted = "Started"
 
-	// WorkloadRecovered indicates that after at least one Pod has failed, the Workload has recovered and is running
+	// WorkloadRecovered 表示至少一个 Pod 失败后，工作负载已恢复并正在运行。
 	WorkloadRecovered = "Recovered"
 )
 
 const (
-	// WorkloadFinishedReasonSucceeded indicates that the workload's job finished successfully.
+	// WorkloadFinishedReasonSucceeded 表示工作负载的作业成功完成。
 	WorkloadFinishedReasonSucceeded = "Succeeded"
 
-	// WorkloadFinishedReasonFailed indicates that the workload's job finished with an error.
+	// WorkloadFinishedReasonFailed 表示工作负载的作业因错误而完成。
 	WorkloadFinishedReasonFailed = "Failed"
 
-	// WorkloadFinishedReasonOutOfSync indicates that the prebuilt workload is not in sync with its parent job.
+	// WorkloadFinishedReasonOutOfSync 表示预构建的工作负载与其父作业不同步。
 	WorkloadFinishedReasonOutOfSync = "OutOfSync"
 )
 
@@ -692,12 +599,12 @@ const (
 // +kubebuilder:printcolumn:name="Age",JSONPath=".metadata.creationTimestamp",type="date",description="Time this workload was created"
 // +kubebuilder:resource:shortName={wl}
 
-// Workload is the Schema for the workloads API
-// +kubebuilder:validation:XValidation:rule="has(self.status) && has(self.status.conditions) && self.status.conditions.exists(c, c.type == 'QuotaReserved' && c.status == 'True') && has(self.status.admission) ? size(self.spec.podSets) == size(self.status.admission.podSetAssignments) : true", message="podSetAssignments must have the same number of podSets as the spec"
-// +kubebuilder:validation:XValidation:rule="(has(oldSelf.status) && has(oldSelf.status.conditions) && oldSelf.status.conditions.exists(c, c.type == 'QuotaReserved' && c.status == 'True')) ? (oldSelf.spec.priorityClassSource == self.spec.priorityClassSource) : true", message="field is immutable"
-// +kubebuilder:validation:XValidation:rule="(has(oldSelf.status) && has(oldSelf.status.conditions) && oldSelf.status.conditions.exists(c, c.type == 'QuotaReserved' && c.status == 'True') && has(oldSelf.spec.priorityClassName) && has(self.spec.priorityClassName)) ? (oldSelf.spec.priorityClassName == self.spec.priorityClassName) : true", message="field is immutable"
-// +kubebuilder:validation:XValidation:rule="(has(oldSelf.status) && has(oldSelf.status.conditions) && oldSelf.status.conditions.exists(c, c.type == 'QuotaReserved' && c.status == 'True')) && (has(self.status) && has(self.status.conditions) && self.status.conditions.exists(c, c.type == 'QuotaReserved' && c.status == 'True')) && has(oldSelf.spec.queueName) && has(self.spec.queueName) ? oldSelf.spec.queueName == self.spec.queueName : true", message="field is immutable"
-// +kubebuilder:validation:XValidation:rule="((has(oldSelf.status) && has(oldSelf.status.conditions) && oldSelf.status.conditions.exists(c, c.type == 'Admitted' && c.status == 'True')) && (has(self.status) && has(self.status.conditions) && self.status.conditions.exists(c, c.type == 'Admitted' && c.status == 'True')))?((has(oldSelf.spec.maximumExecutionTimeSeconds)?oldSelf.spec.maximumExecutionTimeSeconds:0) ==  (has(self.spec.maximumExecutionTimeSeconds)?self.spec.maximumExecutionTimeSeconds:0)):true", message="maximumExecutionTimeSeconds is immutable while admitted"
+// Workload 是工作负载 API 的 Schema
+// +kubebuilder:validation:XValidation:rule="has(self.status) && has(self.status.conditions) && self.status.conditions.exists(c, c.type == 'QuotaReserved' && c.status == 'True') && has(self.status.admission) ? size(self.spec.podSets) == size(self.status.admission.podSetAssignments) : true", message="podSetAssignments 的数量必须与 spec 中的 podSets 数量相同"
+// +kubebuilder:validation:XValidation:rule="(has(oldSelf.status) && has(oldSelf.status.conditions) && oldSelf.status.conditions.exists(c, c.type == 'QuotaReserved' && c.status == 'True')) ? (oldSelf.spec.priorityClassSource == self.spec.priorityClassSource) : true", message="字段不可变"
+// +kubebuilder:validation:XValidation:rule="(has(oldSelf.status) && has(oldSelf.status.conditions) && oldSelf.status.conditions.exists(c, c.type == 'QuotaReserved' && c.status == 'True') && has(oldSelf.spec.priorityClassName) && has(self.spec.priorityClassName)) ? (oldSelf.spec.priorityClassName == self.spec.priorityClassName) : true", message="字段不可变"
+// +kubebuilder:validation:XValidation:rule="(has(oldSelf.status) && has(oldSelf.status.conditions) && oldSelf.status.conditions.exists(c, c.type == 'QuotaReserved' && c.status == 'True')) && (has(self.status) && has(self.status.conditions) && self.status.conditions.exists(c, c.type == 'QuotaReserved' && c.status == 'True')) && has(oldSelf.spec.queueName) && has(self.spec.queueName) ? oldSelf.spec.queueName == self.spec.queueName : true", message="字段不可变"
+// +kubebuilder:validation:XValidation:rule="((has(oldSelf.status) && has(oldSelf.status.conditions) && oldSelf.status.conditions.exists(c, c.type == 'Admitted' && c.status == 'True')) && (has(self.status) && has(self.status.conditions) && self.status.conditions.exists(c, c.type == 'Admitted' && c.status == 'True')))?((has(oldSelf.spec.maximumExecutionTimeSeconds)?oldSelf.spec.maximumExecutionTimeSeconds:0) ==  (has(self.spec.maximumExecutionTimeSeconds)?self.spec.maximumExecutionTimeSeconds:0)):true", message="maximumExecutionTimeSeconds 在已接纳时不可变"
 type Workload struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -708,7 +615,7 @@ type Workload struct {
 
 // +kubebuilder:object:root=true
 
-// WorkloadList contains a list of ResourceClaim
+// WorkloadList 包含 ResourceClaim 列表
 type WorkloadList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`

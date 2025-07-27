@@ -1,19 +1,3 @@
-/*
-Copyright The Kubernetes Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package cache
 
 import (
@@ -26,14 +10,12 @@ import (
 	"sigs.k8s.io/kueue/pkg/hierarchy"
 )
 
-// cohort is a set of ClusterQueues that can borrow resources from each other.
+// cohort 是一组可以相互借用资源的 ClusterQueue。
 type cohort struct {
 	Name kueue.CohortReference
 	hierarchy.Cohort[*clusterQueue, *cohort]
-
-	resourceNode resourceNode
-
-	FairWeight resource.Quantity
+	resourceNode ResourceNode
+	FairWeight   resource.Quantity
 }
 
 func newCohort(name kueue.CohortReference) *cohort {
@@ -68,7 +50,7 @@ func (c *cohort) getRootUnsafe() *cohort {
 
 // implement flatResourceNode/hierarchicalResourceNode interfaces
 
-func (c *cohort) getResourceNode() resourceNode {
+func (c *cohort) getResourceNode() ResourceNode {
 	return c.resourceNode
 }
 

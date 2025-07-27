@@ -1,56 +1,36 @@
-/*
-Copyright The Kubernetes Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package constants
 
 import kueue "sigs.k8s.io/kueue/apis/kueue/v1beta1"
 
 const (
-	// QueueLabel is the label key in the workload that holds the queue name.
+	// QueueLabel 是工作负载中保存队列名称的标签键。
 	QueueLabel = "kueue.x-k8s.io/queue-name"
 
-	// DefaultLocalQueueName is the name for default LocalQueue that is applied
-	// if the feature LocalQueueDefaulting is enabled and QueueLabel is not specified.
+	// DefaultLocalQueueName 是默认 LocalQueue 的名称，当启用 LocalQueueDefaulting 特性且未指定 QueueLabel 时应用。
 	DefaultLocalQueueName kueue.LocalQueueName = "default"
 
-	// QueueAnnotation is the annotation key in the workload that holds the queue name.
+	// QueueAnnotation 是工作负载中保存队列名称的注解键。
 	//
-	// Deprecated: Use QueueLabel as a label key.
+	// 已弃用：请使用 QueueLabel 作为标签键。
 	QueueAnnotation = QueueLabel
 
-	// PrebuiltWorkloadLabel is the label key of the job holding the name of the pre-built workload to use.
-	PrebuiltWorkloadLabel = "kueue.x-k8s.io/prebuilt-workload-name"
+	// PrebuiltWorkloadLabel 是作业的标签键，保存要使用的预构建工作负载的名称。
+	PrebuiltWorkloadLabel = "kueue.x-k8s.io/prebuilt-workload-name" // 提前准备好的   workload
 
-	// JobUIDLabel is the label key in the workload resource, that holds the UID of
-	// the owner job.
+	// JobUIDLabel 是工作负载资源中的标签键，保存所有者作业的 UID。
 	JobUIDLabel = "kueue.x-k8s.io/job-uid"
 
-	// WorkloadPriorityClassLabel is the label key in the workload that holds the
-	// workloadPriorityClass name.
-	// This label is always mutable because it might be useful for the preemption.
+	// WorkloadPriorityClassLabel 是工作负载中保存 workloadPriorityClass 名称的标签键。
+	// 该标签始终可变，因为它可能对抢占有用。
 	WorkloadPriorityClassLabel = "kueue.x-k8s.io/priority-class"
 
-	// ProvReqAnnotationPrefix is the prefix for annotations that should be pass to ProvisioningRequest as Parameters.
+	// ProvReqAnnotationPrefix 是应作为参数传递给 ProvisioningRequest 的注解前缀。
 	ProvReqAnnotationPrefix = "provreq.kueue.x-k8s.io/"
 
-	// MaxExecTimeSecondsLabel is the label key in the job that holds the maximum execution time.
+	// MaxExecTimeSecondsLabel 是作业中保存最大执行时间的标签键。
 	MaxExecTimeSecondsLabel = `kueue.x-k8s.io/max-exec-time-seconds`
 
-	// PodSetLabel is a label set on the Job's PodTemplate to indicate the name
-	// of the PodSet of the admitted Workload corresponding to the PodTemplate.
-	// The label is set when starting the Job, and removed on stopping the Job.
+	// PodSetLabel 是设置在作业 PodTemplate 上的标签，用于指示与 PodTemplate 对应的已接纳 Workload 的 PodSet 名称。
+	// 启动作业时设置该标签，停止作业时移除。
 	PodSetLabel = "kueue.x-k8s.io/podset"
 )

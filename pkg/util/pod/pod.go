@@ -1,19 +1,3 @@
-/*
-Copyright The Kubernetes Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package pod
 
 import (
@@ -102,18 +86,20 @@ func readUIntFromStringBelowBound(value string, bound int) (*int, error) {
 	return ptr.To(int(uintValue)), nil
 }
 
-func GenerateRoleHash(podSpec *corev1.PodSpec) (string, error) {
-	shape := map[string]any{
-		"spec": SpecShape(podSpec),
+func ContainersShape(containers []corev1.Container) (result []map[string]any) {
+	for _, c := range containers {
+		result = append(result, map[string]any{
+			"resources": map[string]any{
+				"requests": c.Resources.Requests,
+			},
+			"ports": c.Ports,
+		})
 	}
+	return result
+}
 
-	shapeJSON, err := json.Marshal(shape)
-	if err != nil {
-		return "", err
-	}
-
-	// Trim hash to 8 characters and return
-	return fmt.Sprintf("%x", sha256.Sum256(shapeJSON))[:8], nil
+func IsTerminated(p *corev1.Pod) bool {
+	return p.Status.Phase == corev1.PodFailed || p.Status.Phase == corev1.PodSucceeded
 }
 
 func SpecShape(podSpec *corev1.PodSpec) (result map[string]any) {
@@ -130,19 +116,16 @@ func SpecShape(podSpec *corev1.PodSpec) (result map[string]any) {
 		"resourceClaims":            podSpec.ResourceClaims,
 	}
 }
-
-func ContainersShape(containers []corev1.Container) (result []map[string]any) {
-	for _, c := range containers {
-		result = append(result, map[string]any{
-			"resources": map[string]any{
-				"requests": c.Resources.Requests,
-			},
-			"ports": c.Ports,
-		})
+func GenerateRoleHash(podSpec *corev1.PodSpec) (string, error) {
+	shape := map[string]any{
+		"spec": SpecShape(podSpec),
 	}
-	return result
-}
 
-func IsTerminated(p *corev1.Pod) bool {
-	return p.Status.Phase == corev1.PodFailed || p.Status.Phase == corev1.PodSucceeded
+	shapeJSON, err := json.Marshal(shape)
+	if err != nil {
+		return "", err
+	}
+
+	// Trim hash to 8 characters and return
+	return fmt.Sprintf("%x", sha256.Sum256(shapeJSON))[:8], nil
 }

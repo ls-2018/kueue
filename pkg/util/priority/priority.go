@@ -1,19 +1,3 @@
-/*
-Copyright The Kubernetes Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package priority
 
 import (
@@ -28,17 +12,25 @@ import (
 	"sigs.k8s.io/kueue/pkg/constants"
 )
 
-// Priority returns priority of the given workload.
+// Priority 返回给定工作负载的优先级。
 func Priority(w *kueue.Workload) int32 {
-	// When priority of a running workload is nil, it means it was created at a time
-	// that there was no global default priority class and the priority class
-	// name of the pod was empty. So, we resolve to the static default priority.
+	// 当正在运行的工作负载的优先级为 nil 时，表示其创建时没有全局默认优先级类，且 pod 的优先级类名称为空。因此，使用静态默认优先级。
 	return ptr.Deref(w.Spec.Priority, constants.DefaultPriority)
 }
 
-// GetPriorityFromPriorityClass returns the priority populated from
-// priority class. If not specified, priority will be default or
-// zero if there is no default.
+// GetPriorityFromWorkloadPriorityClass 返回从工作负载优先级类获取的优先级。如果未指定，则返回 0。
+// 此函数内部不会调用 DefaultPriority，因为应接着检查 k8s 的优先级类。
+func GetPriorityFromWorkloadPriorityClass(ctx context.Context, client client.Client,
+	workloadPriorityClass string) (string, string, int32, error) {
+	wpc := &kueue.WorkloadPriorityClass{}
+	if err := client.Get(ctx, types.NamespacedName{Name: workloadPriorityClass}, wpc); err != nil {
+		return "", "", 0, err
+	}
+	return wpc.Name, constants.WorkloadPriorityClassSource, wpc.Value, nil
+}
+
+// GetPriorityFromPriorityClass 返回从优先级类获取的优先级。如果未指定，则优先级为默认值，
+// 如果没有默认值则为 0。
 func GetPriorityFromPriorityClass(ctx context.Context, client client.Client,
 	priorityClass string) (string, string, int32, error) {
 	if len(priorityClass) == 0 {
@@ -52,20 +44,6 @@ func GetPriorityFromPriorityClass(ctx context.Context, client client.Client,
 
 	return pc.Name, constants.PodPriorityClassSource, pc.Value, nil
 }
-
-// GetPriorityFromWorkloadPriorityClass returns the priority populated from
-// workload priority class. If not specified, returns 0.
-// DefaultPriority is not called within this function
-// because k8s priority class should be  checked next.
-func GetPriorityFromWorkloadPriorityClass(ctx context.Context, client client.Client,
-	workloadPriorityClass string) (string, string, int32, error) {
-	wpc := &kueue.WorkloadPriorityClass{}
-	if err := client.Get(ctx, types.NamespacedName{Name: workloadPriorityClass}, wpc); err != nil {
-		return "", "", 0, err
-	}
-	return wpc.Name, constants.WorkloadPriorityClassSource, wpc.Value, nil
-}
-
 func getDefaultPriority(ctx context.Context, client client.Client) (string, string, int32, error) {
 	dpc, err := getDefaultPriorityClass(ctx, client)
 	if err != nil {
@@ -84,8 +62,7 @@ func getDefaultPriorityClass(ctx context.Context, client client.Client) (*schedu
 		return nil, err
 	}
 
-	// In case more than one global default priority class is added as a result of a race condition,
-	// we pick the one with the lowest priority value.
+	// 如果由于竞争条件导致添加了多个全局默认优先级类，则选择优先级值最低的一个。
 	var defaultPC *schedulingv1.PriorityClass
 	for _, item := range pcs.Items {
 		if item.GlobalDefault {

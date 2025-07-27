@@ -1,19 +1,3 @@
-/*
-Copyright The Kubernetes Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package jobframework
 
 import (
@@ -31,21 +15,6 @@ type podSetTopologyRequestBuilder struct {
 
 func (p *podSetTopologyRequestBuilder) Build() *kueue.PodSetTopologyRequest {
 	return p.request
-}
-
-func (p *podSetTopologyRequestBuilder) PodIndexLabel(podIndexLabel *string) *podSetTopologyRequestBuilder {
-	if p.request != nil {
-		p.request.PodIndexLabel = podIndexLabel
-	}
-	return p
-}
-
-func (p *podSetTopologyRequestBuilder) SubGroup(subGroupIndexLabel *string, subGroupCount *int32) *podSetTopologyRequestBuilder {
-	if p.request != nil {
-		p.request.SubGroupIndexLabel = subGroupIndexLabel
-		p.request.SubGroupCount = subGroupCount
-	}
-	return p
 }
 
 func NewPodSetTopologyRequest(meta *metav1.ObjectMeta) *podSetTopologyRequestBuilder {
@@ -67,4 +36,18 @@ func NewPodSetTopologyRequest(meta *metav1.ObjectMeta) *podSetTopologyRequestBui
 
 	builder := &podSetTopologyRequestBuilder{request: psTopologyReq}
 	return builder
+}
+func (p *podSetTopologyRequestBuilder) PodIndexLabel(podIndexLabel *string) *podSetTopologyRequestBuilder {
+	if p.request != nil {
+		p.request.PodIndexLabel = podIndexLabel
+	}
+	return p
+}
+
+func (p *podSetTopologyRequestBuilder) SubGroup(subGroupIndexLabel *string, subGroupCount *int32) *podSetTopologyRequestBuilder {
+	if p.request != nil {
+		p.request.SubGroupIndexLabel = subGroupIndexLabel
+		p.request.SubGroupCount = subGroupCount
+	}
+	return p
 }

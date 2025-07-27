@@ -1,0 +1,221 @@
+apiVersion: kueue.x-k8s.io/v1alpha1
+kind: Cohort
+metadata:
+  name: "root-cohort"
+spec:
+  resourceGroups:
+    - coveredResources: ["cpu"]
+      flavors:
+        - name: "default-flavor"
+          resources:
+            - name: "cpu"
+              nominalQuota: 12 # 此队列中的 ClusterQueue 可使用的共享配额
+---
+apiVersion: kueue.x-k8s.io/v1alpha1
+kind: Cohort
+metadata:
+  name: "important-org"
+spec:
+  parent: "root-cohort"
+  fairSharing:
+    weight: "0.75"
+---
+apiVersion: kueue.x-k8s.io/v1alpha1
+kind: Cohort
+metadata:
+  name: "regular-org"
+spec:
+  parent: "root-cohort"
+  fairSharing:
+    weight: "0.25"
+---
+apiVersion: kueue.x-k8s.io/v1beta1
+kind: WorkloadPriorityClass
+metadata:
+  name: sample-priority
+value: 10000
+description: "示例优先级"
+---
+apiVersion: kueue.x-k8s.io/v1alpha1
+kind: Topology
+metadata:
+  name: "zone-tp"
+spec:
+  levels:
+    - nodeLabel: "cloud.provider.com/topology-block"
+    - nodeLabel: "cloud.provider.com/topology-rack"
+    - nodeLabel: "kubernetes.io/hostname"
+---
+apiVersion: kueue.x-k8s.io/v1beta1
+kind: ResourceFlavor
+metadata:
+  name: "default-flavor"
+---
+apiVersion: kueue.x-k8s.io/v1beta1
+kind: ResourceFlavor
+metadata:
+  name: "spot"
+spec:
+  nodeLabels:
+    instance-type: spot
+  tolerations:
+    - key: "spot-taint" ## The key of the node taint.
+      operator: "Exists"
+      effect: "NoSchedule" ## Supported effects are NoSchedule, NoExecute, and PreferNoSchedule.
+  nodeTaints:
+  topologyName: zone-tp
+---
+apiVersion: kueue.x-k8s.io/v1beta1
+kind: AdmissionCheck
+metadata:
+  name: sample-prov
+spec:
+  controllerName: kueue.x-k8s.io/provisioning-request
+  parameters:
+    apiGroup: kueue.x-k8s.io
+    kind: ProvisioningRequestConfig
+    name: sample-prov-config
+---
+apiVersion: kueue.x-k8s.io/v1beta1
+kind: AdmissionCheck
+metadata:
+  name: sample-prov-2
+spec:
+  controllerName: kueue.x-k8s.io/multikueue
+  parameters:
+    apiGroup: kueue.x-k8s.io
+    kind: MultiKueueConfig
+    name: multikueue-test
+---
+apiVersion: kueue.x-k8s.io/v1beta1
+kind: MultiKueueConfig
+metadata:
+  name: multikueue-test
+spec:
+  clusters:
+    - multikueue-test-worker1
+---
+apiVersion: kueue.x-k8s.io/v1beta1
+kind: MultiKueueCluster
+metadata:
+  name: multikueue-test-worker1
+spec:
+  kubeConfig:
+    locationType: Secret
+    location: worker1-secret
+---
+apiVersion: kueue.x-k8s.io/v1beta1
+kind: ProvisioningRequestConfig
+metadata:
+  name: sample-prov-config
+spec:
+  provisioningClassName: check-capacity.autoscaling.x-k8s.io
+  managedResources:
+    - cpu
+    - memory
+  retryStrategy:
+    backoffLimitCount: 2
+    backoffBaseSeconds: 0
+    backoffMaxSeconds: 1800
+---
+apiVersion: kueue.x-k8s.io/v1beta1
+kind: ProvisioningRequestConfig
+metadata:
+  name: sample-prov-2-config
+spec:
+  provisioningClassName: check-capacity.autoscaling.x-k8s.io
+  managedResources:
+    - cpu
+    - memory
+  retryStrategy:
+    backoffLimitCount: 2
+    backoffBaseSeconds: 0
+    backoffMaxSeconds: 1800
+---
+apiVersion: kueue.x-k8s.io/v1beta1
+kind: ClusterQueue
+metadata:
+  name: "cluster-queue2"
+spec:
+  cohort: regular-org
+  admissionScope:
+    admissionMode: UsageBasedAdmissionFairSharing
+#    admissionMode: UsageBasedFairSharing
+  namespaceSelector: { } # match all.
+  preemption:
+    borrowWithinCohort:
+      policy: LowerPriority
+    withinClusterQueue: LowerPriority
+    reclaimWithinCohort: Any # Any、Never if the pending Workload fits within the nominal quota of its ClusterQueue, preempt any Workload in the cohort, irrespective of priority.
+  flavorFungibility:
+    whenCanBorrow: Borrow  # this is the default but I'm making it explicit here
+    whenCanPreempt: Preempt  # ensures that accelerators aren't hit with compute workloads
+  admissionChecksStrategy:
+    admissionChecks:
+      - name: "sample-prov"           # Name of the AdmissionCheck to be run
+        onFlavors: [ "spot" ] # This AdmissionCheck will only run for Workloads that use default-flavor
+      - name: "sample-prov-2" # This AdmissionCheck will run for all Workloads regardless of a used ResourceFlavor
+  resourceGroups:
+    - coveredResources: [ "cpu","memory" ]
+      flavors:
+        - name: "spot"
+          resources:
+            - name: "cpu"
+              nominalQuota: 1
+            - name: "memory"
+              nominalQuota: 1Gi
+#        - name: "default-flavor"
+#          resources:
+#            - name: "cpu"
+#              nominalQuota: 1
+#            - name: "memory"
+#              nominalQuota: 1Gi
+---
+apiVersion: kueue.x-k8s.io/v1beta1
+kind: ClusterQueue
+metadata:
+  name: "cluster-queue"
+spec:
+  cohort: regular-org
+  namespaceSelector: { } # match all.
+  preemption:
+    borrowWithinCohort:
+      policy: LowerPriority
+    withinClusterQueue: LowerPriority
+    reclaimWithinCohort: Any # Any、Never if the pending Workload fits within the nominal quota of its ClusterQueue, preempt any Workload in the cohort, irrespective of priority.
+  flavorFungibility:
+    whenCanBorrow: Borrow  # this is the default but I'm making it explicit here
+    whenCanPreempt: Preempt  # ensures that accelerators aren't hit with compute workloads
+  resourceGroups:
+    - coveredResources: [ "cpu", "memory" ]
+      flavors:
+        - name: "spot"
+          resources:
+            - name: "cpu"
+              nominalQuota: 6
+              borrowingLimit: 3    # 超出1
+              lendingLimit: 3      # 至多借出1
+            - name: "memory"
+              nominalQuota: 6Gi
+              borrowingLimit: 3Gi    # 多使用 1
+              lendingLimit: 3Gi     # 至多借出 1
+---
+apiVersion: kueue.x-k8s.io/v1beta1
+kind: LocalQueue
+metadata:
+  namespace: "default"
+  name: "user-queue"
+spec:
+  clusterQueue: "cluster-queue"
+  fairSharing:
+    weight: "1"
+---
+apiVersion: kueue.x-k8s.io/v1beta1
+kind: LocalQueue
+metadata:
+  namespace: "default"
+  name: "user-queue2"
+spec:
+  clusterQueue: "cluster-queue2"
+  fairSharing:
+    weight: "1"

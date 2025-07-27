@@ -1,19 +1,3 @@
-/*
-Copyright The Kubernetes Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package pod
 
 import (
@@ -42,56 +26,10 @@ var (
 	errFailedRefAPIVersionParse = errors.New("could not parse single pod OwnerReference APIVersion")
 )
 
-func reconcileRequestForPod(p *corev1.Pod) reconcile.Request {
-	groupName := p.GetLabels()[podconstants.GroupNameLabel]
-
-	if groupName == "" {
-		return reconcile.Request{
-			NamespacedName: types.NamespacedName{
-				Namespace: p.Namespace,
-				Name:      p.Name,
-			},
-		}
-	}
-	return reconcile.Request{
-		NamespacedName: types.NamespacedName{
-			Name:      groupName,
-			Namespace: fmt.Sprintf("group/%s", p.Namespace),
-		},
-	}
-}
-
 // podEventHandler will convert reconcile requests for pods in group from "<namespace>/<pod-name>" to
 // "group/<namespace>/<group-name>".
 type podEventHandler struct {
 	cleanedUpPodsExpectations *expectations.Store
-}
-
-func (h *podEventHandler) Create(ctx context.Context, e event.CreateEvent, q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
-	h.queueReconcileForPod(ctx, e.Object, q)
-}
-
-func (h *podEventHandler) Update(ctx context.Context, e event.UpdateEvent, q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
-	h.queueReconcileForPod(ctx, e.ObjectNew, q)
-}
-
-func (h *podEventHandler) Delete(ctx context.Context, e event.DeleteEvent, q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
-	p, ok := e.Object.(*corev1.Pod)
-	if !ok {
-		return
-	}
-
-	log := ctrl.LoggerFrom(ctx).WithValues("pod", klog.KObj(p))
-
-	if g, isGroup := p.Labels[podconstants.GroupNameLabel]; isGroup {
-		// If the watch was temporarily unavailable, it is possible that the object reported in the event still
-		// has a finalizer, but we can consider this Pod cleaned up, as it is being deleted.
-		h.cleanedUpPodsExpectations.ObservedUID(log, types.NamespacedName{Namespace: p.Namespace, Name: g}, p.UID)
-	}
-
-	log.V(5).Info("Queueing reconcile for pod")
-
-	q.Add(reconcileRequestForPod(p))
 }
 
 func (h *podEventHandler) Generic(_ context.Context, _ event.GenericEvent, _ workqueue.TypedRateLimitingInterface[reconcile.Request]) {
@@ -177,4 +115,50 @@ func (h *workloadHandler) queueReconcileForChildPod(ctx context.Context, object 
 			return
 		}
 	}
+}
+
+func (h *podEventHandler) Create(ctx context.Context, e event.CreateEvent, q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+	h.queueReconcileForPod(ctx, e.Object, q)
+}
+
+func (h *podEventHandler) Update(ctx context.Context, e event.UpdateEvent, q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+	h.queueReconcileForPod(ctx, e.ObjectNew, q)
+}
+
+func reconcileRequestForPod(p *corev1.Pod) reconcile.Request {
+	groupName := p.GetLabels()[podconstants.GroupNameLabel]
+
+	if groupName == "" {
+		return reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Namespace: p.Namespace,
+				Name:      p.Name,
+			},
+		}
+	}
+	return reconcile.Request{
+		NamespacedName: types.NamespacedName{
+			Name:      groupName,
+			Namespace: fmt.Sprintf("group/%s", p.Namespace),
+		},
+	}
+}
+
+func (h *podEventHandler) Delete(ctx context.Context, e event.DeleteEvent, q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+	p, ok := e.Object.(*corev1.Pod)
+	if !ok {
+		return
+	}
+
+	log := ctrl.LoggerFrom(ctx).WithValues("pod", klog.KObj(p))
+
+	if g, isGroup := p.Labels[podconstants.GroupNameLabel]; isGroup {
+		// If the watch was temporarily unavailable, it is possible that the object reported in the event still
+		// has a finalizer, but we can consider this Pod cleaned up, as it is being deleted.
+		h.cleanedUpPodsExpectations.ObservedUID(log, types.NamespacedName{Namespace: p.Namespace, Name: g}, p.UID)
+	}
+
+	log.V(5).Info("Queueing reconcile for pod")
+
+	q.Add(reconcileRequestForPod(p))
 }

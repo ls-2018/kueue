@@ -1,19 +1,3 @@
-/*
-Copyright The Kubernetes Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package tas
 
 import (
@@ -93,32 +77,6 @@ var _ handler.EventHandler = (*nodeHandler)(nil)
 // nodeHandler handles node update events.
 type nodeHandler struct {
 	cache *cache.Cache
-}
-
-func (h *nodeHandler) Create(_ context.Context, e event.CreateEvent, q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
-	node, isNode := e.Object.(*corev1.Node)
-	if !isNode {
-		return
-	}
-	h.queueReconcileForNode(node, q)
-}
-
-func (h *nodeHandler) Update(ctx context.Context, e event.UpdateEvent, q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
-	oldNode, isOldNode := e.ObjectOld.(*corev1.Node)
-	newNode, isNewNode := e.ObjectNew.(*corev1.Node)
-	if !isOldNode || !isNewNode {
-		return
-	}
-	h.queueReconcileForNode(oldNode, q)
-	h.queueReconcileForNode(newNode, q)
-}
-
-func (h *nodeHandler) Delete(_ context.Context, e event.DeleteEvent, q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
-	node, isNode := e.Object.(*corev1.Node)
-	if !isNode {
-		return
-	}
-	h.queueReconcileForNode(node, q)
 }
 
 func (h *nodeHandler) queueReconcileForNode(node *corev1.Node, q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
@@ -202,4 +160,30 @@ func nodeBelongsToFlavor(node *corev1.Node, nodeLabels map[string]string, levels
 		}
 	}
 	return true
+}
+
+func (h *nodeHandler) Create(_ context.Context, e event.CreateEvent, q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+	node, isNode := e.Object.(*corev1.Node)
+	if !isNode {
+		return
+	}
+	h.queueReconcileForNode(node, q)
+}
+
+func (h *nodeHandler) Update(ctx context.Context, e event.UpdateEvent, q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+	oldNode, isOldNode := e.ObjectOld.(*corev1.Node)
+	newNode, isNewNode := e.ObjectNew.(*corev1.Node)
+	if !isOldNode || !isNewNode {
+		return
+	}
+	h.queueReconcileForNode(oldNode, q)
+	h.queueReconcileForNode(newNode, q)
+}
+
+func (h *nodeHandler) Delete(_ context.Context, e event.DeleteEvent, q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+	node, isNode := e.Object.(*corev1.Node)
+	if !isNode {
+		return
+	}
+	h.queueReconcileForNode(node, q)
 }

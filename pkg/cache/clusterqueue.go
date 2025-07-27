@@ -1,19 +1,3 @@
-/*
-Copyright The Kubernetes Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package cache
 
 import (
@@ -50,6 +34,7 @@ var (
 
 // clusterQueue is the internal implementation of kueue.clusterQueue that
 // holds admitted workloads.
+// clusterQueue 是 kueue.clusterQueue 的内部实现，保存已接收的 workloads。
 type clusterQueue struct {
 	Name              kueue.ClusterQueueReference
 	ResourceGroups    []ResourceGroup
@@ -62,13 +47,16 @@ type clusterQueue struct {
 	// Aggregates AdmissionChecks from both .spec.AdmissionChecks and .spec.AdmissionCheckStrategy
 	// Sets hold ResourceFlavors to which an AdmissionCheck should apply.
 	// In case its empty, it means an AdmissionCheck should apply to all ResourceFlavor
-	AdmissionChecks map[kueue.AdmissionCheckReference]sets.Set[kueue.ResourceFlavorReference]
-	Status          metrics.ClusterQueueStatus
+	// AdmissionChecks 聚合自 .spec.AdmissionChecks 和 .spec.AdmissionCheckStrategy
+	// Sets 保存 AdmissionCheck 应该应用的 ResourceFlavors。
+	// 如果为空，表示 AdmissionCheck 应该应用于所有 ResourceFlavor。
 	// AllocatableResourceGeneration will be increased when some admitted workloads are
 	// deleted, or the resource groups are changed.
-	AllocatableResourceGeneration int64
-
-	AdmittedUsage resources.FlavorResourceQuantities
+	// 当某些已接收的 workloads 被删除或资源组发生变化时，AllocatableResourceGeneration 会增加。
+	AdmissionChecks               map[kueue.AdmissionCheckReference]sets.Set[kueue.ResourceFlavorReference]
+	Status                        metrics.ClusterQueueStatus
+	AllocatableResourceGeneration int64 // 当删除某些已确认的工作负载或更改资源组时，将会增加。
+	AdmittedUsage                 resources.FlavorResourceQuantities
 	// localQueues by (namespace/name).
 	localQueues                        map[queue.LocalQueueReference]*LocalQueue
 	podsReadyTracking                  bool
@@ -83,7 +71,7 @@ type clusterQueue struct {
 	isStopped                          bool
 	workloadInfoOptions                []workload.InfoOption
 
-	resourceNode resourceNode
+	resourceNode ResourceNode
 	hierarchy.ClusterQueue[*cohort]
 
 	tasCache *tasCache
@@ -96,8 +84,8 @@ func (c *clusterQueue) GetName() kueue.ClusterQueueReference {
 }
 
 // implement flatResourceNode/hierarchicalResourceNode interfaces
-
-func (c *clusterQueue) getResourceNode() resourceNode {
+// 实现 flatResourceNode/hierarchicalResourceNode 接口
+func (c *clusterQueue) getResourceNode() ResourceNode {
 	return c.resourceNode
 }
 
@@ -168,34 +156,6 @@ func (c *clusterQueue) updateClusterQueue(log logr.Logger, in *kueue.ClusterQueu
 	c.FairWeight = parseFairWeight(in.Spec.FairSharing)
 
 	return nil
-}
-
-func createdResourceGroups(kueueRgs []kueue.ResourceGroup) []ResourceGroup {
-	rgs := make([]ResourceGroup, len(kueueRgs))
-	for i, kueueRg := range kueueRgs {
-		rgs[i] = ResourceGroup{
-			CoveredResources: sets.New(kueueRg.CoveredResources...),
-			Flavors:          make([]kueue.ResourceFlavorReference, 0, len(kueueRg.Flavors)),
-		}
-		for _, fIn := range kueueRg.Flavors {
-			rgs[i].Flavors = append(rgs[i].Flavors, fIn.Name)
-		}
-	}
-	return rgs
-}
-
-// updateQuotasAndResourceGroups updates Quotas and ResourceGroups.
-// It returns true if any changes were made.
-func (c *clusterQueue) updateQuotasAndResourceGroups(in []kueue.ResourceGroup) bool {
-	oldRG := c.ResourceGroups
-	oldQuotas := c.resourceNode.Quotas
-	c.ResourceGroups = createdResourceGroups(in)
-	c.resourceNode.Quotas = createResourceQuotas(in)
-
-	// Start at 1, for backwards compatibility.
-	return c.AllocatableResourceGeneration == 0 ||
-		!equality.Semantic.DeepEqual(oldRG, c.ResourceGroups) ||
-		!equality.Semantic.DeepEqual(oldQuotas, c.resourceNode.Quotas)
 }
 
 func (c *clusterQueue) updateQueueStatus(log logr.Logger) {
@@ -311,44 +271,15 @@ func (c *clusterQueue) isTASViolated() bool {
 
 // UpdateWithFlavors updates a ClusterQueue based on the passed ResourceFlavors set.
 // Exported only for testing.
+// UpdateWithFlavors 根据传入的 ResourceFlavors 集合更新 ClusterQueue。
+// 仅用于测试导出。
 func (c *clusterQueue) UpdateWithFlavors(log logr.Logger, flavors map[kueue.ResourceFlavorReference]*kueue.ResourceFlavor) {
 	c.updateLabelKeys(flavors)
 	c.updateQueueStatus(log)
 }
 
-func (c *clusterQueue) updateLabelKeys(flavors map[kueue.ResourceFlavorReference]*kueue.ResourceFlavor) {
-	c.missingFlavors = nil
-	c.tasFlavors = nil
-	for i := range c.ResourceGroups {
-		rg := &c.ResourceGroups[i]
-		if len(rg.Flavors) == 0 {
-			rg.LabelKeys = nil
-			continue
-		}
-		keys := sets.New[string]()
-		for _, fName := range rg.Flavors {
-			if flv, exist := flavors[fName]; exist {
-				for k := range flv.Spec.NodeLabels {
-					keys.Insert(k)
-				}
-				if flv.Spec.TopologyName != nil {
-					if c.tasFlavors == nil {
-						c.tasFlavors = make(map[kueue.ResourceFlavorReference]kueue.TopologyReference, 1)
-					}
-					c.tasFlavors[fName] = *flv.Spec.TopologyName
-				}
-			} else {
-				c.missingFlavors = append(c.missingFlavors, fName)
-			}
-		}
-
-		if keys.Len() > 0 {
-			rg.LabelKeys = keys
-		}
-	}
-}
-
 // updateWithAdmissionChecks updates a ClusterQueue based on the passed AdmissionChecks set.
+// updateWithAdmissionChecks 根据传入的 AdmissionChecks 集合更新 ClusterQueue。
 func (c *clusterQueue) updateWithAdmissionChecks(log logr.Logger, checks map[kueue.AdmissionCheckReference]AdmissionCheck) {
 	checksPerController := make(map[string][]kueue.AdmissionCheckReference, len(c.AdmissionChecks))
 	singleInstanceControllers := sets.New[string]()
@@ -478,6 +409,7 @@ func (q *LocalQueue) reportActiveWorkloads() {
 
 // updateWorkloadUsage updates the usage of the ClusterQueue for the workload
 // and the number of admitted workloads for local queues.
+// updateWorkloadUsage 更新 ClusterQueue 的资源使用情况。
 func (c *clusterQueue) updateWorkloadUsage(log logr.Logger, wi *workload.Info, op usageOp) {
 	admitted := workload.IsAdmitted(wi.Obj)
 	frUsage := wi.FlavorResourceUsage()
@@ -590,17 +522,6 @@ func (c *clusterQueue) deleteLocalQueue(q *kueue.LocalQueue) {
 	delete(c.localQueues, qKey)
 }
 
-func (c *clusterQueue) flavorInUse(flavor kueue.ResourceFlavorReference) bool {
-	for _, rg := range c.ResourceGroups {
-		for _, fName := range rg.Flavors {
-			if flavor == fName {
-				return true
-			}
-		}
-	}
-	return false
-}
-
 func (q *LocalQueue) resetFlavorsAndResources(cqUsage resources.FlavorResourceQuantities, cqAdmittedUsage resources.FlavorResourceQuantities) {
 	// Clean up removed flavors or resources.
 	q.Lock()
@@ -622,20 +543,9 @@ func workloadBelongsToLocalQueue(wl *kueue.Workload, q *kueue.LocalQueue) bool {
 }
 
 // Implements dominantResourceShareNode interface.
-
+// 实现 dominantResourceShareNode 接口。
 func (c *clusterQueue) fairWeight() *resource.Quantity {
 	return &c.FairWeight
-}
-
-func (c *clusterQueue) isTASOnly() bool {
-	for _, rg := range c.ResourceGroups {
-		for _, fName := range rg.Flavors {
-			if _, found := c.tasFlavors[fName]; !found {
-				return false
-			}
-		}
-	}
-	return true
 }
 
 func (c *clusterQueue) flavorsWithProvReqAdmissionCheck() sets.Set[kueue.ResourceFlavorReference] {
@@ -654,4 +564,85 @@ func (c *clusterQueue) flavorsForAdmissionCheck(ac kueue.AdmissionCheckReference
 		}
 	}
 	return flvs
+}
+
+func (c *clusterQueue) flavorInUse(flavor kueue.ResourceFlavorReference) bool {
+	for _, rg := range c.ResourceGroups {
+		for _, fName := range rg.Flavors {
+			if flavor == fName {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func (c *clusterQueue) updateLabelKeys(flavors map[kueue.ResourceFlavorReference]*kueue.ResourceFlavor) {
+	c.missingFlavors = nil
+	c.tasFlavors = nil
+	for i := range c.ResourceGroups {
+		rg := &c.ResourceGroups[i]
+		if len(rg.Flavors) == 0 {
+			rg.LabelKeys = nil
+			continue
+		}
+		keys := sets.New[string]()
+		for _, fName := range rg.Flavors {
+			if flv, exist := flavors[fName]; exist { // cq.rg.flavor 存在
+				for k := range flv.Spec.NodeLabels {
+					keys.Insert(k)
+				}
+				if flv.Spec.TopologyName != nil {
+					if c.tasFlavors == nil {
+						c.tasFlavors = make(map[kueue.ResourceFlavorReference]kueue.TopologyReference, 1)
+					}
+					c.tasFlavors[fName] = *flv.Spec.TopologyName
+				}
+			} else {
+				c.missingFlavors = append(c.missingFlavors, fName)
+			}
+		}
+
+		if keys.Len() > 0 {
+			rg.LabelKeys = keys
+		}
+	}
+}
+func (c *clusterQueue) isTASOnly() bool {
+	for _, rg := range c.ResourceGroups {
+		for _, fName := range rg.Flavors {
+			if _, found := c.tasFlavors[fName]; !found {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func createdResourceGroups(kueueRgs []kueue.ResourceGroup) []ResourceGroup {
+	rgs := make([]ResourceGroup, len(kueueRgs))
+	for i, kueueRg := range kueueRgs {
+		rgs[i] = ResourceGroup{
+			CoveredResources: sets.New(kueueRg.CoveredResources...),
+			Flavors:          make([]kueue.ResourceFlavorReference, 0, len(kueueRg.Flavors)),
+		}
+		for _, fIn := range kueueRg.Flavors {
+			rgs[i].Flavors = append(rgs[i].Flavors, fIn.Name)
+		}
+	}
+	return rgs
+}
+
+// updateQuotasAndResourceGroups 更新 Quotas 和 ResourceGroups。
+// 如果有任何更改则返回 true。
+func (c *clusterQueue) updateQuotasAndResourceGroups(in []kueue.ResourceGroup) bool {
+	oldRG := c.ResourceGroups
+	oldQuotas := c.resourceNode.Quotas
+	c.ResourceGroups = createdResourceGroups(in)
+	c.resourceNode.Quotas = createResourceQuotas(in)
+
+	// Start at 1, for backwards compatibility.
+	return c.AllocatableResourceGeneration == 0 ||
+		!equality.Semantic.DeepEqual(oldRG, c.ResourceGroups) ||
+		!equality.Semantic.DeepEqual(oldQuotas, c.resourceNode.Quotas)
 }

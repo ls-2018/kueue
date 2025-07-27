@@ -1,31 +1,17 @@
-/*
-Copyright The Kubernetes Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package cache
 
 import (
 	"context"
 	"errors"
 	"fmt"
+	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	"sort"
 	"sync"
 
+	utilindexer "sigs.k8s.io/kueue/pkg/controller/core/indexer"
+
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
-	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -36,7 +22,6 @@ import (
 	config "sigs.k8s.io/kueue/apis/config/v1beta1"
 	kueuealpha "sigs.k8s.io/kueue/apis/kueue/v1alpha1"
 	kueue "sigs.k8s.io/kueue/apis/kueue/v1beta1"
-	utilindexer "sigs.k8s.io/kueue/pkg/controller/core/indexer"
 	"sigs.k8s.io/kueue/pkg/features"
 	"sigs.k8s.io/kueue/pkg/hierarchy"
 	"sigs.k8s.io/kueue/pkg/metrics"
@@ -66,11 +51,13 @@ type options struct {
 }
 
 // Option configures the reconciler.
+// Option 配置 reconciler。
 type Option func(*options)
 
 // WithPodsReadyTracking indicates the cache controller tracks the PodsReady
 // condition for admitted workloads, and allows to block admission of new
 // workloads until all admitted workloads are in the PodsReady condition.
+// WithPodsReadyTracking 表示 cache 控制器会跟踪已接收 workloads 的 PodsReady 状态，并允许在所有已接收 workloads 处于 PodsReady 状态前阻止新 workloads 的接收。
 func WithPodsReadyTracking(f bool) Option {
 	return func(o *options) {
 		o.podsReadyTracking = f
@@ -84,6 +71,7 @@ func WithExcludedResourcePrefixes(excludedPrefixes []string) Option {
 }
 
 // WithResourceTransformations sets the resource transformations.
+// WithResourceTransformations 设置资源转换。
 func WithResourceTransformations(transforms []config.ResourceTransformation) Option {
 	return func(o *options) {
 		o.workloadInfoOptions = append(o.workloadInfoOptions, workload.WithResourceTransformations(transforms))
@@ -99,13 +87,14 @@ func WithFairSharing(enabled bool) Option {
 var defaultOptions = options{}
 
 // Cache keeps track of the Workloads that got admitted through ClusterQueues.
+// Cache 跟踪通过 ClusterQueues 接收的 Workloads。
 type Cache struct {
 	sync.RWMutex
 	podsReadyCond sync.Cond
 
 	client              client.Client
 	assumedWorkloads    map[string]kueue.ClusterQueueReference
-	resourceFlavors     map[kueue.ResourceFlavorReference]*kueue.ResourceFlavor
+	resourceFlavors     map[kueue.ResourceFlavorReference]*kueue.ResourceFlavor // 集群 flavor 缓存
 	podsReadyTracking   bool
 	admissionChecks     map[kueue.AdmissionCheckReference]AdmissionCheck
 	workloadInfoOptions []workload.InfoOption
@@ -161,6 +150,7 @@ func (c *Cache) newClusterQueue(log logr.Logger, cq *kueue.ClusterQueue) (*clust
 
 // WaitForPodsReady waits for all admitted workloads to be in the PodsReady condition
 // if podsReadyTracking is enabled, otherwise returns immediately.
+// WaitForPodsReady 等待所有已接收 workloads 进入 PodsReady 状态（如果启用了 podsReadyTracking），否则立即返回。
 func (c *Cache) WaitForPodsReady(ctx context.Context) {
 	if !c.podsReadyTracking {
 		return
@@ -209,29 +199,12 @@ func (c *Cache) podsReadyForAllAdmittedWorkloads(log logr.Logger) bool {
 // CleanUpOnContext tracks the context. When closed, it wakes routines waiting
 // on the podsReady condition. It should be called before doing any calls to
 // cache.WaitForPodsReady.
+// CleanUpOnContext 跟踪 context。当 context 关闭时，唤醒等待 podsReady 条件的协程。应在调用 cache.WaitForPodsReady 前调用。
 func (c *Cache) CleanUpOnContext(ctx context.Context) {
 	<-ctx.Done()
 	c.Lock()
 	defer c.Unlock()
 	c.podsReadyCond.Broadcast()
-}
-
-func (c *Cache) updateClusterQueues(log logr.Logger) sets.Set[kueue.ClusterQueueReference] {
-	cqs := sets.New[kueue.ClusterQueueReference]()
-
-	for _, cq := range c.hm.ClusterQueues() {
-		prevStatus := cq.Status
-		// We call update on all ClusterQueues irrespective of which CQ actually use this flavor
-		// because it is not expensive to do so, and is not worth tracking which ClusterQueues use
-		// which flavors.
-		cq.UpdateWithFlavors(log, c.resourceFlavors)
-		cq.updateWithAdmissionChecks(log, c.admissionChecks)
-		curStatus := cq.Status
-		if prevStatus == pending && curStatus == active {
-			cqs.Insert(cq.Name)
-		}
-	}
-	return cqs
 }
 
 func (c *Cache) ActiveClusterQueues() sets.Set[kueue.ClusterQueueReference] {
@@ -244,30 +217,6 @@ func (c *Cache) ActiveClusterQueues() sets.Set[kueue.ClusterQueueReference] {
 		}
 	}
 	return cqs
-}
-
-func (c *Cache) TASCache() *tasCache {
-	return &c.tasCache
-}
-
-func (c *Cache) AddOrUpdateResourceFlavor(log logr.Logger, rf *kueue.ResourceFlavor) sets.Set[kueue.ClusterQueueReference] {
-	c.Lock()
-	defer c.Unlock()
-	c.resourceFlavors[kueue.ResourceFlavorReference(rf.Name)] = rf
-	if handleTASFlavor(rf) {
-		c.tasCache.AddFlavor(rf)
-	}
-	return c.updateClusterQueues(log)
-}
-
-func (c *Cache) DeleteResourceFlavor(log logr.Logger, rf *kueue.ResourceFlavor) sets.Set[kueue.ClusterQueueReference] {
-	c.Lock()
-	defer c.Unlock()
-	delete(c.resourceFlavors, kueue.ResourceFlavorReference(rf.Name))
-	if handleTASFlavor(rf) {
-		c.tasCache.DeleteFlavor(kueue.ResourceFlavorReference(rf.Name))
-	}
-	return c.updateClusterQueues(log)
 }
 
 func (c *Cache) AddOrUpdateTopology(log logr.Logger, topology *kueuealpha.Topology) sets.Set[kueue.ClusterQueueReference] {
@@ -290,40 +239,11 @@ func (c *Cache) CloneTASCache() map[kueue.ResourceFlavorReference]*TASFlavorCach
 	return c.tasCache.Clone()
 }
 
-func (c *Cache) AddOrUpdateAdmissionCheck(log logr.Logger, ac *kueue.AdmissionCheck) sets.Set[kueue.ClusterQueueReference] {
-	c.Lock()
-	defer c.Unlock()
-
-	newAC := AdmissionCheck{
-		Active:     apimeta.IsStatusConditionTrue(ac.Status.Conditions, kueue.AdmissionCheckActive),
-		Controller: ac.Spec.ControllerName,
-	}
-	c.admissionChecks[kueue.AdmissionCheckReference(ac.Name)] = newAC
-
-	return c.updateClusterQueues(log)
-}
-
 func (c *Cache) DeleteAdmissionCheck(log logr.Logger, ac *kueue.AdmissionCheck) sets.Set[kueue.ClusterQueueReference] {
 	c.Lock()
 	defer c.Unlock()
 	delete(c.admissionChecks, kueue.AdmissionCheckReference(ac.Name))
 	return c.updateClusterQueues(log)
-}
-
-func (c *Cache) AdmissionChecksForClusterQueue(cqName kueue.ClusterQueueReference) []AdmissionCheck {
-	c.RLock()
-	defer c.RUnlock()
-	cq := c.hm.ClusterQueue(cqName)
-	if cq == nil || len(cq.AdmissionChecks) == 0 {
-		return nil
-	}
-	acs := make([]AdmissionCheck, 0, len(cq.AdmissionChecks))
-	for acName := range cq.AdmissionChecks {
-		if ac, ok := c.admissionChecks[acName]; ok {
-			acs = append(acs, ac)
-		}
-	}
-	return acs
 }
 
 func (c *Cache) ClusterQueueActive(name kueue.ClusterQueueReference) bool {
@@ -371,6 +291,8 @@ func (c *Cache) TerminateClusterQueue(name kueue.ClusterQueueReference) {
 // ClusterQueueEmpty indicates whether there's any active workload admitted by
 // the provided clusterQueue.
 // Return true if the clusterQueue doesn't exist.
+// ClusterQueueEmpty 表示指定 clusterQueue 是否有活跃的已接收 workload。
+// 如果 clusterQueue 不存在则返回 true。
 func (c *Cache) ClusterQueueEmpty(name kueue.ClusterQueueReference) bool {
 	c.RLock()
 	defer c.RUnlock()
@@ -380,54 +302,6 @@ func (c *Cache) ClusterQueueEmpty(name kueue.ClusterQueueReference) bool {
 	}
 	return len(cq.Workloads) == 0
 }
-
-func (c *Cache) AddClusterQueue(ctx context.Context, cq *kueue.ClusterQueue) error {
-	c.Lock()
-	defer c.Unlock()
-
-	if oldCq := c.hm.ClusterQueue(kueue.ClusterQueueReference(cq.Name)); oldCq != nil {
-		return errors.New("ClusterQueue already exists")
-	}
-	log := ctrl.LoggerFrom(ctx)
-	cqImpl, err := c.newClusterQueue(log, cq)
-	if err != nil {
-		return err
-	}
-
-	// On controller restart, an add ClusterQueue event may come after
-	// add queue and workload, so here we explicitly list and add existing queues
-	// and workloads.
-	var queues kueue.LocalQueueList
-	if err := c.client.List(ctx, &queues, client.MatchingFields{utilindexer.QueueClusterQueueKey: cq.Name}); err != nil {
-		return fmt.Errorf("listing queues that match the clusterQueue: %w", err)
-	}
-	for _, q := range queues.Items {
-		qKey := queueKey(&q)
-		qImpl := &LocalQueue{
-			key:                qKey,
-			reservingWorkloads: 0,
-			admittedWorkloads:  0,
-			totalReserved:      make(resources.FlavorResourceQuantities),
-			admittedUsage:      make(resources.FlavorResourceQuantities),
-		}
-		qImpl.resetFlavorsAndResources(cqImpl.resourceNode.Usage, cqImpl.AdmittedUsage)
-		cqImpl.localQueues[qKey] = qImpl
-	}
-	var workloads kueue.WorkloadList
-	if err := c.client.List(ctx, &workloads, client.MatchingFields{utilindexer.WorkloadClusterQueueKey: cq.Name}); err != nil {
-		return fmt.Errorf("listing workloads that match the queue: %w", err)
-	}
-	for i, w := range workloads.Items {
-		log := log.WithValues("workload", workload.Key(&w))
-		if !workload.HasQuotaReservation(&w) || workload.IsFinished(&w) {
-			continue
-		}
-		c.addOrUpdateWorkload(log, &workloads.Items[i])
-	}
-
-	return nil
-}
-
 func (c *Cache) UpdateClusterQueue(log logr.Logger, cq *kueue.ClusterQueue) error {
 	c.Lock()
 	defer c.Unlock()
@@ -550,25 +424,6 @@ func (c *Cache) AddOrUpdateWorkload(log logr.Logger, w *kueue.Workload) bool {
 	return c.addOrUpdateWorkload(log, w)
 }
 
-func (c *Cache) addOrUpdateWorkload(log logr.Logger, w *kueue.Workload) bool {
-	if !workload.HasQuotaReservation(w) {
-		return false
-	}
-
-	clusterQueue := c.hm.ClusterQueue(w.Status.Admission.ClusterQueue)
-	if clusterQueue == nil {
-		return false
-	}
-
-	c.cleanupAssumedState(log, w)
-
-	if c.podsReadyTracking {
-		c.podsReadyCond.Broadcast()
-	}
-	clusterQueue.addOrUpdateWorkload(log, w)
-	return true
-}
-
 func (c *Cache) UpdateWorkload(log logr.Logger, oldWl, newWl *kueue.Workload) error {
 	c.Lock()
 	defer c.Unlock()
@@ -686,6 +541,8 @@ type ClusterQueueUsageStats struct {
 }
 
 // Usage reports the reserved and admitted resources and number of workloads holding them in the ClusterQueue.
+// Usage 报告 ClusterQueue 中已保留和已接收资源及其持有的 workload 数量。
+// Usage reports the reserved and admitted resources and number of workloads holding them in the ClusterQueue.
 func (c *Cache) Usage(cqObj *kueue.ClusterQueue) (*ClusterQueueUsageStats, error) {
 	c.RLock()
 	defer c.RUnlock()
@@ -735,6 +592,7 @@ func (c *Cache) CohortStats(cohortObj *kueuealpha.Cohort) (*CohortUsageStats, er
 // ClusterQueueAncestors returns all ancestors (Cohorts), excluding the root,
 // for a given ClusterQueue. If the ClusterQueue contains a Cohort cycle, it
 // returns ErrCohortHasCycle.
+// ClusterQueueAncestors 返回指定 ClusterQueue 的所有祖先 Cohort（不包括根节点）。如果存在 Cohort 环则返回 ErrCohortHasCycle。
 func (c *Cache) ClusterQueueAncestors(cqObj *kueue.ClusterQueue) ([]kueue.CohortReference, error) {
 	c.RLock()
 	defer c.RUnlock()
@@ -918,19 +776,6 @@ func (c *Cache) clusterQueueForWorkload(w *kueue.Workload) *clusterQueue {
 	return nil
 }
 
-func (c *Cache) ClusterQueuesUsingFlavor(flavor kueue.ResourceFlavorReference) []kueue.ClusterQueueReference {
-	c.RLock()
-	defer c.RUnlock()
-	var cqs []kueue.ClusterQueueReference
-
-	for _, cq := range c.hm.ClusterQueues() {
-		if cq.flavorInUse(flavor) {
-			cqs = append(cqs, cq.Name)
-		}
-	}
-	return cqs
-}
-
 func (c *Cache) ClusterQueuesUsingTopology(tName kueue.TopologyReference) []kueue.ClusterQueueReference {
 	c.RLock()
 	defer c.RUnlock()
@@ -973,6 +818,156 @@ func (c *Cache) MatchingClusterQueues(nsLabels map[string]string) sets.Set[kueue
 }
 
 // Key is the key used to index the queue.
+// Key 是用于索引队列的 key。
 func queueKey(q *kueue.LocalQueue) queue.LocalQueueReference {
 	return queue.NewLocalQueueReference(q.Namespace, kueue.LocalQueueName(q.Name))
+}
+
+func (c *Cache) AdmissionChecksForClusterQueue(cqName kueue.ClusterQueueReference) []AdmissionCheck {
+	c.RLock()
+	defer c.RUnlock()
+	cq := c.hm.ClusterQueue(cqName)
+	if cq == nil || len(cq.AdmissionChecks) == 0 {
+		return nil
+	}
+	acs := make([]AdmissionCheck, 0, len(cq.AdmissionChecks))
+	for acName := range cq.AdmissionChecks {
+		if ac, ok := c.admissionChecks[acName]; ok {
+			acs = append(acs, ac)
+		}
+	}
+	return acs
+}
+
+func (c *Cache) TASCache() *tasCache {
+	return &c.tasCache
+}
+
+func (c *Cache) AddOrUpdateResourceFlavor(log logr.Logger, rf *kueue.ResourceFlavor) sets.Set[kueue.ClusterQueueReference] {
+	c.Lock()
+	defer c.Unlock()
+	c.resourceFlavors[kueue.ResourceFlavorReference(rf.Name)] = rf
+	if handleTASFlavor(rf) {
+		c.tasCache.AddFlavor(rf)
+	}
+	return c.updateClusterQueues(log)
+}
+
+func (c *Cache) DeleteResourceFlavor(log logr.Logger, rf *kueue.ResourceFlavor) sets.Set[kueue.ClusterQueueReference] {
+	c.Lock()
+	defer c.Unlock()
+	delete(c.resourceFlavors, kueue.ResourceFlavorReference(rf.Name))
+	if handleTASFlavor(rf) {
+		c.tasCache.DeleteFlavor(kueue.ResourceFlavorReference(rf.Name))
+	}
+	return c.updateClusterQueues(log)
+}
+
+func (c *Cache) updateClusterQueues(log logr.Logger) sets.Set[kueue.ClusterQueueReference] {
+	cqs := sets.New[kueue.ClusterQueueReference]()
+
+	for _, cq := range c.hm.ClusterQueues() {
+		prevStatus := cq.Status
+		// We call update on all ClusterQueues irrespective of which CQ actually use this flavor
+		// because it is not expensive to do so, and is not worth tracking which ClusterQueues use
+		// which flavors.
+		cq.UpdateWithFlavors(log, c.resourceFlavors)
+		cq.updateWithAdmissionChecks(log, c.admissionChecks)
+		curStatus := cq.Status
+		if prevStatus == pending && curStatus == active {
+			cqs.Insert(cq.Name)
+		}
+	}
+	return cqs
+}
+
+func (c *Cache) ClusterQueuesUsingFlavor(flavor kueue.ResourceFlavorReference) []kueue.ClusterQueueReference {
+	c.RLock()
+	defer c.RUnlock()
+	var cqs []kueue.ClusterQueueReference
+
+	for _, cq := range c.hm.ClusterQueues() {
+		if cq.flavorInUse(flavor) {
+			cqs = append(cqs, cq.Name)
+		}
+	}
+	return cqs
+}
+
+func (c *Cache) AddClusterQueue(ctx context.Context, cq *kueue.ClusterQueue) error {
+	c.Lock()
+	defer c.Unlock()
+
+	if oldCq := c.hm.ClusterQueue(kueue.ClusterQueueReference(cq.Name)); oldCq != nil {
+		return errors.New("ClusterQueue already exists")
+	}
+	log := ctrl.LoggerFrom(ctx)
+	cqImpl, err := c.newClusterQueue(log, cq)
+	if err != nil {
+		return err
+	}
+
+	// On controller restart, an add ClusterQueue event may come after
+	// add queue and workload, so here we explicitly list and add existing queues
+	// and workloads.
+	var queues kueue.LocalQueueList
+	if err := c.client.List(ctx, &queues, client.MatchingFields{utilindexer.QueueClusterQueueKey: cq.Name}); err != nil {
+		return fmt.Errorf("listing queues that match the clusterQueue: %w", err)
+	}
+	for _, q := range queues.Items {
+		qKey := queueKey(&q)
+		qImpl := &LocalQueue{
+			key:                qKey,
+			reservingWorkloads: 0,
+			admittedWorkloads:  0,
+			totalReserved:      make(resources.FlavorResourceQuantities),
+			admittedUsage:      make(resources.FlavorResourceQuantities),
+		}
+		qImpl.resetFlavorsAndResources(cqImpl.resourceNode.Usage, cqImpl.AdmittedUsage)
+		cqImpl.localQueues[qKey] = qImpl
+	}
+	var workloads kueue.WorkloadList
+	if err := c.client.List(ctx, &workloads, client.MatchingFields{utilindexer.WorkloadClusterQueueKey: cq.Name}); err != nil {
+		return fmt.Errorf("listing workloads that match the queue: %w", err)
+	}
+	for i, w := range workloads.Items {
+		log := log.WithValues("workload", workload.Key(&w))
+		if !workload.HasQuotaReservation(&w) || workload.IsFinished(&w) {
+			continue
+		}
+		c.addOrUpdateWorkload(log, &workloads.Items[i])
+	}
+
+	return nil
+}
+func (c *Cache) addOrUpdateWorkload(log logr.Logger, w *kueue.Workload) bool {
+	if !workload.HasQuotaReservation(w) {
+		return false
+	}
+
+	clusterQueue := c.hm.ClusterQueue(w.Status.Admission.ClusterQueue)
+	if clusterQueue == nil {
+		return false
+	}
+
+	c.cleanupAssumedState(log, w)
+
+	if c.podsReadyTracking {
+		c.podsReadyCond.Broadcast()
+	}
+	clusterQueue.addOrUpdateWorkload(log, w)
+	return true
+}
+
+func (c *Cache) AddOrUpdateAdmissionCheck(log logr.Logger, ac *kueue.AdmissionCheck) sets.Set[kueue.ClusterQueueReference] {
+	c.Lock()
+	defer c.Unlock()
+
+	newAC := AdmissionCheck{
+		Active:     apimeta.IsStatusConditionTrue(ac.Status.Conditions, kueue.AdmissionCheckActive),
+		Controller: ac.Spec.ControllerName,
+	}
+	c.admissionChecks[kueue.AdmissionCheckReference(ac.Name)] = newAC
+
+	return c.updateClusterQueues(log)
 }

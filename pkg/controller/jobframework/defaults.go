@@ -1,19 +1,3 @@
-/*
-Copyright The Kubernetes Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package jobframework
 
 import (
@@ -33,22 +17,63 @@ import (
 	"sigs.k8s.io/kueue/pkg/queue"
 )
 
-func ApplyDefaultForSuspend(ctx context.Context, job GenericJob, k8sClient client.Client,
+func ApplyDefaultForManagedBy(jobOrPod GenericJob, queues *queue.Manager, cache *cache.Cache, log logr.Logger) {
+	if managedJob, ok := jobOrPod.(JobWithManagedBy); ok {
+		if managedJob.CanDefaultManagedBy() { // 是否被 k8s 管理
+			localQueueName, found := jobOrPod.Object().GetLabels()[constants.QueueLabel]
+			if !found {
+				return
+			} //ToDo 启用了 default queue   会加上这个label
+			clusterQueueName, ok := queues.ClusterQueueFromLocalQueue(queue.NewLocalQueueReference(jobOrPod.Object().GetNamespace(), kueue.LocalQueueName(localQueueName)))
+			if !ok {
+				log.V(5).Info("Cluster queue for local queue not found", "localQueueName", localQueueName)
+				return
+			}
+			for _, admissionCheck := range cache.AdmissionChecksForClusterQueue(clusterQueueName) {
+				if admissionCheck.Controller == kueue.MultiKueueControllerName {
+					log.V(5).Info("Defaulting ManagedBy", "oldManagedBy", managedJob.ManagedBy(), "managedBy", kueue.MultiKueueControllerName)
+					managedJob.SetManagedBy(ptr.To(kueue.MultiKueueControllerName))
+					return
+				}
+			}
+		}
+	}
+}
+
+func ApplyDefaultLocalQueue(jobObj client.Object, defaultQueueExist func(string) bool) {
+	if !features.Enabled(features.LocalQueueDefaulting) || !defaultQueueExist(jobObj.GetNamespace()) {
+		return
+	}
+	if QueueNameForObject(jobObj) == "" {
+		// Do not default the queue-name for a job whose owner is already managed by Kueue
+		if IsOwnerManagedByKueueForObject(jobObj) {
+			return
+		}
+		labels := jobObj.GetLabels()
+		if labels == nil {
+			labels = make(map[string]string, 1)
+		}
+		labels[constants.QueueLabel] = string(constants.DefaultLocalQueueName)
+		jobObj.SetLabels(labels)
+	}
+}
+
+func ApplyDefaultForSuspend(ctx context.Context, jobOrPod GenericJob, k8sClient client.Client,
 	manageJobsWithoutQueueName bool, managedJobsNamespaceSelector labels.Selector) error {
-	suspend, err := WorkloadShouldBeSuspended(ctx, job.Object(), k8sClient, manageJobsWithoutQueueName, managedJobsNamespaceSelector)
+	//暂停
+	suspend, err := WorkloadShouldBeSuspended(ctx, jobOrPod.Object(), k8sClient, manageJobsWithoutQueueName, managedJobsNamespaceSelector)
 	if err != nil {
 		return err
 	}
-	if suspend && !job.IsSuspended() {
-		job.Suspend()
+	if suspend && !jobOrPod.IsSuspended() {
+		jobOrPod.Suspend()
 	}
 	return nil
 }
 
-// WorkloadShouldBeSuspended determines whether jobObj should be default suspended on creation
-func WorkloadShouldBeSuspended(ctx context.Context, jobObj client.Object, k8sClient client.Client,
-	manageJobsWithoutQueueName bool, managedJobsNamespaceSelector labels.Selector) (bool, error) {
-	// Do not default suspend a job whose ancestor is already managed by Kueue
+// WorkloadShouldBeSuspended 决定在创建时是否应将 jobObj 设置为默认暂停状态
+func WorkloadShouldBeSuspended(ctx context.Context, jobObj client.Object, k8sClient client.Client, manageJobsWithoutQueueName bool, managedJobsNamespaceSelector labels.Selector) (bool, error) {
+	// 不要对那些其父项已被 Kueue 管理的作业进行暂停操作
 	ancestorJob, err := FindAncestorJobManagedByKueue(ctx, k8sClient, jobObj, manageJobsWithoutQueueName)
 	if err != nil || ancestorJob != nil {
 		return false, err
@@ -75,45 +100,4 @@ func WorkloadShouldBeSuspended(ctx context.Context, jobObj client.Object, k8sCli
 		}
 	}
 	return false, nil
-}
-
-func ApplyDefaultLocalQueue(jobObj client.Object, defaultQueueExist func(string) bool) {
-	if !features.Enabled(features.LocalQueueDefaulting) || !defaultQueueExist(jobObj.GetNamespace()) {
-		return
-	}
-	if QueueNameForObject(jobObj) == "" {
-		// Do not default the queue-name for a job whose owner is already managed by Kueue
-		if IsOwnerManagedByKueueForObject(jobObj) {
-			return
-		}
-		labels := jobObj.GetLabels()
-		if labels == nil {
-			labels = make(map[string]string, 1)
-		}
-		labels[constants.QueueLabel] = string(constants.DefaultLocalQueueName)
-		jobObj.SetLabels(labels)
-	}
-}
-
-func ApplyDefaultForManagedBy(job GenericJob, queues *queue.Manager, cache *cache.Cache, log logr.Logger) {
-	if managedJob, ok := job.(JobWithManagedBy); ok {
-		if managedJob.CanDefaultManagedBy() {
-			localQueueName, found := job.Object().GetLabels()[constants.QueueLabel]
-			if !found {
-				return
-			}
-			clusterQueueName, ok := queues.ClusterQueueFromLocalQueue(queue.NewLocalQueueReference(job.Object().GetNamespace(), kueue.LocalQueueName(localQueueName)))
-			if !ok {
-				log.V(5).Info("Cluster queue for local queue not found", "localQueueName", localQueueName)
-				return
-			}
-			for _, admissionCheck := range cache.AdmissionChecksForClusterQueue(clusterQueueName) {
-				if admissionCheck.Controller == kueue.MultiKueueControllerName {
-					log.V(5).Info("Defaulting ManagedBy", "oldManagedBy", managedJob.ManagedBy(), "managedBy", kueue.MultiKueueControllerName)
-					managedJob.SetManagedBy(ptr.To(kueue.MultiKueueControllerName))
-					return
-				}
-			}
-		}
-	}
 }

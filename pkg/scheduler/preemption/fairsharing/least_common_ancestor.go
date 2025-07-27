@@ -1,50 +1,26 @@
-// Copyright The Kubernetes Authors.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
 package fairsharing
 
 import "sigs.k8s.io/kueue/pkg/cache"
 
-// almostLCA is defined on two ClusterQueues, as the two nodes before
-// the lowest shared node - the LeastCommonAncestor (LCA). While LCA
-// is always a Cohort, almostLCA may be a ClusterQueue or a Cohort.
+// almostLCA 定义在两个 ClusterQueue 上，表示最低共享节点（即最小公共祖先，LCA）之前的两个节点。LCA 总是 Cohort，而 almostLCA 可能是 ClusterQueue 或 Cohort。
 type almostLCA interface {
 	DominantResourceShare() int
 }
 
-// getAlmostLCAs returns almostLCAs of (preemptor, target).
-func getAlmostLCAs(t *TargetClusterQueue) (almostLCA, almostLCA) {
-	lca := getLCA(t)
-	return getAlmostLCA(t.ordering.preemptorCq, lca), getAlmostLCA(t.targetCq, lca)
-}
-
-// getLCA traverses from a ClusterQueue towards the root Cohort,
-// returning the first Cohort which contains the preemptor
-// ClusterQueue in its subtree.
+// getLCA 从 ClusterQueue 向根 Cohort 遍历，
+// 返回第一个在其子树中包含抢占者 ClusterQueue 的 Cohort。
 func getLCA(t *TargetClusterQueue) *cache.CohortSnapshot {
 	for ancestor := range t.targetCq.PathParentToRoot() {
 		if t.ordering.onPathFromRootToPreemptorCQ(ancestor) {
 			return ancestor
 		}
 	}
-	// to make the compiler happy
-	panic("serious bug: could not find LeastCommonAncestor")
+	// 让编译器满意
+	panic("严重错误：未找到最小公共祖先（LeastCommonAncestor）")
 }
 
-// getAlmostLCA traverses from a ClusterQueue towards the root,
-// returning the first Cohort or ClusterQueue that has the
-// LeastCommonAncestor as its parent.
+// getAlmostLCA 从 ClusterQueue 向根遍历，
+// 返回第一个其父节点为 LeastCommonAncestor 的 Cohort 或 ClusterQueue。
 func getAlmostLCA(cq *cache.ClusterQueueSnapshot, lca *cache.CohortSnapshot) almostLCA {
 	var aLca almostLCA = cq
 	for ancestor := range cq.PathParentToRoot() {
@@ -53,6 +29,11 @@ func getAlmostLCA(cq *cache.ClusterQueueSnapshot, lca *cache.CohortSnapshot) alm
 		}
 		aLca = ancestor
 	}
-	// to make the compiler happy
-	panic("serious bug: could not find AlmostLeastCommonAncestor")
+	// 让编译器满意
+	panic("严重错误：未找到 AlmostLeastCommonAncestor")
+}
+
+func getAlmostLCAs(t *TargetClusterQueue) (almostLCA, almostLCA) {
+	lca := getLCA(t)
+	return getAlmostLCA(t.ordering.preemptorCq, lca), getAlmostLCA(t.targetCq, lca)
 }

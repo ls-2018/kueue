@@ -1,30 +1,14 @@
-/*
-Copyright The Kubernetes Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package queue
 
 import (
 	"context"
 	"errors"
 	"fmt"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"sync"
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/equality"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/utils/clock"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -53,7 +37,7 @@ type options struct {
 	clock                       clock.WithDelayedExecution
 }
 
-// Option configures the manager.
+// Option 配置管理器
 type Option func(*options)
 
 var defaultOptions = options{
@@ -62,12 +46,7 @@ var defaultOptions = options{
 	clock:                       clock.RealClock{},
 }
 
-// WithClock allows to specify a custom clock
-func WithClock(c clock.WithDelayedExecution) Option {
-	return func(o *options) {
-		o.clock = c
-	}
-}
+// WithClock 允许指定自定义时钟
 
 func WithAdmissionFairSharing(cfg *config.AdmissionFairSharing) Option {
 	return func(o *options) {
@@ -77,22 +56,21 @@ func WithAdmissionFairSharing(cfg *config.AdmissionFairSharing) Option {
 	}
 }
 
-// WithPodsReadyRequeuingTimestamp sets the timestamp that is used for ordering
-// workloads that have been requeued due to the PodsReady condition.
+// WithPodsReadyRequeuingTimestamp 设置用于排序因 PodsReady 条件而重新排队的工作负载的时间戳
 func WithPodsReadyRequeuingTimestamp(ts config.RequeuingTimestamp) Option {
 	return func(o *options) {
 		o.podsReadyRequeuingTimestamp = ts
 	}
 }
 
-// WithExcludedResourcePrefixes sets the list of excluded resource prefixes
+// WithExcludedResourcePrefixes 设置排除的资源前缀列表
 func WithExcludedResourcePrefixes(excludedPrefixes []string) Option {
 	return func(o *options) {
 		o.workloadInfoOptions = append(o.workloadInfoOptions, workload.WithExcludedResourcePrefixes(excludedPrefixes))
 	}
 }
 
-// WithResourceTransformations sets the resource transformations.
+// WithResourceTransformations 设置资源转换
 func WithResourceTransformations(transforms []config.ResourceTransformation) Option {
 	return func(o *options) {
 		o.workloadInfoOptions = append(o.workloadInfoOptions, workload.WithResourceTransformations(transforms))
@@ -163,106 +141,6 @@ func (m *Manager) NotifyTopologyUpdateWatchers(oldTopology, newTopology *kueueal
 	}
 }
 
-func (m *Manager) AddOrUpdateCohort(ctx context.Context, cohort *kueuealpha.Cohort) {
-	m.Lock()
-	defer m.Unlock()
-	cohortName := kueue.CohortReference(cohort.Name)
-
-	m.hm.AddCohort(cohortName)
-	m.hm.UpdateCohortEdge(cohortName, cohort.Spec.Parent)
-	if m.requeueWorkloadsCohort(ctx, m.hm.Cohort(cohortName)) {
-		m.Broadcast()
-	}
-}
-
-func (m *Manager) DeleteCohort(cohortName kueue.CohortReference) {
-	m.Lock()
-	defer m.Unlock()
-	m.hm.DeleteCohort(cohortName)
-}
-
-func (m *Manager) AddClusterQueue(ctx context.Context, cq *kueue.ClusterQueue) error {
-	m.Lock()
-	defer m.Unlock()
-
-	if cq := m.hm.ClusterQueue(kueue.ClusterQueueReference(cq.Name)); cq != nil {
-		return errClusterQueueAlreadyExists
-	}
-
-	cqImpl, err := newClusterQueue(ctx, m.client, cq, m.workloadOrdering, m.admissionFairSharingConfig)
-	if err != nil {
-		return err
-	}
-	m.hm.AddClusterQueue(cqImpl)
-	m.hm.UpdateClusterQueueEdge(kueue.ClusterQueueReference(cq.Name), cq.Spec.Cohort)
-
-	// Iterate through existing queues, as queues corresponding to this cluster
-	// queue might have been added earlier.
-	var queues kueue.LocalQueueList
-	if err := m.client.List(ctx, &queues, client.MatchingFields{utilindexer.QueueClusterQueueKey: cq.Name}); err != nil {
-		return fmt.Errorf("listing queues pointing to the cluster queue: %w", err)
-	}
-	addedWorkloads := false
-	for _, q := range queues.Items {
-		qImpl := m.localQueues[Key(&q)]
-		if qImpl != nil {
-			added := cqImpl.AddFromLocalQueue(qImpl)
-			addedWorkloads = addedWorkloads || added
-		}
-	}
-
-	queued := m.requeueWorkloadsCQ(ctx, cqImpl)
-	m.reportPendingWorkloads(kueue.ClusterQueueReference(cq.Name), cqImpl)
-
-	// needs to be iterated over again here incase inadmissible workloads were added by requeueWorkloadsCQ
-	if features.Enabled(features.LocalQueueMetrics) {
-		for _, q := range queues.Items {
-			qImpl := m.localQueues[Key(&q)]
-			if qImpl != nil {
-				m.reportLQPendingWorkloads(qImpl)
-			}
-		}
-	}
-
-	if queued || addedWorkloads {
-		m.Broadcast()
-	}
-	return nil
-}
-
-func (m *Manager) UpdateClusterQueue(ctx context.Context, cq *kueue.ClusterQueue, specUpdated bool) error {
-	m.Lock()
-	defer m.Unlock()
-	cqName := kueue.ClusterQueueReference(cq.Name)
-
-	cqImpl := m.hm.ClusterQueue(cqName)
-	if cqImpl == nil {
-		return ErrClusterQueueDoesNotExist
-	}
-
-	oldActive := cqImpl.Active()
-	// TODO(#8): recreate heap based on a change of queueing policy.
-	if err := cqImpl.Update(cq); err != nil {
-		return err
-	}
-	m.hm.UpdateClusterQueueEdge(cqName, cq.Spec.Cohort)
-
-	// TODO(#8): Selectively move workloads based on the exact event.
-	// If any workload becomes admissible or the queue becomes active.
-	if (specUpdated && m.requeueWorkloadsCQ(ctx, cqImpl)) || (!oldActive && cqImpl.Active()) {
-		m.reportPendingWorkloads(cqName, cqImpl)
-		if features.Enabled(features.LocalQueueMetrics) {
-			for _, q := range m.localQueues {
-				if q.ClusterQueue == cqName {
-					m.reportLQPendingWorkloads(q)
-				}
-			}
-		}
-		m.Broadcast()
-	}
-	return nil
-}
-
 func (m *Manager) HeapifyClusterQueue(cq *kueue.ClusterQueue, lqName string) error {
 	m.Lock()
 	defer m.Unlock()
@@ -285,14 +163,6 @@ func (m *Manager) DeleteClusterQueue(cq *kueue.ClusterQueue) {
 	metrics.ClearClusterQueueMetrics(cq.Name)
 }
 
-func (m *Manager) DefaultLocalQueueExist(namespace string) bool {
-	m.Lock()
-	defer m.Unlock()
-
-	_, ok := m.localQueues[DefaultQueueKey(namespace)]
-	return ok
-}
-
 func (m *Manager) AddLocalQueue(ctx context.Context, q *kueue.LocalQueue) error {
 	m.Lock()
 	defer m.Unlock()
@@ -303,8 +173,7 @@ func (m *Manager) AddLocalQueue(ctx context.Context, q *kueue.LocalQueue) error 
 	}
 	qImpl := newLocalQueue(q)
 	m.localQueues[key] = qImpl
-	// Iterate through existing workloads, as workloads corresponding to this
-	// queue might have been added earlier.
+	// 遍历现有工作负载，因为对应此队列的工作负载可能已经提前添加
 	var workloads kueue.WorkloadList
 	if err := m.client.List(ctx, &workloads, client.MatchingFields{utilindexer.WorkloadQueueKey: q.Name}, client.InNamespace(q.Namespace)); err != nil {
 		return fmt.Errorf("listing workloads that match the queue: %w", err)
@@ -390,100 +259,6 @@ func (m *Manager) Pending(cq *kueue.ClusterQueue) (int, error) {
 	return cqImpl.Pending(), nil
 }
 
-func (m *Manager) QueueForWorkloadExists(wl *kueue.Workload) bool {
-	m.RLock()
-	defer m.RUnlock()
-	_, ok := m.localQueues[KeyFromWorkload(wl)]
-	return ok
-}
-
-// ClusterQueueForWorkload returns the name of the ClusterQueue where the
-// workload should be queued and whether it exists.
-// Returns empty string if the queue doesn't exist.
-func (m *Manager) ClusterQueueForWorkload(wl *kueue.Workload) (kueue.ClusterQueueReference, bool) {
-	m.RLock()
-	defer m.RUnlock()
-	q, ok := m.localQueues[KeyFromWorkload(wl)]
-	if !ok {
-		return "", false
-	}
-	ok = m.hm.ClusterQueue(q.ClusterQueue) != nil
-	return q.ClusterQueue, ok
-}
-
-// AddOrUpdateWorkload adds or updates workload to the corresponding queue.
-// Returns whether the queue existed.
-func (m *Manager) AddOrUpdateWorkload(w *kueue.Workload) error {
-	m.Lock()
-	defer m.Unlock()
-	return m.AddOrUpdateWorkloadWithoutLock(w)
-}
-
-func (m *Manager) AddOrUpdateWorkloadWithoutLock(w *kueue.Workload) error {
-	qKey := KeyFromWorkload(w)
-	q := m.localQueues[qKey]
-	if q == nil {
-		return ErrLocalQueueDoesNotExistOrInactive
-	}
-	wInfo := workload.NewInfo(w, m.workloadInfoOptions...)
-	q.AddOrUpdate(wInfo)
-	cq := m.hm.ClusterQueue(q.ClusterQueue)
-	if cq == nil {
-		return ErrClusterQueueDoesNotExist
-	}
-	cq.PushOrUpdate(wInfo)
-	if features.Enabled(features.LocalQueueMetrics) {
-		m.reportLQPendingWorkloads(q)
-	}
-	m.reportPendingWorkloads(q.ClusterQueue, cq)
-	m.Broadcast()
-	return nil
-}
-
-// RequeueWorkload requeues the workload ensuring that the queue and the
-// workload still exist in the client cache and not admitted. It won't
-// requeue if the workload is already in the queue (possible if the workload was updated).
-func (m *Manager) RequeueWorkload(ctx context.Context, info *workload.Info, reason RequeueReason) bool {
-	m.Lock()
-	defer m.Unlock()
-
-	var w kueue.Workload
-	// Always get the newest workload to avoid requeuing the out-of-date obj.
-	err := m.client.Get(ctx, client.ObjectKeyFromObject(info.Obj), &w)
-	// Since the client is cached, the only possible error is NotFound
-	if apierrors.IsNotFound(err) || workload.HasQuotaReservation(&w) {
-		return false
-	}
-
-	q := m.localQueues[KeyFromWorkload(&w)]
-	if q == nil {
-		return false
-	}
-	info.Update(&w)
-	q.AddOrUpdate(info)
-	cq := m.hm.ClusterQueue(q.ClusterQueue)
-	if cq == nil {
-		return false
-	}
-
-	added := cq.RequeueIfNotPresent(info, reason)
-	m.reportPendingWorkloads(q.ClusterQueue, cq)
-	if features.Enabled(features.LocalQueueMetrics) {
-		m.reportLQPendingWorkloads(q)
-	}
-	if added {
-		m.Broadcast()
-	}
-	return added
-}
-
-func (m *Manager) DeleteWorkload(w *kueue.Workload) {
-	m.Lock()
-	defer m.Unlock()
-	m.deleteWorkloadFromQueueAndClusterQueue(w, KeyFromWorkload(w))
-	m.DeleteSecondPassWithoutLock(w)
-}
-
 func (m *Manager) deleteWorkloadFromQueueAndClusterQueue(w *kueue.Workload, qKey LocalQueueReference) {
 	q := m.localQueues[qKey]
 	if q == nil {
@@ -500,12 +275,9 @@ func (m *Manager) deleteWorkloadFromQueueAndClusterQueue(w *kueue.Workload, qKey
 	}
 }
 
-// QueueAssociatedInadmissibleWorkloadsAfter requeues into the heaps all
-// previously inadmissible workloads in the same ClusterQueue and cohort (if
-// they exist) as the provided admitted workload to the heaps.
-// An optional action can be executed at the beginning of the function,
-// while holding the lock, to provide atomicity with the operations in the
-// queues.
+// QueueAssociatedInadmissibleWorkloadsAfter 将同一集群队列和队列组（如果存在）中
+// 之前不可接纳的工作负载重新排队到堆中，这些工作负载与提供的已接纳工作负载相关
+// 可以在函数开始时执行可选操作，在持有锁的同时，以提供与队列中操作的原子性
 func (m *Manager) QueueAssociatedInadmissibleWorkloadsAfter(ctx context.Context, w *kueue.Workload, action func()) {
 	m.Lock()
 	defer m.Unlock()
@@ -527,105 +299,15 @@ func (m *Manager) QueueAssociatedInadmissibleWorkloadsAfter(ctx context.Context,
 	}
 }
 
-// QueueInadmissibleWorkloads moves all inadmissibleWorkloads in
-// corresponding ClusterQueues to heap. If at least one workload queued,
-// we will broadcast the event.
-func (m *Manager) QueueInadmissibleWorkloads(ctx context.Context, cqNames sets.Set[kueue.ClusterQueueReference]) {
-	m.Lock()
-	defer m.Unlock()
-	if len(cqNames) == 0 {
-		return
-	}
-
-	var queued bool
-	for name := range cqNames {
-		cq := m.hm.ClusterQueue(name)
-		if cq == nil {
-			continue
-		}
-		if m.requeueWorkloadsCQ(ctx, cq) {
-			queued = true
-		}
-	}
-
-	if queued {
-		m.Broadcast()
-	}
-}
-
-// requeueWorkloadsCQ moves all workloads in the same
-// cohort with this ClusterQueue from inadmissibleWorkloads to heap. If the
-// cohort of this ClusterQueue is empty, it just moves all workloads in this
-// ClusterQueue. If at least one workload is moved, returns true, otherwise
-// returns false.
-// The events listed below could make workloads in the same cohort admissible.
-// Then requeueWorkloadsCQ need to be invoked.
-// 1. delete events for any admitted workload in the cohort.
-// 2. add events of any cluster queue in the cohort.
-// 3. update events of any cluster queue in the cohort.
-// 4. update of cohort.
-//
-// WARNING: must hold a read-lock on the manager when calling,
-// or otherwise risk encountering an infinite loop if a Cohort
-// cycle is introduced.
-func (m *Manager) requeueWorkloadsCQ(ctx context.Context, cq *ClusterQueue) bool {
-	if cq.HasParent() {
-		return m.requeueWorkloadsCohort(ctx, cq.Parent())
-	}
-	return cq.QueueInadmissibleWorkloads(ctx, m.client)
-}
-
-// moveWorkloadsCohorts checks for a cycle, the moves all inadmissible
-// workloads in the Cohort tree. If a cycle exists, or no workloads were
-// moved, it returns false.
-//
-// WARNING: must hold a read-lock on the manager when calling,
-// or otherwise risk encountering an infinite loop if a Cohort
-// cycle is introduced.
-func (m *Manager) requeueWorkloadsCohort(ctx context.Context, cohort *cohort) bool {
-	log := ctrl.LoggerFrom(ctx)
-
-	if hierarchy.HasCycle(cohort) {
-		log.V(2).Info("Attempted to move workloads from Cohort which has cycle", "cohort", cohort.GetName())
-		return false
-	}
-	root := cohort.getRootUnsafe()
-	log.V(2).Info("Attempting to move workloads", "cohort", cohort.Name, "root", root.Name)
-	return requeueWorkloadsCohortSubtree(ctx, m, root)
-}
-
-func requeueWorkloadsCohortSubtree(ctx context.Context, m *Manager, cohort *cohort) bool {
-	queued := false
-	for _, clusterQueue := range cohort.ChildCQs() {
-		queued = clusterQueue.QueueInadmissibleWorkloads(ctx, m.client) || queued
-	}
-	for _, childCohort := range cohort.ChildCohorts() {
-		queued = requeueWorkloadsCohortSubtree(ctx, m, childCohort) || queued
-	}
-	return queued
-}
-
-// UpdateWorkload updates the workload to the corresponding queue or adds it if
-// it didn't exist. Returns whether the queue existed.
-func (m *Manager) UpdateWorkload(oldW, w *kueue.Workload) error {
-	m.Lock()
-	defer m.Unlock()
-	if oldW.Spec.QueueName != w.Spec.QueueName {
-		m.deleteWorkloadFromQueueAndClusterQueue(w, KeyFromWorkload(oldW))
-	}
-	return m.AddOrUpdateWorkloadWithoutLock(w)
-}
-
-// CleanUpOnContext tracks the context. When closed, it wakes routines waiting
-// on elements to be available. It should be called before doing any calls to
-// Heads.
+// CleanUpOnContext 跟踪上下文。当关闭时，它会唤醒等待元素可用的例程
+// 应该在调用 Heads 之前调用
 func (m *Manager) CleanUpOnContext(ctx context.Context) {
 	<-ctx.Done()
 	m.Broadcast()
 }
 
-// Heads returns the heads of the queues, along with their associated ClusterQueue.
-// It blocks if the queues empty until they have elements or the context terminates.
+// Heads 返回队列的头部，以及它们关联的集群队列
+// 如果队列为空，它会阻塞直到有元素或上下文终止
 func (m *Manager) Heads(ctx context.Context) []workload.Info {
 	m.Lock()
 	defer m.Unlock()
@@ -649,7 +331,7 @@ func (m *Manager) heads() []workload.Info {
 	var workloads []workload.Info
 	workloads = append(workloads, m.secondPassQueue.takeAllReady()...)
 	for cqName, cq := range m.hm.ClusterQueues() {
-		// Cache might be nil in tests, if cache is nil, we'll skip the check.
+		// 缓存可能在测试中为 nil，如果缓存为 nil，我们将跳过检查
 		if m.statusChecker != nil && !m.statusChecker.ClusterQueueActive(cqName) {
 			continue
 		}
@@ -668,24 +350,6 @@ func (m *Manager) heads() []workload.Info {
 		}
 	}
 	return workloads
-}
-
-func (m *Manager) Broadcast() {
-	m.cond.Broadcast()
-}
-
-func (m *Manager) reportLQPendingWorkloads(lq *LocalQueue) {
-	active := m.PendingActiveInLocalQueue(lq)
-	inadmissible := m.PendingInadmissibleInLocalQueue(lq)
-	if m.statusChecker != nil && !m.statusChecker.ClusterQueueActive(lq.ClusterQueue) {
-		inadmissible += active
-		active = 0
-	}
-	namespace, lqName := MustParseLocalQueueReference(lq.Key)
-	metrics.ReportLocalQueuePendingWorkloads(metrics.LocalQueueReference{
-		Name:      lqName,
-		Namespace: namespace,
-	}, active, inadmissible)
 }
 
 func (m *Manager) reportPendingWorkloads(cqName kueue.ClusterQueueReference, cq *ClusterQueue) {
@@ -723,19 +387,8 @@ func (m *Manager) PendingWorkloadsInfo(cqName kueue.ClusterQueueReference) []*wo
 	return cq.Snapshot()
 }
 
-// ClusterQueueFromLocalQueue returns ClusterQueue name and whether it's found,
-// given a QueueKey(namespace/localQueueName) as the parameter
-func (m *Manager) ClusterQueueFromLocalQueue(localQueueKey LocalQueueReference) (kueue.ClusterQueueReference, bool) {
-	m.RLock()
-	defer m.RUnlock()
-	if lq, ok := m.localQueues[localQueueKey]; ok {
-		return lq.ClusterQueue, true
-	}
-	return "", false
-}
-
-// UpdateSnapshot computes the new snapshot and replaces if it differs from the
-// previous version. It returns true if the snapshot was actually updated.
+// UpdateSnapshot 计算新的快照，如果与前一版本不同则替换
+// 如果快照实际被更新，返回 true
 func (m *Manager) UpdateSnapshot(cqName kueue.ClusterQueueReference, maxCount int32) bool {
 	cq := m.getClusterQueue(cqName)
 	if cq == nil {
@@ -780,14 +433,12 @@ func (m *Manager) DeleteSnapshot(cq *kueue.ClusterQueue) {
 	delete(m.snapshots, kueue.ClusterQueueReference(cq.Name))
 }
 
-// DeleteSecondPassWithoutLock deletes the pending workload from the second
-// pass queue.
+// DeleteSecondPassWithoutLock 从第二遍队列中删除待处理的工作负载
 func (m *Manager) DeleteSecondPassWithoutLock(w *kueue.Workload) {
 	m.secondPassQueue.deleteByKey(workload.Key(w))
 }
 
-// QueueSecondPassIfNeeded queues for the second pass of scheduling with 1s
-// delay.
+// QueueSecondPassIfNeeded 如果需要，将工作负载排队进行第二遍调度，延迟 1 秒
 func (m *Manager) QueueSecondPassIfNeeded(ctx context.Context, w *kueue.Workload) bool {
 	if workload.NeedsSecondPass(w) {
 		log := ctrl.LoggerFrom(ctx)
@@ -811,4 +462,315 @@ func (m *Manager) queueSecondPass(ctx context.Context, w *kueue.Workload) {
 		log.V(3).Info("Workload queued for second pass of scheduling", "workload", workload.Key(w))
 		m.Broadcast()
 	}
+}
+
+func (m *Manager) DefaultLocalQueueExist(namespace string) bool {
+	m.Lock()
+	defer m.Unlock()
+
+	_, ok := m.localQueues[DefaultQueueKey(namespace)]
+	return ok
+}
+
+// ClusterQueueFromLocalQueue 返回集群队列名称以及是否找到，
+// 给定 QueueKey(namespace/localQueueName) 作为参数
+func (m *Manager) ClusterQueueFromLocalQueue(localQueueKey LocalQueueReference) (kueue.ClusterQueueReference, bool) {
+	m.RLock()
+	defer m.RUnlock()
+	if lq, ok := m.localQueues[localQueueKey]; ok {
+		return lq.ClusterQueue, true
+	}
+	return "", false
+}
+
+// QueueInadmissibleWorkloads 将相应集群队列中的所有不可接纳工作负载移动到堆中
+// 如果至少有一个工作负载排队，我们将广播事件
+func (m *Manager) QueueInadmissibleWorkloads(ctx context.Context, cqNames sets.Set[kueue.ClusterQueueReference]) {
+	m.Lock()
+	defer m.Unlock()
+	if len(cqNames) == 0 {
+		return
+	}
+
+	var queued bool
+	for name := range cqNames {
+		cq := m.hm.ClusterQueue(name)
+		if cq == nil {
+			continue
+		}
+		if m.requeueWorkloadsCQ(ctx, cq) {
+			queued = true
+		}
+	}
+
+	if queued {
+		m.Broadcast()
+	}
+}
+
+// requeueWorkloadsCQ 将同一队列组中此集群队列的所有工作负载从不可接纳工作负载移动到堆中
+// 如果此集群队列的队列组为空，它只移动此集群队列中的所有工作负载
+// 如果至少有一个工作负载被移动，返回 true，否则返回 false
+// 下面列出的事件可能使同一队列组中的工作负载变得可接纳
+// 然后需要调用 requeueWorkloadsCQ
+// 1. 队列组中任何已接纳工作负载的删除事件
+// 2. 队列组中任何集群队列的添加事件
+// 3. 队列组中任何集群队列的更新事件
+// 4. 队列组的更新
+//
+// 警告：调用时必须持有管理器的读锁，
+// 否则如果引入队列组循环，可能会遇到无限循环
+func (m *Manager) requeueWorkloadsCQ(ctx context.Context, cq *ClusterQueue) bool {
+	if cq.HasParent() {
+		return m.requeueWorkloadsCohort(ctx, cq.Parent()) // ✅
+	}
+	return cq.QueueInadmissibleWorkloads(ctx, m.client) // 从不可用的 map 中 移动到 heap   ✅
+}
+
+// moveWorkloadsCohorts 检查循环，然后移动队列组树中的所有不可接纳工作负载
+// 如果存在循环或没有工作负载被移动，返回 false
+//
+// 警告：调用时必须持有管理器的读锁，
+// 否则如果引入队列组循环，可能会遇到无限循环
+func (m *Manager) requeueWorkloadsCohort(ctx context.Context, cohort *cohort) bool {
+	log := ctrl.LoggerFrom(ctx)
+
+	if hierarchy.HasCycle(cohort) {
+		log.V(2).Info("Attempted to move workloads from Cohort which has cycle", "cohort", cohort.GetName())
+		return false
+	}
+	root := cohort.getRootUnsafe()
+	log.V(2).Info("Attempting to move workloads", "cohort", cohort.Name, "root", root.Name)
+	return requeueWorkloadsCohortSubtree(ctx, m, root) // ✅
+}
+
+func requeueWorkloadsCohortSubtree(ctx context.Context, m *Manager, cohort *cohort) bool {
+	queued := false
+	for _, clusterQueue := range cohort.ChildCQs() {
+		queued = clusterQueue.QueueInadmissibleWorkloads(ctx, m.client) || queued
+	}
+	for _, childCohort := range cohort.ChildCohorts() {
+		queued = requeueWorkloadsCohortSubtree(ctx, m, childCohort) || queued // ✅
+	}
+	return queued
+}
+
+func (m *Manager) AddOrUpdateCohort(ctx context.Context, cohort *kueuealpha.Cohort) {
+	m.Lock()
+	defer m.Unlock()
+	cohortName := kueue.CohortReference(cohort.Name)
+
+	m.hm.AddCohort(cohortName)
+	m.hm.UpdateCohortEdge(cohortName, cohort.Spec.Parent)
+	if m.requeueWorkloadsCohort(ctx, m.hm.Cohort(cohortName)) {
+		m.Broadcast()
+	}
+}
+
+func (m *Manager) DeleteCohort(cohortName kueue.CohortReference) {
+	m.Lock()
+	defer m.Unlock()
+	m.hm.DeleteCohort(cohortName)
+}
+
+func (m *Manager) AddClusterQueue(ctx context.Context, cq *kueue.ClusterQueue) error {
+	m.Lock()
+	defer m.Unlock()
+
+	if cq := m.hm.ClusterQueue(kueue.ClusterQueueReference(cq.Name)); cq != nil {
+		return errClusterQueueAlreadyExists
+	}
+
+	cqImpl, err := newClusterQueue(ctx, m.client, cq, m.workloadOrdering, m.admissionFairSharingConfig)
+	if err != nil {
+		return err
+	}
+	m.hm.AddClusterQueue(cqImpl)
+	m.hm.UpdateClusterQueueEdge(kueue.ClusterQueueReference(cq.Name), cq.Spec.Cohort) // ✅
+
+	// 遍历现有队列，因为对应此集群队列的队列可能已经提前添加
+	var queues kueue.LocalQueueList
+	if err := m.client.List(ctx, &queues, client.MatchingFields{utilindexer.QueueClusterQueueKey: cq.Name}); err != nil {
+		return fmt.Errorf("listing queues pointing to the cluster queue: %w", err)
+	}
+	addedWorkloads := false
+	for _, q := range queues.Items {
+		qImpl := m.localQueues[Key(&q)]
+		if qImpl != nil {
+			added := cqImpl.AddFromLocalQueue(qImpl)
+			addedWorkloads = addedWorkloads || added
+		}
+	}
+
+	queued := m.requeueWorkloadsCQ(ctx, cqImpl) // ✅
+	m.reportPendingWorkloads(kueue.ClusterQueueReference(cq.Name), cqImpl)
+
+	// 需要在这里再次遍历，以防 requeueWorkloadsCQ 添加了不可接纳的工作负载
+	if features.Enabled(features.LocalQueueMetrics) {
+		for _, q := range queues.Items {
+			qImpl := m.localQueues[Key(&q)]
+			if qImpl != nil {
+				m.reportLQPendingWorkloads(qImpl)
+			}
+		}
+	}
+
+	if queued || addedWorkloads {
+		m.Broadcast()
+	}
+	return nil
+}
+
+func (m *Manager) UpdateClusterQueue(ctx context.Context, cq *kueue.ClusterQueue, specUpdated bool) error {
+	m.Lock()
+	defer m.Unlock()
+	cqName := kueue.ClusterQueueReference(cq.Name)
+
+	cqImpl := m.hm.ClusterQueue(cqName)
+	if cqImpl == nil {
+		return ErrClusterQueueDoesNotExist
+	}
+
+	oldActive := cqImpl.Active()
+	// TODO(#8): 基于队列策略的变化重新创建堆
+	if err := cqImpl.Update(cq); err != nil {
+		return err
+	}
+	m.hm.UpdateClusterQueueEdge(cqName, cq.Spec.Cohort)
+
+	// TODO(#8): 根据确切事件选择性地移动工作负载
+	// 如果有任何工作负载变得可接纳或队列变为活跃状态
+	if (specUpdated && m.requeueWorkloadsCQ(ctx, cqImpl)) || (!oldActive && cqImpl.Active()) {
+		m.reportPendingWorkloads(cqName, cqImpl)
+		if features.Enabled(features.LocalQueueMetrics) {
+			for _, q := range m.localQueues {
+				if q.ClusterQueue == cqName {
+					m.reportLQPendingWorkloads(q)
+				}
+			}
+		}
+		m.Broadcast()
+	}
+	return nil
+}
+
+// AddOrUpdateWorkload 添加或更新工作负载到相应的队列
+// 返回队列是否存在
+func (m *Manager) AddOrUpdateWorkload(w *kueue.Workload) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.AddOrUpdateWorkloadWithoutLock(w) // ✅
+}
+
+func (m *Manager) AddOrUpdateWorkloadWithoutLock(w *kueue.Workload) error {
+	qKey := KeyFromWorkload(w)
+	q := m.localQueues[qKey]
+	if q == nil {
+		return ErrLocalQueueDoesNotExistOrInactive
+	}
+	wInfo := workload.NewInfo(w, m.workloadInfoOptions...) // ✅
+	q.AddOrUpdate(wInfo)                                   // ✅
+	cq := m.hm.ClusterQueue(q.ClusterQueue)
+	if cq == nil {
+		return ErrClusterQueueDoesNotExist
+	}
+	cq.PushOrUpdate(wInfo) // ✅
+	if features.Enabled(features.LocalQueueMetrics) {
+		m.reportLQPendingWorkloads(q)
+	}
+	m.reportPendingWorkloads(q.ClusterQueue, cq)
+	m.Broadcast()
+	return nil
+}
+
+func (m *Manager) reportLQPendingWorkloads(lq *LocalQueue) {
+	active := m.PendingActiveInLocalQueue(lq)
+	inadmissible := m.PendingInadmissibleInLocalQueue(lq)
+	if m.statusChecker != nil && !m.statusChecker.ClusterQueueActive(lq.ClusterQueue) {
+		inadmissible += active
+		active = 0
+	}
+	namespace, lqName := MustParseLocalQueueReference(lq.Key)
+	metrics.ReportLocalQueuePendingWorkloads(metrics.LocalQueueReference{
+		Name:      lqName,
+		Namespace: namespace,
+	}, active, inadmissible)
+}
+
+func (m *Manager) Broadcast() {
+	m.cond.Broadcast()
+}
+
+// UpdateWorkload 更新工作负载到相应的队列，如果不存在则添加它
+// 返回队列是否存在
+func (m *Manager) UpdateWorkload(oldW, w *kueue.Workload) error {
+	m.Lock()
+	defer m.Unlock()
+	if oldW.Spec.QueueName != w.Spec.QueueName {
+		m.deleteWorkloadFromQueueAndClusterQueue(w, KeyFromWorkload(oldW))
+	}
+	return m.AddOrUpdateWorkloadWithoutLock(w) // ✅
+}
+
+func (m *Manager) QueueForWorkloadExists(wl *kueue.Workload) bool {
+	m.RLock()
+	defer m.RUnlock()
+	_, ok := m.localQueues[KeyFromWorkload(wl)]
+	return ok
+}
+
+// ClusterQueueForWorkload 返回工作负载应该排队的集群队列名称以及它是否存在
+// 如果队列不存在则返回空字符串
+func (m *Manager) ClusterQueueForWorkload(wl *kueue.Workload) (kueue.ClusterQueueReference, bool) {
+	m.RLock()
+	defer m.RUnlock()
+	q, ok := m.localQueues[KeyFromWorkload(wl)]
+	if !ok {
+		return "", false
+	}
+	ok = m.hm.ClusterQueue(q.ClusterQueue) != nil
+	return q.ClusterQueue, ok
+}
+
+// RequeueWorkload 重新排队工作负载，确保队列和工作负载在客户端缓存中仍然存在且未被接纳
+// 如果工作负载已经在队列中（如果工作负载被更新则可能），则不会重新排队
+func (m *Manager) RequeueWorkload(ctx context.Context, info *workload.Info, reason RequeueReason) bool {
+	m.Lock()
+	defer m.Unlock()
+
+	var w kueue.Workload
+	// 始终获取最新的工作负载以避免重新排队过时的对象
+	err := m.client.Get(ctx, client.ObjectKeyFromObject(info.Obj), &w)
+	// 由于客户端是缓存的，唯一可能的错误是 NotFound
+	if apierrors.IsNotFound(err) || workload.HasQuotaReservation(&w) {
+		return false
+	}
+
+	q := m.localQueues[KeyFromWorkload(&w)]
+	if q == nil {
+		return false
+	}
+	info.Update(&w)
+	q.AddOrUpdate(info)
+	cq := m.hm.ClusterQueue(q.ClusterQueue)
+	if cq == nil {
+		return false
+	}
+
+	added := cq.RequeueIfNotPresent(info, reason)
+	m.reportPendingWorkloads(q.ClusterQueue, cq)
+	if features.Enabled(features.LocalQueueMetrics) {
+		m.reportLQPendingWorkloads(q)
+	}
+	if added {
+		m.Broadcast()
+	}
+	return added
+}
+
+func (m *Manager) DeleteWorkload(w *kueue.Workload) {
+	m.Lock()
+	defer m.Unlock()
+	m.deleteWorkloadFromQueueAndClusterQueue(w, KeyFromWorkload(w))
+	m.DeleteSecondPassWithoutLock(w)
 }

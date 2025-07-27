@@ -1,18 +1,15 @@
-/*
-Copyright The Kubernetes Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
+// 版权所有 Kubernetes 作者。
+//
+// 根据 Apache 许可证 2.0 版（以下简称“许可证”）授权；
+// 除非符合许可证，否则您不得使用此文件。
+// 您可以在以下网址获取许可证副本：
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// 除非适用法律要求或书面同意，
+// 根据许可证分发的软件按“原样”分发，
+// 不附带任何明示或暗示的担保或条件。
+// 有关许可证下权限和限制的具体语言，请参阅许可证。
 
 package fairsharing
 
@@ -26,36 +23,97 @@ import (
 	"sigs.k8s.io/kueue/pkg/workload"
 )
 
-// TargetClusterQueueOrdering defines an ordering over ClusterQueues
-// to consider during preemption.  This is done by traversing from
-// root Cohort, selecting the child which satisfies the 3 conditions:
-// 1. has candidate workloads
-// 2. has DRS >= 0
-// 3. has the highest DominantResourceShare of nodes passing filters 1 and 2.
+// TargetClusterQueueOrdering 定义了在抢占期间考虑的集群队列排序。
+// 这是通过从根 cohort 遍历来完成的，选择满足 3 个条件的子 cohort：
+// 1. 有候选工作负载
+// 2. DRS >= 0
+// 3. 具有通过过滤条件 1 和 2 传递的节点最高 DominantResourceShare。
 //
-// The same TargetClusterQueue may be returned multiple times in a
-// row, if its AlmostLeastCommonAncestor's DominantResourceShare is
-// still the highest.
+// 相同的 TargetClusterQueue 可能会在多行中返回，如果其 AlmostLeastCommonAncestor 的 DominantResourceShare 仍然最高。
 //
-// To guarantee progression, TargetClusterQueue.PopWorkload, or
-// TargetClusterQueueOrdering.DropQueue must be called between each
-// entry returned.
+// 为了保证进度，必须在每次返回条目之间调用 TargetClusterQueue.PopWorkload 或 TargetClusterQueueOrdering.DropQueue。
 type TargetClusterQueueOrdering struct {
-	preemptorCq *cache.ClusterQueueSnapshot
-	// ancestor Cohorts of the preemptor ClusterQueue.
-	preemptorAncestors sets.Set[*cache.CohortSnapshot]
-
+	preemptorCq          *cache.ClusterQueueSnapshot
+	preemptorAncestors   sets.Set[*cache.CohortSnapshot] // 预抢占集群队列的祖先 cohort。
 	clusterQueueToTarget map[kueue.ClusterQueueReference][]*workload.Info
 
-	// pruned nodes are nodes which we are certain will never
-	// yield more preemption target candidates. We use this set to
-	// determine our stopping condition: once the rootCohort is in
-	// the prunedCohorts list, we will not find any more
-	// preemption target candidates.
+	// 已剪枝的集群队列是那些我们确定永远不会
+	// 产生更多抢占目标候选者的集群队列。我们使用此集合来
+	// 确定我们的停止条件：一旦根 cohort 在 prunedCohorts 列表中，
+	// 我们将不再找到任何抢占目标候选者。
 	prunedClusterQueues sets.Set[*cache.ClusterQueueSnapshot]
 	prunedCohorts       sets.Set[*cache.CohortSnapshot]
 }
 
+// DropQueue 表示我们不应再
+// 考虑此队列的工作负载。
+func (t *TargetClusterQueueOrdering) DropQueue(cq *TargetClusterQueue) {
+	t.prunedClusterQueues.Insert(cq.targetCq)
+}
+
+// nextTarget 是一个递归算法，用于查找下一个
+// TargetClusterQueue。它找到具有最高 DRS 的子 cohort，
+// 如果它是集群队列，则返回它；如果是 cohort，则进入递归
+// 调用。返回 nil 并不意味着没有更多候选集群队列；
+// 迭代可能只修剪了树中的节点。
+func (t *TargetClusterQueueOrdering) nextTarget(cohort *cache.CohortSnapshot) *TargetClusterQueue {
+	var highestCq *cache.ClusterQueueSnapshot = nil
+	highestCqDrs := -1
+	for _, cq := range cohort.ChildCQs() {
+		if t.prunedClusterQueues.Has(cq) {
+			continue
+		}
+
+		drs := cq.DominantResourceShare()
+		// 我们不能剪枝预抢占集群队列本身，
+		// 直到它耗尽候选者。
+		if (drs == 0 && cq != t.preemptorCq) || !t.hasWorkload(cq) {
+			t.prunedClusterQueues.Insert(cq)
+		} else if drs >= highestCqDrs {
+			highestCqDrs = drs
+			highestCq = cq
+		}
+	}
+
+	var highestCohort *cache.CohortSnapshot = nil
+	highestCohortDrs := -1
+	for _, cohort := range cohort.ChildCohorts() {
+		if t.prunedCohorts.Has(cohort) {
+			continue
+		}
+
+		drs := cohort.DominantResourceShare()
+
+		// 当它不再借用时（DRS=0），我们剪枝 cohort。
+		// 即使不借用，我们也不能从预抢占集群队列到
+		// 根的路径上剪枝，因为某些子树可能存在不平衡，
+		// 或者预抢占集群队列本身可能存在抢占。
+		// 我们只会在所有子 cohort 都被剪枝时才剪枝这样的 cohort。
+		if drs == 0 && !t.onPathFromRootToPreemptorCQ(cohort) {
+			t.prunedCohorts.Insert(cohort)
+		} else if drs >= highestCohortDrs {
+			highestCohortDrs = drs
+			highestCohort = cohort
+		}
+	}
+
+	// 没有有效的候选者（即所有子 cohort 都被剪枝），
+	// 因此此 cohort 被剪枝。
+	if highestCohort == nil && highestCq == nil {
+		t.prunedCohorts.Insert(cohort)
+		return nil
+	}
+
+	// 我们使用 >= 因为，作为平局，选择 cohort 似乎
+	// 稍微更公平一些，因为我们可以在该 cohort 中选择最不公平的节点。
+	if highestCohortDrs >= highestCqDrs {
+		return t.nextTarget(highestCohort)
+	}
+	return &TargetClusterQueue{
+		ordering: t,
+		targetCq: highestCq,
+	}
+}
 func MakeClusterQueueOrdering(cq *cache.ClusterQueueSnapshot, candidates []*workload.Info) TargetClusterQueueOrdering {
 	t := TargetClusterQueueOrdering{
 		preemptorCq:        cq,
@@ -80,7 +138,7 @@ func MakeClusterQueueOrdering(cq *cache.ClusterQueueSnapshot, candidates []*work
 
 func (t *TargetClusterQueueOrdering) Iter() iter.Seq[*TargetClusterQueue] {
 	return func(yield func(v *TargetClusterQueue) bool) {
-		// handle CQ without Cohort case.
+		// 处理没有 cohort 的集群队列情况。
 		if !t.preemptorCq.HasParent() {
 			targetCq := &TargetClusterQueue{
 				ordering: t,
@@ -95,11 +153,11 @@ func (t *TargetClusterQueueOrdering) Iter() iter.Seq[*TargetClusterQueue] {
 		}
 
 		root := t.preemptorCq.Parent().Root()
-		// we stop once we have marked the root as pruned.
+		// 一旦我们标记根为已剪枝，就停止。
 		for !t.prunedCohorts.Has(root) {
 			targetCq := t.nextTarget(root)
 
-			// an iteration which just pruned some node(s).
+			// 一个只剪枝了一些节点（或节点）的迭代。
 			if targetCq == nil {
 				continue
 			}
@@ -110,84 +168,9 @@ func (t *TargetClusterQueueOrdering) Iter() iter.Seq[*TargetClusterQueue] {
 	}
 }
 
-// DropQueue indicates that we should no longer
-// consider workloads from this Queue.
-func (t *TargetClusterQueueOrdering) DropQueue(cq *TargetClusterQueue) {
-	t.prunedClusterQueues.Insert(cq.targetCq)
-}
-
-func (t *TargetClusterQueueOrdering) onPathFromRootToPreemptorCQ(cohort *cache.CohortSnapshot) bool {
-	return t.preemptorAncestors.Has(cohort)
-}
-
 func (t *TargetClusterQueueOrdering) hasWorkload(cq *cache.ClusterQueueSnapshot) bool {
 	return len(t.clusterQueueToTarget[cq.GetName()]) > 0
 }
-
-// nextTarget is a recursive algorithm for finding the next
-// TargetClusterQueue.  It finds the child with the highest DRS,
-// returning it if it is a ClusterQueue, or entering the recursive
-// call if it is a Cohort.  The return of nil doesn't mean that there
-// are no more candidate ClusterQueues; an iteration may have only
-// pruned nodes from the tree.
-func (t *TargetClusterQueueOrdering) nextTarget(cohort *cache.CohortSnapshot) *TargetClusterQueue {
-	var highestCq *cache.ClusterQueueSnapshot = nil
-	highestCqDrs := -1
-	for _, cq := range cohort.ChildCQs() {
-		if t.prunedClusterQueues.Has(cq) {
-			continue
-		}
-
-		drs := cq.DominantResourceShare()
-		// we can't prune the preemptor ClusterQueue itself,
-		// until it runs out of candidates.
-		if (drs == 0 && cq != t.preemptorCq) || !t.hasWorkload(cq) {
-			t.prunedClusterQueues.Insert(cq)
-		} else if drs >= highestCqDrs {
-			highestCqDrs = drs
-			highestCq = cq
-		}
-	}
-
-	var highestCohort *cache.CohortSnapshot = nil
-	highestCohortDrs := -1
-	for _, cohort := range cohort.ChildCohorts() {
-		if t.prunedCohorts.Has(cohort) {
-			continue
-		}
-
-		drs := cohort.DominantResourceShare()
-
-		// we prune a Cohort when it is no longer borrowing
-		// (DRS=0). Even when not borrowing, we can't prune a
-		// Cohort on path from preemptor ClusterQueue to
-		// root, as there may be imbalance within some
-		// subtree, or a possible preemption within Preemptor
-		// CQ itself.  We will only prune such a Cohort if all
-		// of its children have been pruned.
-		if drs == 0 && !t.onPathFromRootToPreemptorCQ(cohort) {
-			t.prunedCohorts.Insert(cohort)
-		} else if drs >= highestCohortDrs {
-			highestCohortDrs = drs
-			highestCohort = cohort
-		}
-	}
-
-	// None of the children are valid candidates (i.e. all
-	// children pruned), so this Cohort is pruned.
-	if highestCohort == nil && highestCq == nil {
-		t.prunedCohorts.Insert(cohort)
-		return nil
-	}
-
-	// we use >= because, as a tiebreak, choosing the Cohort seems
-	// slightly more fair, as we can choose the most unfair node
-	// within that Cohort.
-	if highestCohortDrs >= highestCqDrs {
-		return t.nextTarget(highestCohort)
-	}
-	return &TargetClusterQueue{
-		ordering: t,
-		targetCq: highestCq,
-	}
+func (t *TargetClusterQueueOrdering) onPathFromRootToPreemptorCQ(cohort *cache.CohortSnapshot) bool {
+	return t.preemptorAncestors.Has(cohort)
 }
