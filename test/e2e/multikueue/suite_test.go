@@ -68,6 +68,28 @@ var (
 	worker2RestClient *rest.RESTClient
 )
 
+func init() {
+	os.Setenv("E2E_KIND_VERSION", "registry.cn-hangzhou.aliyuncs.com/acejilam/node:v1.32.3")
+	os.Setenv("KIND_CLUSTER_NAME", "kind CREATE_KIND_CLUSTER=true")
+	os.Setenv("ARTIFACTS", "/Users/acejilam/Desktop/kueue/bin/run-test-multikueue-e2e-1.32.3")
+	os.Setenv("IMAGE_TAG", "us-central1-docker.pkg.dev/k8s-staging-images/kueue/kueue:v0.12.4")
+	os.Setenv("GINKGO_ARGS", "")
+	os.Setenv("MANAGER_KIND_CLUSTER_NAME", "")
+	os.Setenv("APPWRAPPER_VERSION", "v1.1.2")
+	os.Setenv("JOBSET_VERSION", "v0.8.1")
+	os.Setenv("KUBEFLOW_VERSION", "v1.9.2")
+	os.Setenv("KUBEFLOW_MPI_VERSION", "v0.6.0")
+	os.Setenv("KUBERAY_VERSION", "v1.3.1")
+	os.Setenv("RAY_VERSION", "2.41.0")
+	os.Setenv("RAYMINI_VERSION", "0.0.1")
+	os.Setenv("USE_RAY_FOR_TESTS", "raymini")
+	os.Setenv("TEST_LOG_LEVEL", "-3")
+	os.Setenv("E2E_RUN_ONLY_ENV", "false")
+	os.Setenv("MANAGER_KIND_CLUSTER_NAME", "kind-manager")
+	os.Setenv("WORKER1_KIND_CLUSTER_NAME", "kind-worker1")
+	os.Setenv("WORKER2_KIND_CLUSTER_NAME", "kind-worker2")
+}
+
 func policyRule(group, resource string, verbs ...string) rbacv1.PolicyRule {
 	return rbacv1.PolicyRule{
 		APIGroups: []string{group},
@@ -240,9 +262,11 @@ func cleanMultiKueueSecret(ctx context.Context, c client.Client, namespace strin
 
 func TestAPIs(t *testing.T) {
 	suiteName := "End To End MultiKueue Suite"
+
 	if ver, found := os.LookupEnv("E2E_KIND_VERSION"); found {
 		suiteName = fmt.Sprintf("%s: %s", suiteName, ver)
 	}
+
 	gomega.RegisterFailHandler(ginkgo.Fail)
 	ginkgo.RunSpecs(t,
 		suiteName,

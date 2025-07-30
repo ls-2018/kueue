@@ -13,13 +13,14 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+set -x
 
 export KUSTOMIZE="$ROOT_DIR"/bin/kustomize
 export GINKGO="$ROOT_DIR"/bin/ginkgo
 export KIND="$ROOT_DIR"/bin/kind
 export YQ="$ROOT_DIR"/bin/yq
 
-export KIND_VERSION="${E2E_KIND_VERSION/"kindest/node:v"/}"
+export KIND_VERSION="${E2E_KIND_VERSION/"registry.cn-hangzhou.aliyuncs.com/acejilam/node:v"/}"
 
 if [[ -n ${APPWRAPPER_VERSION:-} ]]; then
     export APPWRAPPER_MANIFEST=${ROOT_DIR}/dep-crds/appwrapper/config/default
@@ -27,7 +28,7 @@ if [[ -n ${APPWRAPPER_VERSION:-} ]]; then
 fi
 
 if [[ -n ${JOBSET_VERSION:-} ]]; then
-    export JOBSET_MANIFEST="https://github.com/kubernetes-sigs/jobset/releases/download/${JOBSET_VERSION}/manifests.yaml"
+    export JOBSET_MANIFEST="https://ghproxy.net/https://github.com/kubernetes-sigs/jobset/releases/download/${JOBSET_VERSION}/manifests.yaml"
     export JOBSET_IMAGE=registry.k8s.io/jobset/jobset:${JOBSET_VERSION}
     export JOBSET_CRDS=${ROOT_DIR}/dep-crds/jobset-operator/
 fi
@@ -43,7 +44,7 @@ if [[ -n ${KUBEFLOW_VERSION:-} ]]; then
 fi
 
 if [[ -n ${KUBEFLOW_MPI_VERSION:-} ]]; then
-    export KUBEFLOW_MPI_MANIFEST="https://raw.githubusercontent.com/kubeflow/mpi-operator/${KUBEFLOW_MPI_VERSION}/deploy/v2beta1/mpi-operator.yaml"
+    export KUBEFLOW_MPI_MANIFEST="https://ghproxy.net/https://raw.githubusercontent.com/kubeflow/mpi-operator/${KUBEFLOW_MPI_VERSION}/deploy/v2beta1/mpi-operator.yaml"
     export KUBEFLOW_MPI_IMAGE=mpioperator/mpi-operator:${KUBEFLOW_MPI_VERSION/#v}
 fi
 
@@ -53,12 +54,12 @@ if [[ -n ${KUBERAY_VERSION:-} ]]; then
 fi
 
 if [[ -n ${LEADERWORKERSET_VERSION:-} ]]; then
-    export LEADERWORKERSET_MANIFEST="https://github.com/kubernetes-sigs/lws/releases/download/${LEADERWORKERSET_VERSION}/manifests.yaml"
+    export LEADERWORKERSET_MANIFEST="https://ghproxy.net/https://github.com/kubernetes-sigs/lws/releases/download/${LEADERWORKERSET_VERSION}/manifests.yaml"
     export LEADERWORKERSET_IMAGE=registry.k8s.io/lws/lws:${LEADERWORKERSET_VERSION}
 fi
 
 if [[ -n "${CERTMANAGER_VERSION:-}" ]]; then
-    export CERTMANAGER_MANIFEST="https://github.com/cert-manager/cert-manager/releases/download/${CERTMANAGER_VERSION}/cert-manager.yaml"
+    export CERTMANAGER_MANIFEST="https://ghproxy.net/https://github.com/cert-manager/cert-manager/releases/download/${CERTMANAGER_VERSION}/cert-manager.yaml"
 fi
 
 # agnhost image to use for testing.
@@ -80,16 +81,24 @@ function cluster_cleanup {
 # $1 cluster name
 # $2 cluster kind config
 function cluster_create {
+#        $KIND create cluster --name "$1" --image "$E2E_KIND_VERSION" --config "$2"
         $KIND create cluster --name "$1" --image "$E2E_KIND_VERSION" --config "$2" --wait 1m -v 5  > "$ARTIFACTS/$1-create.log" 2>&1 \
 		||  { echo "unable to start the $1 cluster "; cat "$ARTIFACTS/$1-create.log" ; }
-	kubectl config use-context "kind-$1"
+	      kubectl config use-context "kind-$1"
+	      kind load docker-image --name $1 docker.io/kubeflow/training-operator:v1-3f15cb8
+        kind load docker-image --name $1 docker.io/mpioperator/mpi-operator:0.6.0
+        kind load docker-image --name $1 ghcr.io/kubeflow/training-v1/training-operator:v1-3f15cb8
+        kind load docker-image --name $1 mpioperator/mpi-operator:0.6.0
+        kind load docker-image --name $1 quay.io/ibm/appwrapper:v1.1.2
+        kind load docker-image --name $1 quay.io/kuberay/operator:v1.3.1
+
         kubectl get nodes > "$ARTIFACTS/$1-nodes.log" || true
         kubectl describe pods -n kube-system > "$ARTIFACTS/$1-system-pods.log" || true
 }
 
 function prepare_docker_images {
-    docker pull "$E2E_TEST_AGNHOST_IMAGE_OLD_WITH_SHA"
-    docker pull "$E2E_TEST_AGNHOST_IMAGE_WITH_SHA"
+    docker image inspect "${E2E_TEST_AGNHOST_IMAGE_OLD_WITH_SHA}" >/dev/null 2>&1 || docker pull "$E2E_TEST_AGNHOST_IMAGE_OLD_WITH_SHA"
+    docker image inspect "${E2E_TEST_AGNHOST_IMAGE_WITH_SHA}" >/dev/null 2>&1 || docker pull "$E2E_TEST_AGNHOST_IMAGE_WITH_SHA"
 
     # We can load image by a digest but we cannot reference it by the digest that we pulled.
     # For more information https://github.com/kubernetes-sigs/kind/issues/2394#issuecomment-888713831.
@@ -98,26 +107,26 @@ function prepare_docker_images {
     docker tag $E2E_TEST_AGNHOST_IMAGE_WITH_SHA "$E2E_TEST_AGNHOST_IMAGE"
 
     if [[ -n ${APPWRAPPER_VERSION:-} ]]; then
-        docker pull "${APPWRAPPER_IMAGE}"
+        docker image inspect "${APPWRAPPER_IMAGE}" >/dev/null 2>&1 || docker pull "${APPWRAPPER_IMAGE}"
     fi
     if [[ -n ${JOBSET_VERSION:-} ]]; then
-        docker pull "${JOBSET_IMAGE}"
+        docker image inspect "${JOBSET_IMAGE}" >/dev/null 2>&1 || docker pull "${JOBSET_IMAGE}"
     fi
     if [[ -n ${KUBEFLOW_VERSION:-} ]]; then
-        docker pull "${KUBEFLOW_IMAGE}"
+        docker image inspect "${KUBEFLOW_IMAGE}" >/dev/null 2>&1 || docker pull "${KUBEFLOW_IMAGE}"
     fi
     if [[ -n ${KUBEFLOW_MPI_VERSION:-} ]]; then
-        docker pull "${KUBEFLOW_MPI_IMAGE}"
+        docker image inspect "${KUBEFLOW_MPI_IMAGE}" >/dev/null 2>&1 || docker pull "${KUBEFLOW_MPI_IMAGE}"
     fi
     if [[ -n ${KUBERAY_VERSION:-} ]]; then
-        docker pull "${KUBERAY_IMAGE}"
+        docker image inspect "${KUBERAY_IMAGE}" >/dev/null 2>&1 ||  docker pull "${KUBERAY_IMAGE}"
         determine_kuberay_ray_image
         if [[ ${USE_RAY_FOR_TESTS:-} == "ray" ]]; then
-            docker pull "${KUBERAY_RAY_IMAGE}"
+           docker image inspect "${KUBERAY_RAY_IMAGE}" >/dev/null 2>&1 ||  docker pull "${KUBERAY_RAY_IMAGE}"
         fi
     fi
     if [[ -n ${LEADERWORKERSET_VERSION:-} ]]; then
-        docker pull "${LEADERWORKERSET_IMAGE}"
+        docker image inspect "${LEADERWORKERSET_IMAGE}" >/dev/null 2>&1 || docker pull "${LEADERWORKERSET_IMAGE}"
     fi
 }
 

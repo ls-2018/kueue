@@ -51,7 +51,7 @@ The webhook server in kueue uses an internal cert management for provisioning ce
 To install a released version of Kueue in your cluster by kubectl, run the following command:
 
 ```shell
-kubectl apply --server-side -f https://github.com/kubernetes-sigs/kueue/releases/download/{{< param "version" >}}/manifests.yaml
+kubectl apply --server-side -f https://ghproxy.net/https://github.com/kubernetes-sigs/kueue/releases/download/{{< param "version" >}}/manifests.yaml
 ```
 
 To wait for Kueue to be fully available, run:
@@ -93,7 +93,7 @@ We can follow [Prometheus Operator Installing guide](https://prometheus-operator
 {{% /alert %}}
 
 ```shell
-kubectl apply --server-side -f https://github.com/kubernetes-sigs/kueue/releases/download/{{< param "version" >}}/prometheus.yaml
+kubectl apply --server-side -f https://ghproxy.net/https://github.com/kubernetes-sigs/kueue/releases/download/{{< param "version" >}}/prometheus.yaml
 ```
 
 ### Add API Priority and Fairness configuration for the visibility API

@@ -1,5 +1,5 @@
 # Build stage
-FROM node:24-slim AS builder
+FROM registry.cn-hangzhou.aliyuncs.com/acejilam/node:24-slim AS builder
 
 # Set working directory
 WORKDIR /app
@@ -8,6 +8,7 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install ALL dependencies (including dev dependencies needed for build)
+RUN npm config set registry https://registry.npmjs.org/
 RUN npm install
 
 # Copy source files
@@ -17,7 +18,7 @@ COPY . .
 RUN npm run build
 
 # Runtime stage
-FROM node:24-slim AS runtime
+FROM registry.cn-hangzhou.aliyuncs.com/acejilam/node:24-slim AS runtime
 
 WORKDIR /app
 

@@ -1,4 +1,4 @@
-FROM python:3.12-slim
+FROM registry.cn-hangzhou.aliyuncs.com/acejilam/python:3.12-slim
 
 # Set environment variable to avoid interactive prompts during package installation
 ENV DEBIAN_FRONTEND=noninteractive
@@ -14,7 +14,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 SHELL ["/bin/bash", "-c"]
-
+RUN pip3 config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple
 RUN pip3 install --no-cache-dir ray[default]==${RAY_VERSION} \
     && rm -rf ~/.cache
 

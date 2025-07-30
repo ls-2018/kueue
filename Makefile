@@ -32,7 +32,8 @@ PLATFORMS ?= linux/amd64,linux/arm64,linux/s390x,linux/ppc64le
 CLI_PLATFORMS ?= linux/amd64,linux/arm64,darwin/amd64,darwin/arm64
 VIZ_PLATFORMS ?= linux/amd64,linux/arm64,linux/s390x,linux/ppc64le
 DOCKER_BUILDX_CMD ?= docker buildx
-IMAGE_BUILD_CMD ?= $(DOCKER_BUILDX_CMD) build
+#IMAGE_BUILD_CMD ?= $(DOCKER_BUILDX_CMD) build
+IMAGE_BUILD_CMD ?= docker build
 
 STAGING_IMAGE_REGISTRY := us-central1-docker.pkg.dev/k8s-staging-images/kueue
 IMAGE_REGISTRY ?= $(STAGING_IMAGE_REGISTRY)
@@ -56,7 +57,7 @@ TOOLS_DIR := $(PROJECT_DIR)/hack/internal/tools
 # Use distroless as minimal base image to package the manager binary
 # Refer to https://github.com/GoogleContainerTools/distroless for more details
 BASE_IMAGE ?= gcr.io/distroless/static:nonroot
-BUILDER_IMAGE ?= golang:$(GO_VERSION)
+BUILDER_IMAGE ?= registry.cn-hangzhou.aliyuncs.com/ls-2018/mygo:v1.24.1
 CGO_ENABLED ?= 0
 
 # Setting SHELL to bash allows bash commands to be executed by recipes.
@@ -239,7 +240,6 @@ image-local-push: image-local-build
 image-build:
 	$(IMAGE_BUILD_CMD) \
 		-t $(IMAGE_TAG) \
-		-t $(IMAGE_REPO):$(RELEASE_BRANCH) \
 		--platform=$(PLATFORMS) \
 		--build-arg BASE_IMAGE=$(BASE_IMAGE) \
 		--build-arg BUILDER_IMAGE=$(BUILDER_IMAGE) \
@@ -366,7 +366,6 @@ update-security-insights: yq
 debug-image-push: ## Build and push the debug image to the registry
 	$(IMAGE_BUILD_CMD) \
 		-t $(IMAGE_REGISTRY)/debug:$(GIT_TAG) \
-		-t $(IMAGE_REGISTRY)/debug:$(RELEASE_BRANCH) \
 		--platform=$(PLATFORMS) \
 		--push ./hack/debugpod
 
@@ -377,10 +376,9 @@ importer-build:
 
 .PHONY: importer-image-build
 importer-image-build:
+	#		--platform=$(PLATFORMS) \
 	$(IMAGE_BUILD_CMD) \
 		-t $(IMAGE_REGISTRY)/importer:$(GIT_TAG) \
-		-t $(IMAGE_REGISTRY)/importer:$(RELEASE_BRANCH) \
-		--platform=$(PLATFORMS) \
 		--build-arg BASE_IMAGE=$(BASE_IMAGE) \
 		--build-arg BUILDER_IMAGE=$(BUILDER_IMAGE) \
 		--build-arg CGO_ENABLED=$(CGO_ENABLED) \
@@ -404,8 +402,6 @@ importer-image: importer-image-build
 kueueviz-image-build:
 	$(IMAGE_BUILD_CMD) \
 		-t $(IMAGE_TAG_KUEUEVIZ_BACKEND) \
-		-t $(IMAGE_REPO_KUEUEVIZ_BACKEND):$(RELEASE_BRANCH) \
-		--platform=$(VIZ_PLATFORMS) \
 		--build-arg BASE_IMAGE=$(BASE_IMAGE) \
 		--build-arg BUILDER_IMAGE=$(BUILDER_IMAGE) \
 		--build-arg CGO_ENABLED=$(CGO_ENABLED) \
@@ -414,8 +410,6 @@ kueueviz-image-build:
 		-f ./cmd/kueueviz/backend/Dockerfile ./cmd/kueueviz/backend
 	$(IMAGE_BUILD_CMD) \
 		-t $(IMAGE_TAG_KUEUEVIZ_FRONTEND) \
-		-t $(IMAGE_REPO_KUEUEVIZ_FRONTEND):$(RELEASE_BRANCH) \
-		--platform=$(VIZ_PLATFORMS) \
 		$(PUSH) \
 		$(IMAGE_BUILD_EXTRA_OPTS) \
 		-f ./cmd/kueueviz/frontend/Dockerfile ./cmd/kueueviz/frontend
@@ -450,7 +444,6 @@ generate-kueuectl-docs: kueuectl-docs
 ray-project-mini-image-build:
 	$(IMAGE_BUILD_CMD) \
 		-t $(IMAGE_REGISTRY)/ray-project-mini:$(RAYMINI_VERSION) \
-		-t $(IMAGE_REGISTRY)/ray-project-mini:$(RELEASE_BRANCH) \
 		--platform=$(PLATFORMS) \
 		--build-arg RAY_VERSION=$(RAY_VERSION) \
 		$(PUSH) \
