@@ -1,19 +1,3 @@
-/*
-Copyright The Kubernetes Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package mke2e
 
 import (
@@ -107,7 +91,7 @@ var _ = ginkgo.Describe("MultiKueue", func() {
 			Obj()
 		util.MustCreate(ctx, k8sManagerClient, multiKueueAc)
 
-		ginkgo.By("wait for check active", func() {
+		ginkgo.By("等待检查激活", func() {
 			updatedAc := kueue.AdmissionCheck{}
 			acKey := client.ObjectKeyFromObject(multiKueueAc)
 			gomega.Eventually(func(g gomega.Gomega) {
@@ -196,9 +180,9 @@ var _ = ginkgo.Describe("MultiKueue", func() {
 				RequestAndLimit("memory", "2G").
 				Queue(managerLq.Name).
 				Obj()
-			// Since it requires 2G of memory, this pod can only be admitted in worker 2.
+			// 由于它需要 2G 内存，这个 Pod 只能被 worker 2 接纳。
 
-			ginkgo.By("Creating the pod", func() {
+			ginkgo.By("创建 Pod", func() {
 				util.MustCreate(ctx, k8sManagerClient, pod)
 				gomega.Eventually(func(g gomega.Gomega) {
 					createdPod := &corev1.Pod{}
@@ -209,8 +193,8 @@ var _ = ginkgo.Describe("MultiKueue", func() {
 			createdLeaderWorkload := &kueue.Workload{}
 			wlLookupKey := types.NamespacedName{Name: workloadpod.GetWorkloadNameForPod(pod.Name, pod.UID), Namespace: managerNs.Name}
 
-			// the execution should be given to worker2
-			ginkgo.By("Waiting to be admitted in worker2", func() {
+			// 执行应交给 worker2
+			ginkgo.By("等待在 worker2 被接纳", func() {
 				gomega.Eventually(func(g gomega.Gomega) {
 					g.Expect(k8sManagerClient.Get(ctx, wlLookupKey, createdLeaderWorkload)).To(gomega.Succeed())
 					g.Expect(workload.FindAdmissionCheck(createdLeaderWorkload.Status.AdmissionChecks, kueue.AdmissionCheckReference(multiKueueAc.Name))).To(gomega.BeComparableTo(&kueue.AdmissionCheckState{
@@ -252,7 +236,7 @@ var _ = ginkgo.Describe("MultiKueue", func() {
 					Reason: "",
 				},
 			}
-			ginkgo.By("Waiting for the pod to get status updates", func() {
+			ginkgo.By("等待 Pod 获取状态更新", func() {
 				gomega.Eventually(func(g gomega.Gomega) {
 					createdPod := corev1.Pod{}
 					g.Expect(k8sManagerClient.Get(ctx, client.ObjectKeyFromObject(pod), &createdPod)).To(gomega.Succeed())
@@ -274,7 +258,7 @@ var _ = ginkgo.Describe("MultiKueue", func() {
 				Queue(managerLq.Name).
 				Obj()
 
-			ginkgo.By("Creating the deployment", func() {
+			ginkgo.By("创建 Deployment", func() {
 				util.MustCreate(ctx, k8sManagerClient, deployment)
 				gomega.Eventually(func(g gomega.Gomega) {
 					createdDeployment := &appsv1.Deployment{}
@@ -282,7 +266,7 @@ var _ = ginkgo.Describe("MultiKueue", func() {
 				}, util.Timeout, util.Interval).Should(gomega.Succeed())
 			})
 
-			ginkgo.By("Wait for replicas ready", func() {
+			ginkgo.By("等待副本就绪", func() {
 				createdDeployment := &appsv1.Deployment{}
 				gomega.Eventually(func(g gomega.Gomega) {
 					g.Expect(k8sManagerClient.Get(ctx, client.ObjectKeyFromObject(deployment), createdDeployment)).To(gomega.Succeed())
@@ -290,7 +274,7 @@ var _ = ginkgo.Describe("MultiKueue", func() {
 				}, util.LongTimeout, util.Interval).Should(gomega.Succeed())
 			})
 
-			ginkgo.By("Ensure Pod Workloads are created and Pods are Running on the worker cluster", func() {
+			ginkgo.By("确保 Pod 工作负载已创建且 Pod 在工作集群上运行", func() {
 				ensurePodWorkloadsRunning(deployment, *managerNs, multiKueueAc, kubernetesClients)
 			})
 
@@ -308,7 +292,7 @@ var _ = ginkgo.Describe("MultiKueue", func() {
 				},
 			}
 
-			ginkgo.By("Waiting for the deployment to get status updates", func() {
+			ginkgo.By("等待 Deployment 获取状态更新", func() {
 				gomega.Eventually(func(g gomega.Gomega) {
 					createdDeployment := appsv1.Deployment{}
 					g.Expect(k8sManagerClient.Get(ctx, client.ObjectKeyFromObject(deployment), &createdDeployment)).To(gomega.Succeed())
@@ -319,7 +303,7 @@ var _ = ginkgo.Describe("MultiKueue", func() {
 				}, util.LongTimeout, util.Interval).Should(gomega.Succeed())
 			})
 
-			ginkgo.By("Increasing the replica count on the deployment", func() {
+			ginkgo.By("增加 Deployment 的副本数", func() {
 				createdDeployment := &appsv1.Deployment{}
 				gomega.Eventually(func(g gomega.Gomega) {
 					g.Expect(k8sManagerClient.Get(ctx, client.ObjectKeyFromObject(deployment), createdDeployment)).To(gomega.Succeed())
@@ -327,7 +311,7 @@ var _ = ginkgo.Describe("MultiKueue", func() {
 					g.Expect(k8sManagerClient.Update(ctx, createdDeployment)).To(gomega.Succeed())
 				}, util.LongTimeout, util.Interval).Should(gomega.Succeed())
 
-				ginkgo.By("Wait for replicas ready", func() {
+				ginkgo.By("等待副本就绪", func() {
 					createdDeployment := &appsv1.Deployment{}
 					gomega.Eventually(func(g gomega.Gomega) {
 						g.Expect(k8sManagerClient.Get(ctx, client.ObjectKeyFromObject(deployment), createdDeployment)).To(gomega.Succeed())
@@ -336,11 +320,11 @@ var _ = ginkgo.Describe("MultiKueue", func() {
 				})
 			})
 
-			ginkgo.By("Ensure Pod Workloads are created and Pods are Running on the worker cluster", func() {
+			ginkgo.By("确保 Pod 工作负载已创建且 Pod 在工作集群上运行", func() {
 				ensurePodWorkloadsRunning(deployment, *managerNs, multiKueueAc, kubernetesClients)
 			})
 
-			ginkgo.By("Decreasing the replica count on the deployment", func() {
+			ginkgo.By("减少 Deployment 的副本数", func() {
 				createdDeployment := &appsv1.Deployment{}
 				gomega.Eventually(func(g gomega.Gomega) {
 					g.Expect(k8sManagerClient.Get(ctx, client.ObjectKeyFromObject(deployment), createdDeployment)).To(gomega.Succeed())
@@ -348,7 +332,7 @@ var _ = ginkgo.Describe("MultiKueue", func() {
 					g.Expect(k8sManagerClient.Update(ctx, createdDeployment)).To(gomega.Succeed())
 				}, util.LongTimeout, util.Interval).Should(gomega.Succeed())
 
-				ginkgo.By("Wait for replicas ready", func() {
+				ginkgo.By("等待副本就绪", func() {
 					createdDeployment := &appsv1.Deployment{}
 					gomega.Eventually(func(g gomega.Gomega) {
 						g.Expect(k8sManagerClient.Get(ctx, client.ObjectKeyFromObject(deployment), createdDeployment)).To(gomega.Succeed())
@@ -357,11 +341,11 @@ var _ = ginkgo.Describe("MultiKueue", func() {
 				})
 			})
 
-			ginkgo.By("Ensure Pod Workloads are created and Pods are Running on the worker cluster", func() {
+			ginkgo.By("确保 Pod 工作负载已创建且 Pod 在工作集群上运行", func() {
 				ensurePodWorkloadsRunning(deployment, *managerNs, multiKueueAc, kubernetesClients)
 			})
 
-			ginkgo.By("Deleting the deployment all pods should be deleted", func() {
+			ginkgo.By("删除 Deployment，所有 Pod 应被删除", func() {
 				gomega.Expect(k8sManagerClient.Delete(ctx, deployment)).Should(gomega.Succeed())
 				for _, workerClient := range kubernetesClients {
 					pods := &corev1.PodList{}
@@ -382,7 +366,7 @@ var _ = ginkgo.Describe("MultiKueue", func() {
 				RequestAndLimit(corev1.ResourceMemory, "1G").
 				MakeGroup(numPods)
 
-			ginkgo.By("Creating the Pod group", func() {
+			ginkgo.By("创建 Pod 组", func() {
 				for _, p := range group {
 					gomega.Expect(k8sManagerClient.Create(ctx, p)).To(gomega.Succeed())
 					gomega.Expect(p.Spec.SchedulingGates).To(gomega.ContainElements(
@@ -391,9 +375,9 @@ var _ = ginkgo.Describe("MultiKueue", func() {
 				}
 			})
 
-			// Since it requires 2G of memory, this pod group can only be admitted in worker 2.
+			// 由于它需要 2G 内存，这个 pod group 只能被 worker 2 接纳。
 			pods := &corev1.PodList{}
-			ginkgo.By("ensure all pods are created", func() {
+			ginkgo.By("确保所有 Pod 已创建", func() {
 				gomega.Eventually(func(g gomega.Gomega) {
 					g.Expect(k8sManagerClient.List(ctx, pods, client.InNamespace(managerNs.Name))).To(gomega.Succeed())
 					g.Expect(pods.Items).Should(gomega.HaveLen(numPods))
@@ -403,8 +387,8 @@ var _ = ginkgo.Describe("MultiKueue", func() {
 			createdLeaderWorkload := &kueue.Workload{}
 			wlLookupKey := types.NamespacedName{Name: groupName, Namespace: managerNs.Name}
 
-			// the execution should be given to worker2
-			ginkgo.By("Waiting to be admitted in worker2", func() {
+			// 执行应交给 worker2
+			ginkgo.By("等待在 worker2 被接纳", func() {
 				gomega.Eventually(func(g gomega.Gomega) {
 					g.Expect(k8sManagerClient.Get(ctx, wlLookupKey, createdLeaderWorkload)).To(gomega.Succeed())
 					g.Expect(workload.FindAdmissionCheck(createdLeaderWorkload.Status.AdmissionChecks, kueue.AdmissionCheckReference(multiKueueAc.Name))).To(gomega.BeComparableTo(&kueue.AdmissionCheckState{
@@ -414,7 +398,7 @@ var _ = ginkgo.Describe("MultiKueue", func() {
 					}, cmpopts.IgnoreFields(kueue.AdmissionCheckState{}, "LastTransitionTime")))
 				}, util.LongTimeout, util.Interval).Should(gomega.Succeed())
 
-				ginkgo.By("ensure all pods are created", func() {
+				ginkgo.By("确保所有 Pod 已创建", func() {
 					gomega.Eventually(func(g gomega.Gomega) {
 						g.Expect(k8sManagerClient.List(ctx, pods, client.InNamespace(managerNs.Name))).To(gomega.Succeed())
 						for _, p := range pods.Items {
@@ -424,7 +408,7 @@ var _ = ginkgo.Describe("MultiKueue", func() {
 				})
 			})
 
-			ginkgo.By("Waiting for the group to get status updates", func() {
+			ginkgo.By("等待 Pod 组获取状态更新", func() {
 				gomega.Eventually(func(g gomega.Gomega) {
 					g.Expect(k8sManagerClient.List(ctx, pods, client.InNamespace(managerNs.Name))).To(gomega.Succeed())
 					for _, p := range pods.Items {
@@ -437,17 +421,17 @@ var _ = ginkgo.Describe("MultiKueue", func() {
 			if managerK8SVersion.LessThan(versionutil.MustParseSemantic("1.30.0")) {
 				ginkgo.Skip("the managers kubernetes version is less then 1.30")
 			}
-			// Since it requires 2G of memory, this job can only be admitted in worker 2.
+			// 由于它需要 2G 内存，这个 Job 只能被 worker 2 接纳。
 			job := testingjob.MakeJob("job", managerNs.Name).
 				Queue(kueue.LocalQueueName(managerLq.Name)).
 				RequestAndLimit("cpu", "1").
 				RequestAndLimit("memory", "2G").
 				TerminationGracePeriod(1).
-				// Give it the time to be observed Active in the live status update step.
+				// 给它时间在实时状态更新步骤中被观察为 Active。
 				Image(util.GetAgnHostImage(), util.BehaviorWaitForDeletion).
 				Obj()
 
-			ginkgo.By("Creating the job", func() {
+			ginkgo.By("创建 Job", func() {
 				util.MustCreate(ctx, k8sManagerClient, job)
 				gomega.Eventually(func(g gomega.Gomega) {
 					createdJob := &batchv1.Job{}
@@ -459,8 +443,8 @@ var _ = ginkgo.Describe("MultiKueue", func() {
 			createdLeaderWorkload := &kueue.Workload{}
 			wlLookupKey := types.NamespacedName{Name: workloadjob.GetWorkloadNameForJob(job.Name, job.UID), Namespace: managerNs.Name}
 
-			// the execution should be given to the worker
-			ginkgo.By("Waiting to be admitted in worker2, and the manager's job unsuspended", func() {
+			// 执行应交给 worker
+			ginkgo.By("等待在 worker2 被接纳，并且 manager 的 Job 被解除挂起", func() {
 				gomega.Eventually(func(g gomega.Gomega) {
 					g.Expect(k8sManagerClient.Get(ctx, wlLookupKey, createdLeaderWorkload)).To(gomega.Succeed())
 					g.Expect(workload.FindAdmissionCheck(createdLeaderWorkload.Status.AdmissionChecks, kueue.AdmissionCheckReference(multiKueueAc.Name))).To(gomega.BeComparableTo(&kueue.AdmissionCheckState{
@@ -477,7 +461,7 @@ var _ = ginkgo.Describe("MultiKueue", func() {
 				}, util.Timeout, util.Interval).Should(gomega.Succeed())
 			})
 
-			ginkgo.By("Waiting for the job to get status updates", func() {
+			ginkgo.By("等待 Job 获取状态更新", func() {
 				gomega.Eventually(func(g gomega.Gomega) {
 					createdJob := batchv1.Job{}
 					g.Expect(k8sManagerClient.Get(ctx, client.ObjectKeyFromObject(job), &createdJob)).To(gomega.Succeed())
@@ -487,19 +471,19 @@ var _ = ginkgo.Describe("MultiKueue", func() {
 				}, util.LongTimeout, util.Interval).Should(gomega.Succeed())
 			})
 
-			ginkgo.By("Finishing the job's pod", func() {
+			ginkgo.By("结束 Job 的 Pod", func() {
 				listOpts := util.GetListOptsFromLabel(fmt.Sprintf("batch.kubernetes.io/job-name=%s", job.Name))
 				util.WaitForActivePodsAndTerminate(ctx, k8sWorker2Client, worker2RestClient, worker2Cfg, job.Namespace, 1, 0, listOpts)
 			})
 
-			ginkgo.By("Waiting for the job to finish", func() {
+			ginkgo.By("等待 Job 完成", func() {
 				gomega.Eventually(func(g gomega.Gomega) {
 					g.Expect(k8sManagerClient.Get(ctx, wlLookupKey, createdLeaderWorkload)).To(gomega.Succeed())
 					g.Expect(createdLeaderWorkload.Status.Conditions).To(utiltesting.HaveConditionStatusTrueAndReason(kueue.WorkloadFinished, kueue.WorkloadFinishedReasonSucceeded))
 				}, util.LongTimeout, util.Interval).Should(gomega.Succeed())
 			})
 
-			ginkgo.By("Checking no objects are left in the worker clusters and the job is completed", func() {
+			ginkgo.By("检查工作集群中没有剩余对象且 Job 已完成", func() {
 				gomega.Eventually(func(g gomega.Gomega) {
 					workerWl := &kueue.Workload{}
 					g.Expect(k8sWorker1Client.Get(ctx, wlLookupKey, workerWl)).To(utiltesting.BeNotFoundError())
@@ -520,7 +504,7 @@ var _ = ginkgo.Describe("MultiKueue", func() {
 			})
 		})
 		ginkgo.It("Should run a jobSet on worker if admitted", func() {
-			// Since it requires 2 CPU in total, this jobset can only be admitted in worker 1.
+			// 由于总共需要 2 个 CPU，这个 JobSet 只能被 worker 1 接纳。
 			jobSet := testingjobset.MakeJobSet("job-set", managerNs.Name).
 				Queue(managerLq.Name).
 				ReplicatedJobs(
@@ -530,7 +514,7 @@ var _ = ginkgo.Describe("MultiKueue", func() {
 						Parallelism: 2,
 						Completions: 2,
 						Image:       util.GetAgnHostImage(),
-						// Give it the time to be observed Active in the live status update step.
+						// 给它时间在实时状态更新步骤中被观察为 Active。
 						Args: util.BehaviorWaitForDeletion,
 					},
 				).
@@ -538,15 +522,15 @@ var _ = ginkgo.Describe("MultiKueue", func() {
 				RequestAndLimit("replicated-job-1", "memory", "200M").
 				Obj()
 
-			ginkgo.By("Creating the jobSet", func() {
+			ginkgo.By("创建 JobSet", func() {
 				util.MustCreate(ctx, k8sManagerClient, jobSet)
 			})
 
 			createdLeaderWorkload := &kueue.Workload{}
 			wlLookupKey := types.NamespacedName{Name: workloadjobset.GetWorkloadNameForJobSet(jobSet.Name, jobSet.UID), Namespace: managerNs.Name}
 
-			// the execution should be given to the worker
-			ginkgo.By("Waiting to be admitted in worker1 and manager", func() {
+			// 执行应交给 worker
+			ginkgo.By("等待在 worker1 和 manager 被接纳", func() {
 				gomega.Eventually(func(g gomega.Gomega) {
 					g.Expect(k8sManagerClient.Get(ctx, wlLookupKey, createdLeaderWorkload)).To(gomega.Succeed())
 					g.Expect(workload.FindAdmissionCheck(createdLeaderWorkload.Status.AdmissionChecks, kueue.AdmissionCheckReference(multiKueueAc.Name))).To(gomega.BeComparableTo(&kueue.AdmissionCheckState{
@@ -563,7 +547,7 @@ var _ = ginkgo.Describe("MultiKueue", func() {
 				}, util.Timeout, util.Interval).Should(gomega.Succeed())
 			})
 
-			ginkgo.By("Waiting for the jobSet to get status updates", func() {
+			ginkgo.By("等待 JobSet 获取状态更新", func() {
 				gomega.Eventually(func(g gomega.Gomega) {
 					createdJobset := &jobset.JobSet{}
 					g.Expect(k8sManagerClient.Get(ctx, client.ObjectKeyFromObject(jobSet), createdJobset)).To(gomega.Succeed())
@@ -578,12 +562,12 @@ var _ = ginkgo.Describe("MultiKueue", func() {
 				}, util.LongTimeout, util.Interval).Should(gomega.Succeed())
 			})
 
-			ginkgo.By("Finishing the jobset pods", func() {
+			ginkgo.By("结束 JobSet 的 Pod", func() {
 				listOpts := util.GetListOptsFromLabel(fmt.Sprintf("jobset.sigs.k8s.io/jobset-name=%s", jobSet.Name))
 				util.WaitForActivePodsAndTerminate(ctx, k8sWorker1Client, worker1RestClient, worker1Cfg, jobSet.Namespace, 4, 0, listOpts)
 			})
 
-			ginkgo.By("Waiting for the jobSet to finish", func() {
+			ginkgo.By("等待 JobSet 完成", func() {
 				gomega.Eventually(func(g gomega.Gomega) {
 					g.Expect(k8sManagerClient.Get(ctx, wlLookupKey, createdLeaderWorkload)).To(gomega.Succeed())
 
@@ -596,7 +580,7 @@ var _ = ginkgo.Describe("MultiKueue", func() {
 				}, util.LongTimeout, util.Interval).Should(gomega.Succeed())
 			})
 
-			ginkgo.By("Checking no objects are left in the worker clusters and the jobSet is completed", func() {
+			ginkgo.By("检查工作集群中没有剩余对象且 JobSet 已完成", func() {
 				gomega.Eventually(func(g gomega.Gomega) {
 					workerWl := &kueue.Workload{}
 					g.Expect(k8sWorker1Client.Get(ctx, wlLookupKey, workerWl)).To(utiltesting.BeNotFoundError())
@@ -621,7 +605,7 @@ var _ = ginkgo.Describe("MultiKueue", func() {
 		})
 
 		ginkgo.It("Should run an appwrapper containing a job on worker if admitted", func() {
-			// Since it requires 2 CPU in total, this appwrapper can only be admitted in worker 1.
+			// 由于总共需要 2 个 CPU，这个 AppWrapper 只能被 worker 1 接纳。
 			jobName := "job-1"
 			aw := testingaw.MakeAppWrapper("aw", managerNs.Name).
 				Queue(managerLq.Name).
@@ -629,7 +613,7 @@ var _ = ginkgo.Describe("MultiKueue", func() {
 					Template: testingjob.MakeJob(jobName, managerNs.Name).
 						SetTypeMeta().
 						Suspend(false).
-						Image(util.GetAgnHostImage(), util.BehaviorWaitForDeletion). // Give it the time to be observed Active in the live status update step.
+						Image(util.GetAgnHostImage(), util.BehaviorWaitForDeletion). // 给它时间在实时状态更新步骤中被观察为 Active。
 						Parallelism(2).
 						RequestAndLimit(corev1.ResourceCPU, "1").
 						TerminationGracePeriod(1).
@@ -637,17 +621,17 @@ var _ = ginkgo.Describe("MultiKueue", func() {
 				}).
 				Obj()
 
-			ginkgo.By("Creating the appwrapper", func() {
+			ginkgo.By("创建 AppWrapper", func() {
 				util.MustCreate(ctx, k8sManagerClient, aw)
 			})
 
 			createdWorkload := &kueue.Workload{}
 			wlLookupKey := types.NamespacedName{Name: workloadaw.GetWorkloadNameForAppWrapper(aw.Name, aw.UID), Namespace: managerNs.Name}
 
-			// the execution should be given to worker 1
+			// 执行应交给 worker 1
 			waitForJobAdmitted(wlLookupKey, multiKueueAc.Name, "worker1")
 
-			ginkgo.By("Waiting for the appwrapper to get status updates", func() {
+			ginkgo.By("等待 AppWrapper 获取状态更新", func() {
 				gomega.Eventually(func(g gomega.Gomega) {
 					createdAppWrapper := &awv1beta2.AppWrapper{}
 					g.Expect(k8sManagerClient.Get(ctx, client.ObjectKeyFromObject(aw), createdAppWrapper)).To(gomega.Succeed())
@@ -655,12 +639,12 @@ var _ = ginkgo.Describe("MultiKueue", func() {
 				}, util.LongTimeout, util.Interval).Should(gomega.Succeed())
 			})
 
-			ginkgo.By("Finishing the wrapped job's pods", func() {
+			ginkgo.By("结束被包装 Job 的 Pod", func() {
 				listOpts := util.GetListOptsFromLabel(fmt.Sprintf("batch.kubernetes.io/job-name=%s", jobName))
 				util.WaitForActivePodsAndTerminate(ctx, k8sWorker1Client, worker1RestClient, worker1Cfg, aw.Namespace, 2, 0, listOpts)
 			})
 
-			ginkgo.By("Waiting for the appwrapper to finish", func() {
+			ginkgo.By("等待 AppWrapper 完成", func() {
 				gomega.Eventually(func(g gomega.Gomega) {
 					g.Expect(k8sManagerClient.Get(ctx, wlLookupKey, createdWorkload)).To(gomega.Succeed())
 
@@ -673,7 +657,7 @@ var _ = ginkgo.Describe("MultiKueue", func() {
 				}, util.LongTimeout, util.Interval).Should(gomega.Succeed())
 			})
 
-			ginkgo.By("Checking no objects are left in the worker clusters and the appwrapper is completed", func() {
+			ginkgo.By("检查工作集群中没有剩余对象且 AppWrapper 已完成", func() {
 				gomega.Eventually(func(g gomega.Gomega) {
 					workerWl := &kueue.Workload{}
 					g.Expect(k8sWorker1Client.Get(ctx, wlLookupKey, workerWl)).To(utiltesting.BeNotFoundError())
@@ -691,7 +675,7 @@ var _ = ginkgo.Describe("MultiKueue", func() {
 		})
 
 		ginkgo.It("Should run a kubeflow PyTorchJob on worker if admitted", func() {
-			// Since it requires 1600M of memory, this job can only be admitted in worker 2.
+			// 由于它需要 1600M 内存，这个 Job 只能被 worker 2 接纳。
 			pyTorchJob := testingpytorchjob.MakePyTorchJob("pytorchjob1", managerNs.Name).
 				ManagedBy(kueue.MultiKueueControllerName).
 				Queue(managerLq.Name).
@@ -715,16 +699,16 @@ var _ = ginkgo.Describe("MultiKueue", func() {
 				Image(kftraining.PyTorchJobReplicaTypeWorker, util.GetAgnHostImage(), util.BehaviorExitFast).
 				Obj()
 
-			ginkgo.By("Creating the PyTorchJob", func() {
+			ginkgo.By("创建 PyTorchJob", func() {
 				util.MustCreate(ctx, k8sManagerClient, pyTorchJob)
 			})
 
 			wlLookupKey := types.NamespacedName{Name: workloadpytorchjob.GetWorkloadNameForPyTorchJob(pyTorchJob.Name, pyTorchJob.UID), Namespace: managerNs.Name}
 
-			// the execution should be given to the worker 2
+			// 执行应交给 worker 2
 			waitForJobAdmitted(wlLookupKey, multiKueueAc.Name, "worker2")
 
-			ginkgo.By("Waiting for the PyTorchJob to finish", func() {
+			ginkgo.By("等待 PyTorchJob 完成", func() {
 				gomega.Eventually(func(g gomega.Gomega) {
 					createdPyTorchJob := &kftraining.PyTorchJob{}
 					g.Expect(k8sManagerClient.Get(ctx, client.ObjectKeyFromObject(pyTorchJob), createdPyTorchJob)).To(gomega.Succeed())
@@ -741,7 +725,7 @@ var _ = ginkgo.Describe("MultiKueue", func() {
 				}, util.LongTimeout, util.Interval).Should(gomega.Succeed())
 			})
 
-			ginkgo.By("Checking no objects are left in the worker clusters and the PyTorchJob is completed", func() {
+			ginkgo.By("检查工作集群中没有剩余对象且 PyTorchJob 已完成", func() {
 				gomega.Eventually(func(g gomega.Gomega) {
 					workerWl := &kueue.Workload{}
 					g.Expect(k8sWorker1Client.Get(ctx, wlLookupKey, workerWl)).To(utiltesting.BeNotFoundError())
@@ -754,7 +738,7 @@ var _ = ginkgo.Describe("MultiKueue", func() {
 		})
 
 		ginkgo.It("Should run a MPIJob on worker if admitted", func() {
-			// Since it requires 1.5 CPU, this job can only be admitted in worker 1.
+			// 由于它需要 1.5 CPU，这个 Job 只能被 worker 1 接纳。
 			mpijob := testingmpijob.MakeMPIJob("mpijob1", managerNs.Name).
 				Queue(managerLq.Name).
 				ManagedBy(kueue.MultiKueueControllerName).
@@ -778,16 +762,16 @@ var _ = ginkgo.Describe("MultiKueue", func() {
 				Image(kfmpi.MPIReplicaTypeWorker, util.GetAgnHostImage(), util.BehaviorExitFast).
 				Obj()
 
-			ginkgo.By("Creating the MPIJob", func() {
+			ginkgo.By("创建 MPIJob", func() {
 				util.MustCreate(ctx, k8sManagerClient, mpijob)
 			})
 
 			wlLookupKey := types.NamespacedName{Name: workloadmpijob.GetWorkloadNameForMPIJob(mpijob.Name, mpijob.UID), Namespace: managerNs.Name}
 
-			// the execution should be given to the worker1
+			// 执行应交给 worker1
 			waitForJobAdmitted(wlLookupKey, multiKueueAc.Name, "worker1")
 
-			ginkgo.By("Waiting for the MPIJob to finish", func() {
+			ginkgo.By("等待 MPIJob 完成", func() {
 				gomega.Eventually(func(g gomega.Gomega) {
 					createdMPIJob := &kfmpi.MPIJob{}
 					g.Expect(k8sManagerClient.Get(ctx, client.ObjectKeyFromObject(mpijob), createdMPIJob)).To(gomega.Succeed())
@@ -803,7 +787,7 @@ var _ = ginkgo.Describe("MultiKueue", func() {
 				}, util.LongTimeout, util.Interval).Should(gomega.Succeed())
 			})
 
-			ginkgo.By("Checking no objects are left in the worker clusters and the MPIJob is completed", func() {
+			ginkgo.By("检查工作集群中没有剩余对象且 MPIJob 已完成", func() {
 				gomega.Eventually(func(g gomega.Gomega) {
 					workerWl := &kueue.Workload{}
 					g.Expect(k8sWorker1Client.Get(ctx, wlLookupKey, workerWl)).To(utiltesting.BeNotFoundError())
@@ -817,7 +801,7 @@ var _ = ginkgo.Describe("MultiKueue", func() {
 
 		ginkgo.It("Should run a RayJob on worker if admitted", func() {
 			kuberayTestImage := util.GetKuberayTestImage()
-			// Since it requires 1.5 CPU, this job can only be admitted in worker 1.
+			// 由于它需要 1.5 CPU，这个 Job 只能被 worker 1 接纳。
 			rayjob := testingrayjob.MakeJob("rayjob1", managerNs.Name).
 				Suspend(true).
 				Queue(managerLq.Name).
@@ -829,15 +813,15 @@ var _ = ginkgo.Describe("MultiKueue", func() {
 				Image(rayv1.WorkerNode, kuberayTestImage).
 				Obj()
 
-			ginkgo.By("Creating the RayJob", func() {
+			ginkgo.By("创建 RayJob", func() {
 				util.MustCreate(ctx, k8sManagerClient, rayjob)
 			})
 
 			wlLookupKey := types.NamespacedName{Name: workloadrayjob.GetWorkloadNameForRayJob(rayjob.Name, rayjob.UID), Namespace: managerNs.Name}
-			// the execution should be given to the worker1
+			// 执行应交给 worker1
 			waitForJobAdmitted(wlLookupKey, multiKueueAc.Name, "worker1")
 
-			ginkgo.By("Waiting for the RayJob to finish", func() {
+			ginkgo.By("等待 RayJob 完成", func() {
 				gomega.Eventually(func(g gomega.Gomega) {
 					createdRayJob := &rayv1.RayJob{}
 					g.Expect(k8sManagerClient.Get(ctx, client.ObjectKeyFromObject(rayjob), createdRayJob)).To(gomega.Succeed())
@@ -847,7 +831,7 @@ var _ = ginkgo.Describe("MultiKueue", func() {
 				}, util.VeryLongTimeout, util.Interval).Should(gomega.Succeed())
 			})
 
-			ginkgo.By("Checking no objects are left in the worker clusters and the RayJob is completed", func() {
+			ginkgo.By("检查工作集群中没有剩余对象且 RayJob 已完成", func() {
 				gomega.Eventually(func(g gomega.Gomega) {
 					workerWl := &kueue.Workload{}
 					g.Expect(k8sWorker1Client.Get(ctx, wlLookupKey, workerWl)).To(utiltesting.BeNotFoundError())
@@ -861,7 +845,7 @@ var _ = ginkgo.Describe("MultiKueue", func() {
 
 		ginkgo.It("Should run a RayCluster on worker if admitted", func() {
 			kuberayTestImage := util.GetKuberayTestImage()
-			// Since it requires 1.5 CPU, this job can only be admitted in worker 1.
+			// 由于它需要 1.5 CPU，这个 Job 只能被 worker 1 接纳。
 			raycluster := testingraycluster.MakeCluster("raycluster1", managerNs.Name).
 				Suspend(true).
 				Queue(managerLq.Name).
@@ -871,15 +855,15 @@ var _ = ginkgo.Describe("MultiKueue", func() {
 				Image(rayv1.WorkerNode, kuberayTestImage, []string{}).
 				Obj()
 
-			ginkgo.By("Creating the RayCluster", func() {
+			ginkgo.By("创建 RayCluster", func() {
 				util.MustCreate(ctx, k8sManagerClient, raycluster)
 			})
 
 			wlLookupKey := types.NamespacedName{Name: workloadraycluster.GetWorkloadNameForRayCluster(raycluster.Name, raycluster.UID), Namespace: managerNs.Name}
-			// the execution should be given to the worker1
+			// 执行应交给 worker1
 			waitForJobAdmitted(wlLookupKey, multiKueueAc.Name, "worker1")
 
-			ginkgo.By("Checking the RayCluster is ready", func() {
+			ginkgo.By("检查 RayCluster 是否就绪", func() {
 				gomega.Eventually(func(g gomega.Gomega) {
 					createdRayCluster := &rayv1.RayCluster{}
 					g.Expect(k8sManagerClient.Get(ctx, client.ObjectKeyFromObject(raycluster), createdRayCluster)).To(gomega.Succeed())
@@ -905,7 +889,7 @@ var _ = ginkgo.Describe("MultiKueue", func() {
 			worker1Container := fmt.Sprintf("%s-control-plane", worker1ClusterName)
 			worker1ClusterKey := client.ObjectKeyFromObject(workerCluster1)
 
-			ginkgo.By("Disconnecting worker1 container from the kind network", func() {
+			ginkgo.By("将 worker1 容器从 kind 网络断开", func() {
 				cmd := exec.Command("docker", "network", "disconnect", "kind", worker1Container)
 				output, err := cmd.CombinedOutput()
 				gomega.Expect(err).NotTo(gomega.HaveOccurred(), "%s: %s", err, output)
@@ -917,7 +901,7 @@ var _ = ginkgo.Describe("MultiKueue", func() {
 				}, util.LongTimeout, util.Interval).ShouldNot(gomega.Succeed())
 			})
 
-			ginkgo.By("Waiting for the cluster to become inactive", func() {
+			ginkgo.By("等待集群变为非活跃", func() {
 				readClient := &kueue.MultiKueueCluster{}
 				gomega.Eventually(func(g gomega.Gomega) {
 					g.Expect(k8sManagerClient.Get(ctx, worker1ClusterKey, readClient)).To(gomega.Succeed())
@@ -925,7 +909,7 @@ var _ = ginkgo.Describe("MultiKueue", func() {
 				}, util.LongTimeout, util.Interval).Should(gomega.Succeed())
 			})
 
-			ginkgo.By("Reconnecting worker1 container to the kind network", func() {
+			ginkgo.By("将 worker1 容器重新连接到 kind 网络", func() {
 				cmd := exec.Command("docker", "network", "connect", "kind", worker1Container)
 				output, err := cmd.CombinedOutput()
 				gomega.Expect(err).NotTo(gomega.HaveOccurred(), "%s: %s", err, output)
@@ -944,7 +928,7 @@ var _ = ginkgo.Describe("MultiKueue", func() {
 				}, util.LongTimeout, util.Interval).Should(gomega.Succeed())
 			})
 
-			ginkgo.By("Waiting for the cluster do become active", func() {
+			ginkgo.By("等待集群变为活跃", func() {
 				readClient := &kueue.MultiKueueCluster{}
 				gomega.Eventually(func(g gomega.Gomega) {
 					g.Expect(k8sManagerClient.Get(ctx, worker1ClusterKey, readClient)).To(gomega.Succeed())
@@ -963,7 +947,7 @@ var _ = ginkgo.Describe("MultiKueue", func() {
 })
 
 func waitForJobAdmitted(wlLookupKey types.NamespacedName, acName, workerName string) {
-	ginkgo.By(fmt.Sprintf("Waiting to be admitted in %s and manager", workerName))
+	ginkgo.By(fmt.Sprintf("等待在 %s 被接纳", workerName))
 	gomega.EventuallyWithOffset(1, func(g gomega.Gomega) {
 		createdWorkload := &kueue.Workload{}
 		g.Expect(k8sManagerClient.Get(ctx, wlLookupKey, createdWorkload)).To(gomega.Succeed())
@@ -993,22 +977,22 @@ func checkFinishStatusCondition(g gomega.Gomega, wlLookupKey types.NamespacedNam
 }
 
 func ensurePodWorkloadsRunning(deployment *appsv1.Deployment, managerNs corev1.Namespace, multiKueueAc *kueue.AdmissionCheck, kubernetesClients map[string]client.Client) {
-	// Given the unpredictable nature of where the deployment pods run this function gathers the workload of a Pod first
-	// it then gets the Pod's assigned cluster from the admission check message and uses the appropriate client to ensure the Pod is running
+	// 鉴于 deployment pod 运行位置不可预测，此函数首先收集 Pod 的 workload
+	// 然后从 admission check 消息中获取 Pod 分配的集群，并使用相应的 client 确保 Pod 正在运行
 	pods := &corev1.PodList{}
 	gomega.Expect(k8sManagerClient.List(ctx, pods, client.InNamespace(managerNs.Namespace),
 		client.MatchingLabels(deployment.Spec.Selector.MatchLabels))).To(gomega.Succeed())
 
-	for _, pod := range pods.Items { // We want to test that all deployment pods have workloads.
+	for _, pod := range pods.Items { // 我们希望测试所有 deployment pod 都有工作负载。
 		createdLeaderWorkload := &kueue.Workload{}
 		wlLookupKey := types.NamespacedName{Name: workloadpod.GetWorkloadNameForPod(pod.Name, pod.UID), Namespace: managerNs.Name}
 		gomega.Expect(k8sManagerClient.Get(ctx, wlLookupKey, createdLeaderWorkload)).To(gomega.Succeed())
 
-		// By checking the assigned cluster we can discern which client to use
+		// 通过检查分配的集群，我们可以区分使用哪个 client
 		admissionCheckMessage := workload.FindAdmissionCheck(createdLeaderWorkload.Status.AdmissionChecks, kueue.AdmissionCheckReference(multiKueueAc.Name)).Message
 		workerCluster := kubernetesClients[GetMultiKueueClusterNameFromAdmissionCheckMessage(admissionCheckMessage)]
 
-		// Worker pods should be in "Running" phase
+		// Worker pod 应处于 "Running" 状态
 		gomega.Eventually(func(g gomega.Gomega) {
 			createdPod := &corev1.Pod{}
 			g.Expect(workerCluster.Get(ctx, client.ObjectKey{Namespace: pod.Namespace, Name: pod.Name}, createdPod)).To(gomega.Succeed())
@@ -1019,7 +1003,7 @@ func ensurePodWorkloadsRunning(deployment *appsv1.Deployment, managerNs corev1.N
 
 func GetMultiKueueClusterNameFromAdmissionCheckMessage(message string) string {
 	regex := regexp.MustCompile(`"([^"]*)"`)
-	// Find the match
+	// 查找匹配项
 	match := regex.FindStringSubmatch(message)
 	if len(match) > 1 {
 		workerName := match[1]
