@@ -39,6 +39,10 @@ func MakeDeployment(name, ns string) *DeploymentWrapper {
 	podLabels := map[string]string{
 		"app": fmt.Sprintf("%s-pod", name),
 	}
+	podLabels2 := map[string]string{
+		"app": fmt.Sprintf("%s-pod", name),
+		"asd": "xxxxx",
+	}
 	return &DeploymentWrapper{appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        name,
@@ -51,7 +55,7 @@ func MakeDeployment(name, ns string) *DeploymentWrapper {
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels: podLabels,
+					Labels: podLabels2,
 				},
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{
