@@ -24,7 +24,8 @@ GO_FMT ?= gofmt
 # Use go.mod go version as a single source of truth of GO version.
 GO_VERSION := $(shell awk '/^go /{print $$2}' go.mod|head -n1)
 
-GIT_TAG ?= $(shell git describe --tags --dirty --always)
+#GIT_TAG ?= $(shell git describe --tags --dirty --always)
+GIT_TAG ?=test
 GIT_COMMIT ?= $(shell git rev-parse HEAD)
 # Image URL to use all building/pushing image targets
 HOST_IMAGE_PLATFORM ?= linux/$(shell go env GOARCH)
@@ -56,7 +57,9 @@ TOOLS_DIR := $(PROJECT_DIR)/hack/internal/tools
 
 # Use distroless as minimal base image to package the manager binary
 # Refer to https://github.com/GoogleContainerTools/distroless for more details
-BASE_IMAGE ?= gcr.io/distroless/static:nonroot
+
+BASE_IMAGE ?= registry.cn-hangzhou.aliyuncs.com/acejilam/distroless_static:nonroot
+
 BUILDER_IMAGE ?= registry.cn-hangzhou.aliyuncs.com/ls-2018/mygo:v1.24.1
 CGO_ENABLED ?= 0
 

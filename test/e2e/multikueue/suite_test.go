@@ -26,6 +26,7 @@ import (
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	jobset "sigs.k8s.io/jobset/api/jobset/v1alpha2"
+	"sigs.k8s.io/kueue/clean"
 
 	kueue "sigs.k8s.io/kueue/apis/kueue/v1beta1"
 	"sigs.k8s.io/kueue/pkg/util/kubeversion"
@@ -272,12 +273,21 @@ var _ = ginkgo.BeforeSuite(func() {
 	k8sManagerClient, managerCfg = util.CreateClientUsingCluster("kind-" + managerClusterName)
 	k8sWorker1Client, worker1Cfg = util.CreateClientUsingCluster("kind-" + worker1ClusterName)
 	k8sWorker2Client, worker2Cfg = util.CreateClientUsingCluster("kind-" + worker2ClusterName)
+	clean.Clean("kind-" + managerClusterName)
+	clean.Clean("kind-" + worker1ClusterName)
+	clean.Clean("kind-" + worker2ClusterName)
 
 	managerRestClient = util.CreateRestClient(managerCfg)
 	worker1RestClient = util.CreateRestClient(worker1Cfg)
 	worker2RestClient = util.CreateRestClient(worker2Cfg)
 
 	ctx = ginkgo.GinkgoT().Context()
+
+	gomega.Expect(cleanKubeconfigForMultiKueueSA(ctx, k8sWorker1Client, "kueue-system", "mksa")).To(gomega.Succeed())
+	gomega.Expect(cleanKubeconfigForMultiKueueSA(ctx, k8sWorker2Client, "kueue-system", "mksa")).To(gomega.Succeed())
+
+	gomega.Expect(cleanMultiKueueSecret(ctx, k8sManagerClient, "kueue-system", "multikueue1")).To(gomega.Succeed())
+	gomega.Expect(cleanMultiKueueSecret(ctx, k8sManagerClient, "kueue-system", "multikueue2")).To(gomega.Succeed())
 
 	worker1Kconfig, err := kubeconfigForMultiKueueSA(ctx, k8sWorker1Client, worker1Cfg, "kueue-system", "mksa", worker1ClusterName)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())

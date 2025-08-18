@@ -92,6 +92,10 @@ function cluster_create {
         kind load docker-image --name $1 quay.io/ibm/appwrapper:v1.1.2
         kind load docker-image --name $1 quay.io/kuberay/operator:v1.3.1
 
+        kind load docker-image --name $1 registry.k8s.io/e2e-test-images/agnhost:2.52@sha256:b173c7d0ffe3d805d49f4dfe48375169b7b8d2e1feb81783efd61eb9d08042e6
+        kind load docker-image --name $1 registry.k8s.io/e2e-test-images/agnhost:2.53@sha256:99c6b4bb4a1e1df3f0b3752168c89358794d02258ebebc26bf21c29399011a85
+
+
         kubectl get nodes > "$ARTIFACTS/$1-nodes.log" || true
         kubectl describe pods -n kube-system > "$ARTIFACTS/$1-system-pods.log" || true
 }

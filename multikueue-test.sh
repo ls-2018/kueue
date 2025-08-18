@@ -8,9 +8,14 @@ t quay.io/ibm/appwrapper:v1.1.2
 t registry.cn-hangzhou.aliyuncs.com/ls-2018/mygo:v1.24.1
 t quay.io/kuberay/operator:v1.3.1
 
-docker-empty-container.sh
+
+docker ps -aq | xargs -r docker rm -f
+kind delete cluster --name manager
 kind delete cluster --name worker1
 kind delete cluster --name worker2
+docker volume prune -f
+docker rmi $(docker images -f "dangling=true" -q)
+
 git tag -d v0.12.4
 git reset --soft ab6a91294
 git add .

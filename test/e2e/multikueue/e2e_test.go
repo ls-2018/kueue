@@ -72,6 +72,11 @@ var _ = ginkgo.Describe("MultiKueue", func() {
 	)
 
 	ginkgo.BeforeEach(func() { // 三个集群创建相同的 ns
+
+		util.DeleteNamespace(ctx, k8sManagerClient, managerNs)
+		util.DeleteNamespace(ctx, k8sWorker1Client, managerNs)
+		util.DeleteNamespace(ctx, k8sWorker2Client, managerNs)
+
 		managerNs = util.CreateNamespaceFromPrefixWithLog(ctx, k8sManagerClient, "multikueue-")
 		worker1Ns = util.CreateNamespaceWithLog(ctx, k8sWorker1Client, managerNs.Name)
 		worker2Ns = util.CreateNamespaceWithLog(ctx, k8sWorker2Client, managerNs.Name)
